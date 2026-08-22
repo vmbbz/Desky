@@ -116,3 +116,9 @@ Every adapter must pass fixtures for:
 10. bounded queues and backpressure.
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
+
+## Adapter-platform extraction timing
+
+OpenClaw is intentionally the first production adapter, not the permanent application-level bridge. After the F3c.1 ambient/control-center boundary, F5a promotes the documented lifecycle into executable generic host, descriptor, capability, connection, session, and command contracts. OpenClaw must pass that contract before Codex is added as the second substantially different adapter. The public adapter SDK stabilizes only after both pass.
+
+Claude then uses a supported structured interface, and Hermes proceeds only after supported programmatic transport discovery. Neither integration may scrape terminal presentation text. The desktop companion can proceed independently because it consumes only normalized `AdapterEvent` values.

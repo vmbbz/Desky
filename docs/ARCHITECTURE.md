@@ -87,6 +87,10 @@ The experience uses separate coordinated windows rather than one permanent card:
 
 The behavior and acceptance matrix are specified in `docs/COMPANION-EXPERIENCE.md`.
 
+The first F3c slice implements this separation through `DeskyWindowManager`. Each renderer receives a typed `ambient` or `control-center` identity from main-process ownership rather than selecting its own privileges. The ambient window is transparent, fixed-size, taskbar-free, and always-on-top under the current pre-preference policy; the control center is an ordinary resizable window. Renderer code can request only semantic window actions such as opening the control center or showing the companion. Position persistence, click-through, safe-area logic, tray escape, and the user-controlled always-on-top preference remain later F3c work.
+
+Surface separation does not make the OpenClaw bridge the generic adapter contract. F5a will put an executable adapter registry and shared connection/session/capability types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
+
 ### OpenClaw adapter host
 
 The first production adapter is owned entirely by the main process:

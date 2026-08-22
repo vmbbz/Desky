@@ -158,6 +158,21 @@ Still open in F3b/F3d:
 
 The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
 
+### F3c.1 surface-separation status — 2026-08-22
+
+Implemented and package-verified on Windows:
+
+- Added explicit `ambient` and `control-center` surface identities to the typed runtime boundary.
+- Made the transparent, fixed-size, taskbar-free ambient companion the default window.
+- Added a separate standard, resizable, non-always-on-top control-center window for connection, session, prompt, and diagnostic UI.
+- Added semantic open-control-center and show-companion routes without exposing raw Electron window APIs.
+- Removed the permanent application-card background from the ambient presentation while preserving the avatar, short bubble, status, composer/Stop, approvals, and connection route.
+- Replaced provider-specific approval text in the normalized reducer with runtime-neutral wording.
+
+Evidence is recorded in `docs/verification/F3C1-SURFACE-SEPARATION-2026-08-22.md`.
+
+Next F3c exits are position persistence, work-area clamping, measured bubble anchoring, deliberate drag, click-through plus escape routes, focus evidence, and contextual composer behavior. The active dependency order is maintained in `docs/EXECUTION-PLAN.md`.
+
 ## F4 — control surface and daily usability
 
 Deliverables:
@@ -175,6 +190,8 @@ Exit gate:
 - No security-sensitive action depends solely on animation.
 
 ## F5 — additional runtimes
+
+Prerequisite F5a extracts the executable generic adapter host after the F3c.1 surface boundary and before a second production adapter or final F4 connection UX. OpenClaw must pass the same shared contract after extraction; the renderer must not receive provider-native frames.
 
 Order:
 
@@ -221,8 +238,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Approve and verify the first redistributable animation source, then register it with the implemented deterministic motion runtime. The successful-stream, actual-tool-interruption, converter, and state-motion-arbiter engineering gates are closed.
-   Use `docs/ANIMATION-PIPELINE.md` and the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation. Continue with queued user-requested actions and additive expression/look-at/blink layers only after the first clip passes provenance review.
-2. Complete response-stream interruption and secure remote `wss://` cases; network loss, tool cancellation/recovery, and approval expiry/contention are live-verified.
-3. Verify clean-device pairing, cross-device contention, and paired-token rotation.
-4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.
+1. Exit F3c.1 with packaged ambient/control-center captures, then implement F3c.2 position, safe-area, measured anchoring, click-through, tray/escape, and focus behavior.
+2. Start F5a generic adapter-host extraction after the F3c.1 boundary; finish it before Codex and before F4 connection management is finalized.
+3. In parallel, approve the first redistributable animation, build the binary VRM suite, and persist provenance-bearing cache records.
+4. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
+5. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
+
+See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

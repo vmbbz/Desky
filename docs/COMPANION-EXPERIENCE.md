@@ -242,6 +242,8 @@ The implemented F3b foundation currently covers the first two bullets and the fu
 - Add safe-area flipping, deliberate drag, click-through hit testing, focus rules, and position persistence.
 - Keep connection and developer diagnostics available in the control center/fallback surface during migration.
 
+F3c.1 now establishes separate ambient and control-center windows and removes the permanent card from the default companion. The ambient surface retains a short bubble, avatar, status, prompt/Stop, approval actions, and a route to setup; the standard resizable control center owns connection and session management. Position persistence, measured edge-aware anchoring, click-through, tray escape, focus evidence, and contextual composer collapse remain F3c.2/F3c.3 gates.
+
 ### F3d — resilience and evidence
 
 - Add reduced-motion, paused, WebGL-loss, missing-clip, and avatar-load fallbacks.

@@ -98,6 +98,7 @@ describe('reduceCompanionState', () => {
     expect(resolved).toMatchObject({
       mode: 'idle',
       label: 'Approval closed',
+      detail: 'The runtime marked the request denied.',
       pendingApproval: undefined,
     });
   });

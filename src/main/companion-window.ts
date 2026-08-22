@@ -1,7 +1,16 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 
-import { app, BrowserWindow, protocol, session } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  protocol,
+  session,
+  type WebContents,
+} from 'electron';
+
+import type { SurfaceKind, WindowAction } from '../shared/runtime';
+import { createWindowOptions } from './window-options';
 
 const applicationScheme = 'desky';
 
@@ -44,12 +53,17 @@ export function handleApplicationScheme(): void {
   });
 }
 
-async function captureVisualTest(window: BrowserWindow, outputPath: string): Promise<void> {
+async function captureVisualTest(
+  window: BrowserWindow,
+  surface: SurfaceKind,
+  outputPath: string,
+): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 8_000));
   const diagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
     readyState: document.readyState,
+    surface: document.body?.dataset.deskySurface ?? 'unknown',
     bodyText: document.body?.innerText?.slice(0, 1000) ?? '',
     rootChildren: document.querySelector('#root')?.childElementCount ?? -1
   })`) as unknown;
@@ -59,48 +73,101 @@ async function captureVisualTest(window: BrowserWindow, outputPath: string): Pro
   app.quit();
 }
 
-export function createCompanionWindow(): BrowserWindow {
-  const window = new BrowserWindow({
-    width: 420,
-    height: 580,
-    minWidth: 420,
-    minHeight: 580,
-    maxWidth: 420,
-    maxHeight: 580,
-    show: false,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
-    resizable: false,
-    alwaysOnTop: true,
-    webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-    },
-  });
+function rendererUrl(surface: SurfaceKind): string {
+  const base = app.isPackaged
+    ? `${applicationScheme}://app/main_window/index.html`
+    : MAIN_WINDOW_WEBPACK_ENTRY;
+  const url = new URL(base);
+  url.searchParams.set('surface', surface);
+  return url.toString();
+}
 
-  window.setMenuBarVisibility(false);
-  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  window.webContents.on('will-navigate', (event) => event.preventDefault());
+export class DeskyWindowManager {
+  private ambient?: BrowserWindow;
 
-  session.defaultSession.setPermissionRequestHandler(
-    (_webContents, _permission, callback) => callback(false),
-  );
+  private controlCenter?: BrowserWindow;
 
-  void window.loadURL(app.isPackaged ? `${applicationScheme}://app/main_window/index.html` : MAIN_WINDOW_WEBPACK_ENTRY);
-  window.once('ready-to-show', () => {
-    window.show();
-    const visualTestPath = process.env.DESKY_VISUAL_TEST_PATH;
-    if (visualTestPath) void captureVisualTest(window, visualTestPath);
-  });
+  private readonly surfaces = new Map<number, SurfaceKind>();
 
-  if (process.env.DESKY_OPEN_DEVTOOLS === '1') {
-    window.webContents.openDevTools({ mode: 'detach' });
+  createInitialWindows(): void {
+    session.defaultSession.setPermissionRequestHandler(
+      (_webContents, _permission, callback) => callback(false),
+    );
+    this.openAmbient();
+    if (process.env.DESKY_VISUAL_TEST_SURFACE === 'control-center') {
+      this.openControlCenter();
+    }
   }
 
-  return window;
+  openAmbient(): BrowserWindow {
+    if (this.ambient && !this.ambient.isDestroyed()) {
+      this.ambient.showInactive();
+      return this.ambient;
+    }
+    const window = this.createWindow('ambient');
+    this.ambient = window;
+    window.on('closed', () => {
+      if (this.ambient === window) this.ambient = undefined;
+    });
+    return window;
+  }
+
+  openControlCenter(): BrowserWindow {
+    if (this.controlCenter && !this.controlCenter.isDestroyed()) {
+      this.controlCenter.show();
+      this.controlCenter.focus();
+      return this.controlCenter;
+    }
+    const window = this.createWindow('control-center');
+    this.controlCenter = window;
+    window.on('closed', () => {
+      if (this.controlCenter === window) this.controlCenter = undefined;
+    });
+    return window;
+  }
+
+  surfaceFor(contents: WebContents): SurfaceKind {
+    return this.surfaces.get(contents.id) ?? 'control-center';
+  }
+
+  performAction(contents: WebContents, action: WindowAction): void {
+    if (action === 'open-control-center') {
+      this.openControlCenter();
+      return;
+    }
+    if (action === 'show-ambient') {
+      this.openAmbient();
+      return;
+    }
+    const window = BrowserWindow.fromWebContents(contents);
+    if (!window) return;
+    if (action === 'close') window.close();
+    if (action === 'minimize') window.minimize();
+  }
+
+  private createWindow(surface: SurfaceKind): BrowserWindow {
+    const window = new BrowserWindow(
+      createWindowOptions(surface, MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY),
+    );
+    const contentsId = window.webContents.id;
+    this.surfaces.set(contentsId, surface);
+    window.setMenuBarVisibility(false);
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    window.webContents.on('will-navigate', (event) => event.preventDefault());
+    window.webContents.on('destroyed', () => this.surfaces.delete(contentsId));
+    void window.loadURL(rendererUrl(surface));
+    window.once('ready-to-show', () => {
+      if (surface === 'ambient') window.showInactive();
+      else window.show();
+      const visualTestPath = process.env.DESKY_VISUAL_TEST_PATH;
+      const visualTestSurface = process.env.DESKY_VISUAL_TEST_SURFACE ?? 'ambient';
+      if (visualTestPath && visualTestSurface === surface) {
+        void captureVisualTest(window, surface, visualTestPath);
+      }
+    });
+    if (process.env.DESKY_OPEN_DEVTOOLS === '1') {
+      window.webContents.openDevTools({ mode: 'detach' });
+    }
+    return window;
+  }
 }

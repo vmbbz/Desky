@@ -23,6 +23,8 @@ Foundation milestone F1 is complete. F2 now contains the first production OpenCl
 
 F3a now includes runtime VRM 0.x/1.0 capability inspection, core-humanoid validation, embedded usage-permission conflict checks, SHA-256 avatar provenance, a deterministic offline Mixamo/FBX converter, an avatar-neutral canonical clip format, target-VRM runtime binding, and a strict manifest for reviewed animation conversions. The F3b motion-runtime foundation maps every normalized state to one deterministic full-body owner, admits a clip only when its approved manifest, state intent, conversion profile, and exact canonical checksum agree, drives admitted clips through a Three.js mixer, falls back to restrained procedural poses, settles immediately on cancellation, and follows the operating system's reduced-motion preference. The first owner-approved production animation, representative binary VRM suite, persistent asset sidecars, facial/speech layers, and packaged visual matrix remain open.
 
+F3c.1 now opens Desky as a transparent character-first ambient companion and moves connection/session management into a separate standard control center. Position persistence, edge-aware bubble placement, click-through/tray escape, focus evidence, and contextual composer behavior are the next desktop-presence slices.
+
 ## Connect OpenClaw
 
 1. Start or identify an OpenClaw Gateway and obtain its configured token or password.
@@ -67,6 +69,7 @@ npm run package
 - [Security and privacy model](docs/SECURITY.md)
 - [Store and direct distribution](docs/DISTRIBUTION.md)
 - [Delivery roadmap and release gates](docs/DELIVERY.md)
+- [Active execution sequence and dependency map](docs/EXECUTION-PLAN.md)
 - [Architecture decisions](docs/adr/README.md)
 
 ## Licensing status

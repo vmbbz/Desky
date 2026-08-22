@@ -40,7 +40,10 @@ export function App() {
   const [uiError, setUiError] = useState('');
 
   useEffect(() => {
-    void window.desky.getRuntimeInfo().then(setRuntimeInfo);
+    void window.desky.getRuntimeInfo().then((info) => {
+      document.body.dataset.deskySurface = info.surface;
+      setRuntimeInfo(info);
+    });
     void window.desky.openClaw.getState().then((next) => {
       setGateway(next);
       setGatewayUrl(next.gatewayUrl);
@@ -103,54 +106,121 @@ export function App() {
 
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
   const hasSession = adapterMode === 'simulation' || Boolean(gateway.selectedSessionKey);
+  const runtimeLabel = adapterMode === 'simulation' ? 'Simulation' : 'OpenClaw';
+  const connectionStatus = adapterMode === 'simulation' ? 'simulation' : gateway.status;
+  const statusDetail = adapterMode === 'openclaw' && gateway.status !== 'connected'
+    ? gateway.message
+    : state.detail;
+
+  const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
+    const approval = state.pendingApproval;
+    if (!approval) return Promise.resolve();
+    return window.desky.openClaw.resolveApproval({
+      requestId: approval.requestId,
+      kind: approval.kind,
+      decision,
+    });
+  };
+
+  const approvalCard = state.pendingApproval && adapterMode === 'openclaw' ? (
+    <section className="approval-card" aria-label="Approval required">
+      <strong>{state.pendingApproval.action}</strong>
+      <p>{state.pendingApproval.safeTarget}</p>
+      <div>
+        {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
+          <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-once'))}>Allow once</button>
+        ) : null}
+        {state.pendingApproval.allowedDecisions.includes('allow-always') ? (
+          <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-always'))}>Always</button>
+        ) : null}
+        <button className="danger" type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('deny'))}>Deny</button>
+      </div>
+    </section>
+  ) : null;
+
+  if (!runtimeInfo) {
+    return <main className="surface-loading" aria-label="Starting Desky" />;
+  }
+
+  if (runtimeInfo.surface === 'ambient') {
+    return (
+      <main className={`ambient-companion companion--${state.mode}`}>
+        <div className="ambient-drag-handle" title="Drag Desky" aria-hidden="true">•••</div>
+        <div className="ambient-actions">
+          <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
+          <button type="button" aria-label="Close Desky companion" onClick={() => window.desky.performWindowAction('close')}>×</button>
+        </div>
+
+        <button
+          type="button"
+          className={`ambient-status connection-badge connection-badge--${connectionStatus}`}
+          onClick={() => window.desky.performWindowAction('open-control-center')}
+          title={statusDetail}
+        >
+          <span className="status-dot" aria-hidden="true" />
+          <span>{runtimeLabel} · {connectionStatus}</span>
+        </button>
+
+        <section className="ambient-speech-bubble" aria-live="polite">
+          <strong>{state.label}</strong>
+          <p>{uiError || state.bubbleText || statusDetail || '…'}</p>
+        </section>
+
+        <div className="ambient-avatar">
+          <AvatarStage mode={state.mode} />
+        </div>
+
+        {approvalCard ? <div className="ambient-approval">{approvalCard}</div> : null}
+
+        {connected && hasSession ? (
+          <form className="ambient-prompt" onSubmit={(event) => { event.preventDefault(); void run(); }}>
+            <label className="sr-only" htmlFor="ambient-prompt">Message</label>
+            <input id="ambient-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy} autoComplete="off" />
+            {adapterMode === 'openclaw' && gateway.activeRunId ? (
+              <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
+            ) : (
+              <button type="submit" disabled={busy || !prompt.trim()}>{busy ? '…' : 'Send'}</button>
+            )}
+          </form>
+        ) : (
+          <button type="button" className="ambient-setup" onClick={() => window.desky.performWindowAction('open-control-center')}>
+            {connected ? 'Choose a session' : 'Connect an agent'}
+          </button>
+        )}
+      </main>
+    );
+  }
 
   return (
-    <main className={`companion companion--${state.mode}`}>
-      <header className="titlebar">
+    <main className={`companion control-center companion--${state.mode}`}>
+      <header className="control-center__header">
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">D</span>
-          <span>Desky</span>
+          <div><strong>Desky</strong><span>Control Center</span></div>
+        </div>
+        <div className="control-center__actions">
+          <button type="button" onClick={() => window.desky.performWindowAction('show-ambient')}>Show companion</button>
           <button
             type="button"
-            className={`connection-badge connection-badge--${adapterMode === 'simulation' ? 'simulation' : gateway.status}`}
+            className={`connection-badge connection-badge--${connectionStatus}`}
             onClick={() => setShowConnection((value) => !value)}
           >
-            {adapterMode === 'simulation' ? 'Simulation' : `OpenClaw · ${gateway.status}`}
+            {runtimeLabel} · {connectionStatus}
           </button>
-        </div>
-        <div className="window-actions">
-          <button type="button" aria-label="Minimize Desky" onClick={() => window.desky.performWindowAction('minimize')}>−</button>
-          <button type="button" aria-label="Close Desky" onClick={() => window.desky.performWindowAction('close')}>×</button>
         </div>
       </header>
 
-      <div className="status-row" aria-live="polite">
+      <div className="status-row control-center__status" aria-live="polite">
         <span className="status-dot" aria-hidden="true" />
         <strong>{state.label}</strong>
-        <span>{adapterMode === 'openclaw' && gateway.status !== 'connected' ? gateway.message : state.detail}</span>
+        <span>{statusDetail}</span>
       </div>
 
-      <AvatarStage mode={state.mode} />
-
-      <section className="speech-bubble" aria-live="polite">
-        <p>{uiError || state.bubbleText || '…'}</p>
+      <section className="speech-bubble control-center__bubble" aria-live="polite">
+        <p>{uiError || state.bubbleText || 'Your agent’s short responses will appear here.'}</p>
       </section>
 
-      {state.pendingApproval && adapterMode === 'openclaw' ? (
-        <section className="approval-card" aria-label="Approval required">
-          <strong>{state.pendingApproval.action}</strong>
-          <p>{state.pendingApproval.safeTarget}</p>
-          <div>
-            {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
-              <button type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.resolveApproval({ requestId: state.pendingApproval?.requestId ?? '', kind: state.pendingApproval?.kind ?? 'exec', decision: 'allow-once' }))}>Allow once</button>
-            ) : null}
-            {state.pendingApproval.allowedDecisions.includes('allow-always') ? (
-              <button type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.resolveApproval({ requestId: state.pendingApproval?.requestId ?? '', kind: state.pendingApproval?.kind ?? 'exec', decision: 'allow-always' }))}>Always</button>
-            ) : null}
-            <button className="danger" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.resolveApproval({ requestId: state.pendingApproval?.requestId ?? '', kind: state.pendingApproval?.kind ?? 'exec', decision: 'deny' }))}>Deny</button>
-          </div>
-        </section>
-      ) : null}
+      {approvalCard}
 
       {adapterMode === 'openclaw' && gateway.status === 'connected' ? (
         <div className="session-row">
@@ -170,8 +240,8 @@ export function App() {
       ) : null}
 
       <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
-        <label className="sr-only" htmlFor="desky-prompt">Message</label>
-        <input id="desky-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" />
+        <label className="sr-only" htmlFor="control-prompt">Message</label>
+        <input id="control-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" />
         {adapterMode === 'openclaw' && gateway.activeRunId ? (
           <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
         ) : (
@@ -179,13 +249,8 @@ export function App() {
         )}
       </form>
 
-      <footer>
-        <span>{gateway.insecureLoopback && adapterMode === 'openclaw' ? 'Local ws · development only' : `${runtimeInfo?.distributionProfile ?? '…'} build`}</span>
-        <span>{runtimeInfo ? `v${runtimeInfo.version}` : 'starting'}</span>
-      </footer>
-
       {showConnection ? (
-        <section className="connection-sheet" aria-label="Agent connection">
+        <section className="connection-sheet connection-sheet--inline" aria-label="Agent connection">
           <div className="connection-sheet__header">
             <div><strong>Agent connection</strong><span>Credentials stay in Desky’s main process.</span></div>
             <button type="button" aria-label="Close connection settings" onClick={() => setShowConnection(false)}>×</button>
@@ -217,6 +282,11 @@ export function App() {
           ) : null}
         </section>
       ) : null}
+
+      <footer>
+        <span>{gateway.insecureLoopback && adapterMode === 'openclaw' ? 'Local ws · development only' : `${runtimeInfo.distributionProfile} build`}</span>
+        <span>v{runtimeInfo.version}</span>
+      </footer>
     </main>
   );
 }

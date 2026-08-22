@@ -1,11 +1,12 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 
-import type { WindowAction } from '../shared/runtime';
+import { windowActions, type WindowAction } from '../shared/runtime';
 import type {
   OpenClawConnectInput,
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import { getDistributionProfile } from './capabilities';
+import type { DeskyWindowManager } from './companion-window';
 import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 
 const runtimeInfoChannel = 'desky:runtime-info';
@@ -25,7 +26,7 @@ const openClawChannels = {
 } as const;
 
 function isWindowAction(value: unknown): value is WindowAction {
-  return value === 'close' || value === 'minimize';
+  return typeof value === 'string' && windowActions.includes(value as WindowAction);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -74,21 +75,21 @@ async function rendererSafeOpenClawCall<T>(
   }
 }
 
-export function registerIpc(openClaw: OpenClawAdapterHost): void {
-  ipcMain.handle(runtimeInfoChannel, () => ({
+export function registerIpc(
+  openClaw: OpenClawAdapterHost,
+  windows: DeskyWindowManager,
+): void {
+  ipcMain.handle(runtimeInfoChannel, (event) => ({
     distributionProfile: getDistributionProfile(),
     platform: process.platform,
     version: app.getVersion(),
+    surface: windows.surfaceFor(event.sender),
   }));
 
   ipcMain.on(windowActionChannel, (event, action: unknown) => {
     if (!isWindowAction(action)) return;
 
-    const window = BrowserWindow.fromWebContents(event.sender);
-    if (!window) return;
-
-    if (action === 'close') window.close();
-    if (action === 'minimize') window.minimize();
+    windows.performAction(event.sender, action);
   });
 
   ipcMain.handle(openClawChannels.getState, () => openClaw.getState());

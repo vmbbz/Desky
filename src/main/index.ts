@@ -3,7 +3,7 @@ import started from 'electron-squirrel-startup';
 import { join } from 'node:path';
 
 import {
-  createCompanionWindow,
+  DeskyWindowManager,
   handleApplicationScheme,
   registerApplicationScheme,
 } from './companion-window';
@@ -25,15 +25,16 @@ void app.whenReady().then(() => {
     app.getVersion(),
     process.platform,
   );
-  registerIpc(openClaw);
-  createCompanionWindow();
+  const windows = new DeskyWindowManager();
+  registerIpc(openClaw, windows);
+  windows.createInitialWindows();
 
   app.on('before-quit', () => {
     void openClaw.disconnect();
   });
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createCompanionWindow();
+    if (BrowserWindow.getAllWindows().length === 0) windows.openAmbient();
   });
 });
 

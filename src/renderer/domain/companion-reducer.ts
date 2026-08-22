@@ -91,7 +91,7 @@ export function reduceCompanionState(
         ...state,
         mode: allowed && state.activeTurnId ? 'thinking' : 'idle',
         label: allowed ? 'Approval accepted' : 'Approval closed',
-        detail: `OpenClaw marked the request ${event.payload.status}.`,
+        detail: `The runtime marked the request ${event.payload.status}.`,
         bubbleText: allowed ? 'Continuing with the approved action.' : 'The approval request is closed.',
         pendingApproval: undefined,
       };
