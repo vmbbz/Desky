@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Live Gateway verification is still required and is not replaced by simulation or mocked WebSocket results.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny and allow-once, duplicate approval acknowledgement, cancellation, and reconnect/resubscription against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured Codex account's subscription limit, so F2 is not complete.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -35,6 +35,19 @@ It advertises session-scoped events, structured tool events, unified approvals, 
 - Desky deduplicates terminal events per run and never converts natural-language text into an approval.
 
 ## Live F2 verification
+
+The live harness is deliberately excluded from normal `npm test` execution. It creates a clearly labelled verification session and synthetic approval records in the selected Gateway; it never executes the approval probe commands. Provide credentials through the process environment, never in the URL or command arguments.
+
+PowerShell:
+
+```powershell
+$env:DESKY_OPENCLAW_LIVE_URL = 'ws://127.0.0.1:19001'
+$env:DESKY_OPENCLAW_LIVE_CREDENTIAL = Read-Host 'Gateway token' -MaskInput
+npm run test:openclaw:live
+Remove-Item Env:DESKY_OPENCLAW_LIVE_URL, Env:DESKY_OPENCLAW_LIVE_CREDENTIAL
+```
+
+The test must fail if the real assistant turn cannot stream `DESKY_LIVE_OK`; transport and approval passes do not waive that gate. See the dated verification record in `docs/verification/` for the latest redacted result.
 
 Record the Gateway version, Desky commit, platform, connection profile, and redacted result for each case:
 

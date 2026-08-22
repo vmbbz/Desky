@@ -17,6 +17,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:openclaw:live": "vitest run tests/openclaw-live.test.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

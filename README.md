@@ -19,7 +19,7 @@ Agent runtime -> adapter -> Desky event protocol -> state machine -> avatar and 
 
 ## Current status
 
-Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and a real WebSocket contract harness. It is not yet F2-complete: no OpenClaw installation is available in the current development environment, so the fresh real-agent turn, live allow/deny, live disconnect recovery, and secure remote-gateway checks remain release gates.
+Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and both fixture and opt-in live Gateway harnesses. Against local OpenClaw 2026.8.1, authentication, capability negotiation, session creation, approval deny/allow-once/duplicate acknowledgement, cancellation, and reconnect/resubscription pass. A successful assistant stream remains unverified because the configured Codex account reached its subscription usage limit; secure remote-gateway and macOS checks also remain release gates.
 
 ## Connect OpenClaw
 

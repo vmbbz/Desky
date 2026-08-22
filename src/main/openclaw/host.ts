@@ -30,6 +30,11 @@ interface SessionsListResult {
   sessions?: unknown[];
 }
 
+interface ApprovalResolution {
+  applied: boolean;
+  status: 'allowed' | 'denied' | 'expired' | 'cancelled';
+}
+
 const profileIndexKey = 'openclaw:active-profile';
 const identityKey = 'openclaw:device-identity';
 
@@ -60,6 +65,24 @@ function sessionSummary(value: unknown): OpenClawSessionSummary | undefined {
     label: label.slice(0, 100),
     updatedAt: typeof row.updatedAt === 'number' ? row.updatedAt : undefined,
   };
+}
+
+function approvalResolution(value: unknown, requestId: string): ApprovalResolution {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Gateway returned an invalid approval acknowledgement.');
+  }
+  const result = value as Record<string, unknown>;
+  const approval = result.approval;
+  if (typeof result.applied !== 'boolean' || !approval || typeof approval !== 'object') {
+    throw new Error('Gateway returned an invalid approval acknowledgement.');
+  }
+  const record = approval as Record<string, unknown>;
+  const terminalStatuses = ['allowed', 'denied', 'expired', 'cancelled'] as const;
+  const status = terminalStatuses.find((candidate) => candidate === record.status);
+  if (record.id !== requestId || !status) {
+    throw new Error('Gateway returned an invalid approval acknowledgement.');
+  }
+  return { applied: result.applied, status };
 }
 
 export class OpenClawAdapterHost {
@@ -230,12 +253,17 @@ export class OpenClawAdapterHost {
 
   async resolveApproval(input: OpenClawResolveApprovalInput): Promise<void> {
     if (!input.requestId || input.requestId.length > 1024) throw new Error('Invalid approval request.');
-    await this.requireClient().request('approval.resolve', {
+    const result = approvalResolution(await this.requireClient().request('approval.resolve', {
       id: input.requestId,
       kind: input.kind,
       decision: input.decision,
-    });
-    this.patchState({ message: input.decision === 'deny' ? 'Approval denied' : 'Approval sent to OpenClaw' });
+    }), input.requestId);
+    const outcome = result.applied
+      ? result.status === 'denied'
+        ? 'Approval denied by OpenClaw'
+        : 'Approval accepted by OpenClaw'
+      : `Approval already ${result.status} in OpenClaw`;
+    this.patchState({ message: outcome });
     this.emitEvent({
       protocolVersion: 1,
       eventId: randomUUID(),
@@ -244,7 +272,7 @@ export class OpenClawAdapterHost {
       sessionId: this.state.selectedSessionKey,
       turnId: this.state.activeRunId,
       type: 'agent.thinking',
-      payload: { status: input.decision === 'deny' ? 'Request denied' : 'Continuing after approval' },
+      payload: { status: outcome },
     });
   }
 

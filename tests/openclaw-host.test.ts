@@ -29,8 +29,12 @@ class FixtureClient implements GatewayClientPort {
   readonly connectionId = 'fixture-connection';
   readonly features = { methods: requiredMethods, events: ['chat', 'agent', 'session.approval'] };
   readonly calls: Array<{ method: string; params: unknown }> = [];
+  private approvalResolved = false;
 
-  constructor(readonly options: GatewayConnectOptions) {}
+  constructor(
+    readonly options: GatewayConnectOptions,
+    private readonly approvalResult?: unknown,
+  ) {}
 
   connect() {
     return Promise.resolve({
@@ -55,10 +59,23 @@ class FixtureClient implements GatewayClientPort {
         ? { approvals: [] }
         : method === 'sessions.create'
           ? { ok: true, key: 'agent:main:new' }
-          : method === 'chat.send'
+      : method === 'chat.send'
             ? { runId: 'run-1' }
+            : method === 'approval.resolve'
+              ? this.resolveApproval(params)
             : { ok: true };
     return Promise.resolve(value as T);
+  }
+
+  private resolveApproval(params: unknown) {
+    if (this.approvalResult !== undefined) return this.approvalResult;
+    const id = (params as { id: string }).id;
+    const result = {
+      applied: !this.approvalResolved,
+      approval: { id, status: 'allowed', decision: 'allow-once' },
+    };
+    this.approvalResolved = true;
+    return result;
   }
 
   close(reason?: string): void {
@@ -118,6 +135,9 @@ describe('OpenClawAdapterHost contract fixture', () => {
       approval: { id: 'approval-1', presentation: { kind: 'exec', commandText: 'npm test', allowedDecisions: ['allow-once', 'deny'] } },
     });
     await host.resolveApproval({ requestId: 'approval-1', kind: 'exec', decision: 'allow-once' });
+    expect(host.getState().message).toBe('Approval accepted by OpenClaw');
+    await host.resolveApproval({ requestId: 'approval-1', kind: 'exec', decision: 'allow-once' });
+    expect(host.getState().message).toBe('Approval already allowed in OpenClaw');
     await host.cancel();
     expect(clients[0].calls).toContainEqual({
       method: 'sessions.abort',
@@ -132,5 +152,29 @@ describe('OpenClawAdapterHost contract fixture', () => {
     await vi.advanceTimersByTimeAsync(1_000);
     expect(clients).toHaveLength(2);
     expect(host.getState().status).toBe('connected');
+  });
+
+  it('fails closed when an approval acknowledgement is malformed', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const vault = new SecureVault(join(directory, 'vault.json'), encryption);
+    const host = new OpenClawAdapterHost(
+      vault,
+      '0.1.0',
+      'win32',
+      (options) => new FixtureClient(options, { ok: true }),
+    );
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+
+    await expect(host.resolveApproval({
+      requestId: 'approval-1',
+      kind: 'exec',
+      decision: 'deny',
+    })).rejects.toThrow('Gateway returned an invalid approval acknowledgement.');
   });
 });

@@ -70,11 +70,20 @@ Implemented and fixture-verified:
 - Narrow IPC validation and reviewer-safe event redaction.
 - Local WebSocket handshake fixture plus host contract fixture for sessions, streaming, approval resolution, cancellation, and reconnect.
 - Packaged Windows renderer boot through the secure `desky://` scheme.
+- Opt-in live Gateway harness with secrets accepted only from environment variables.
+
+Live-verified on Windows against local OpenClaw 2026.8.1:
+
+- Protocol-v4 authentication and required method/scope negotiation.
+- Fresh session creation, selection, and approval-enabled message subscription.
+- Exec approval deny, allow-once, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
+- Cancellation with an authoritative cancelled terminal event.
+- Controlled disconnect/reconnect with selected-session resubscription.
 
 Open before F2 exit:
 
-- Install or connect a real current OpenClaw Gateway and record a fresh-session agent turn.
-- Verify live exec/plugin allow-once, allow-always where offered, deny, expiry, and duplicate-resolution behavior.
+- Complete and record a successful fresh-session assistant stream after the configured Codex subscription limit resets or another owner-authorized provider is selected.
+- Verify live exec/plugin allow-always where offered, expiry, and cross-device contention.
 - Interrupt a live turn during thinking, tool use, and response streaming; verify authoritative terminal state after reconnect.
 - Verify device pairing and paired-token rotation on a second clean machine profile.
 - Connect the Store capability profile to a trusted remote `wss://` gateway and validate certificate failure behavior.
@@ -159,7 +168,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete and verify F1.
-2. Build OpenClaw protocol fixtures from the current published schema.
-3. Implement secure connection persistence and the first real turn.
-4. Establish reference Windows and macOS devices for performance and packaging.
+1. Re-run the committed live OpenClaw harness when model capacity is available and close the successful-stream gate.
+2. Complete unexpected network-loss, tool-progress, approval expiry/contention, and secure remote `wss://` cases.
+3. Begin F3 with the VRM compatibility and animation-retargeting pipeline.
+4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.
