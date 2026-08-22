@@ -6,7 +6,7 @@ import type {
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import { getDistributionProfile } from './capabilities';
-import type { OpenClawAdapterHost } from './openclaw/host';
+import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -63,6 +63,17 @@ function assertText(value: unknown, name: string, limit: number): string {
   return value;
 }
 
+async function rendererSafeOpenClawCall<T>(
+  operation: () => T | Promise<T>,
+  secrets: Array<string | undefined> = [],
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    throw new Error(redactOpenClawError(error, secrets));
+  }
+}
+
 export function registerIpc(openClaw: OpenClawAdapterHost): void {
   ipcMain.handle(runtimeInfoChannel, () => ({
     distributionProfile: getDistributionProfile(),
@@ -81,19 +92,31 @@ export function registerIpc(openClaw: OpenClawAdapterHost): void {
   });
 
   ipcMain.handle(openClawChannels.getState, () => openClaw.getState());
-  ipcMain.handle(openClawChannels.connect, (_event, input: unknown) => openClaw.connect(readConnectInput(input)));
-  ipcMain.handle(openClawChannels.disconnect, () => openClaw.disconnect());
-  ipcMain.handle(openClawChannels.refreshSessions, () => openClaw.refreshSessions());
+  ipcMain.handle(openClawChannels.connect, (_event, input: unknown) => {
+    const connection = readConnectInput(input);
+    return rendererSafeOpenClawCall(() => openClaw.connect(connection), [connection.credential]);
+  });
+  ipcMain.handle(openClawChannels.disconnect, () => rendererSafeOpenClawCall(() => openClaw.disconnect()));
+  ipcMain.handle(openClawChannels.refreshSessions, () => rendererSafeOpenClawCall(() => openClaw.refreshSessions()));
   ipcMain.handle(openClawChannels.createSession, (_event, input: unknown) => {
     if (!isRecord(input) || (input.label !== undefined && typeof input.label !== 'string')) {
       throw new Error('Invalid session input.');
     }
-    return openClaw.createSession({ label: input.label as string | undefined });
+    return rendererSafeOpenClawCall(() => openClaw.createSession({ label: input.label as string | undefined }));
   });
-  ipcMain.handle(openClawChannels.selectSession, (_event, key: unknown) => openClaw.selectSession(assertText(key, 'session key', 512)));
-  ipcMain.handle(openClawChannels.send, (_event, message: unknown) => openClaw.send(assertText(message, 'message', 100_000)));
-  ipcMain.handle(openClawChannels.cancel, () => openClaw.cancel());
-  ipcMain.handle(openClawChannels.resolveApproval, (_event, input: unknown) => openClaw.resolveApproval(readApprovalInput(input)));
+  ipcMain.handle(openClawChannels.selectSession, (_event, key: unknown) => {
+    const sessionKey = assertText(key, 'session key', 512);
+    return rendererSafeOpenClawCall(() => openClaw.selectSession(sessionKey));
+  });
+  ipcMain.handle(openClawChannels.send, (_event, message: unknown) => {
+    const text = assertText(message, 'message', 100_000);
+    return rendererSafeOpenClawCall(() => openClaw.send(text), [text]);
+  });
+  ipcMain.handle(openClawChannels.cancel, () => rendererSafeOpenClawCall(() => openClaw.cancel()));
+  ipcMain.handle(openClawChannels.resolveApproval, (_event, input: unknown) => {
+    const approval = readApprovalInput(input);
+    return rendererSafeOpenClawCall(() => openClaw.resolveApproval(approval));
+  });
 
   openClaw.onState((state) => {
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(openClawChannels.state, state);

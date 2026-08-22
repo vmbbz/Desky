@@ -47,11 +47,15 @@ function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
   return { ...state, sessions: state.sessions.map((session) => ({ ...session })) };
 }
 
-function redactedError(error: unknown): string {
+export function redactOpenClawError(error: unknown, secrets: Array<string | undefined> = []): string {
   const raw = error instanceof Error ? error.message : 'OpenClaw operation failed.';
-  return raw
-    .replace(/(token|password|authorization)(\s*[:=]\s*)[^\s,;]+/gi, '$1$2[redacted]')
+  let redacted = raw;
+  for (const secret of secrets) {
+    if (secret) redacted = redacted.replaceAll(secret, '[redacted]');
+  }
+  return redacted
     .replace(/Bearer\s+[^\s]+/gi, 'Bearer [redacted]')
+    .replace(/(token|password|authorization)(\s*[:=]\s*)[^\s,;]+/gi, '$1$2[redacted]')
     .slice(0, 240);
 }
 
@@ -378,14 +382,15 @@ export class OpenClawAdapterHost {
       const pairingRequestId = error instanceof GatewayRequestError
         ? findPairingRequestId(error.details)
         : undefined;
+      const message = pairingRequestId
+        ? `Approve device ${pairingRequestId} in OpenClaw, then reconnect.`
+        : redactOpenClawError(error, [profile.credential, profile.deviceToken]);
       this.patchState({
         status: pairingRequestId ? 'pairing' : 'error',
         pairingRequestId,
-        message: pairingRequestId
-          ? `Approve device ${pairingRequestId} in OpenClaw, then reconnect.`
-          : redactedError(error),
+        message,
       });
-      throw error;
+      throw new Error(message);
     }
   }
 
@@ -429,7 +434,7 @@ export class OpenClawAdapterHost {
       sessionId: this.state.selectedSessionKey,
       turnId: this.state.activeRunId,
       type: 'connection.closed',
-      payload: { reason: redactedError(reason) },
+      payload: { reason: redactOpenClawError(reason) },
     });
     if (!this.manualDisconnect && this.profile) this.scheduleReconnect(generation);
   }
@@ -457,7 +462,7 @@ export class OpenClawAdapterHost {
       }
       this.patchState({ message: 'Connection resynchronized after an event gap' });
     } catch (error) {
-      this.patchState({ message: redactedError(error) });
+      this.patchState({ message: redactOpenClawError(error) });
     }
   }
 
@@ -494,7 +499,7 @@ export class OpenClawAdapterHost {
         message: 'Saved OpenClaw connection available',
       };
     } catch (error) {
-      this.state = { ...this.state, status: 'error', message: redactedError(error) };
+      this.state = { ...this.state, status: 'error', message: redactOpenClawError(error) };
     }
   }
 

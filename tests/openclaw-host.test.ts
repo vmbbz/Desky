@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   OpenClawAdapterHost,
+  redactOpenClawError,
   type GatewayClientFactory,
   type GatewayClientPort,
 } from '../src/main/openclaw/host';
@@ -87,12 +88,49 @@ class FixtureClient implements GatewayClientPort {
   }
 }
 
+class RejectingClient extends FixtureClient {
+  override connect(): Promise<never> {
+    return Promise.reject(new Error('unauthorized token=bootstrap-token raw bootstrap-token'));
+  }
+}
+
 afterEach(() => {
   vi.useRealTimers();
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
 });
 
 describe('OpenClawAdapterHost contract fixture', () => {
+  it('redacts labeled and exact secret values from bounded renderer errors', () => {
+    const safe = redactOpenClawError(
+      new Error('authorization: Bearer abc token=visible raw exact-secret'),
+      ['exact-secret'],
+    );
+    expect(safe).not.toContain('abc');
+    expect(safe).not.toContain('visible');
+    expect(safe).not.toContain('exact-secret');
+    expect(safe.length).toBeLessThanOrEqual(240);
+  });
+
+  it('rejects a failed connection with the same redacted message stored in state', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new RejectingClient(options),
+    );
+
+    const failure = await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    }).catch((error: unknown) => error as Error);
+    expect(failure.message).not.toContain('bootstrap-token');
+    expect(host.getState().message).toBe(failure.message);
+  });
+
   it('covers sessions, streaming, approvals, cancellation, and reconnect', async () => {
     vi.useFakeTimers();
     const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));

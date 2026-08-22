@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, wrong-bootstrap and stale-device-token rejection, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -66,3 +66,5 @@ Record the Gateway version, Desky commit, platform, connection profile, and reda
 ## Diagnostics policy
 
 Safe diagnostics may include Gateway origin, protocol/server version, connection status, retry count, advertised method names, session key, run ID, error code, and redacted message. They must never include credentials, device private keys, device tokens, authorization headers, full prompts, raw tool arguments, environments, or precise filesystem paths.
+
+All renderer-invoked OpenClaw operations pass through one main-process error boundary. It removes known submitted secrets and credential-shaped fields, caps the message length, and returns the same safe connection error recorded in adapter state. Raw Gateway exceptions never cross IPC.

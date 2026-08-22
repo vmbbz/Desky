@@ -174,6 +174,51 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
     host.onState((state) => connectionStates.push(state));
 
     try {
+      const invalidCredential = `desky-invalid-${randomUUID()}`;
+      const invalidHost = new OpenClawAdapterHost(
+        new SecureVault(join(directory, 'invalid-vault.json'), liveEncryption),
+        '0.1.0-live-verification',
+        process.platform,
+      );
+      const invalidFailure = await invalidHost.connect({
+        gatewayUrl,
+        authKind: 'token',
+        credential: invalidCredential,
+        rememberCredential: false,
+      }).catch((error: unknown) => error as Error);
+      expect(invalidFailure.message.toLowerCase()).toContain('unauthorized');
+      expect(invalidFailure.message).not.toContain(invalidCredential);
+      expect(invalidHost.getState().message).toBe(invalidFailure.message);
+      await invalidHost.disconnect();
+
+      const staleDeviceToken = `desky-stale-device-${randomUUID()}`;
+      const staleClient = new OpenClawGatewayClient({
+        url: gatewayUrl,
+        appVersion: '0.1.0-live-verification',
+        platform: process.platform,
+        identity: generateDeviceIdentity(),
+        authKind: 'token',
+        credential,
+        deviceToken: staleDeviceToken,
+        onEvent: () => undefined,
+        onClose: () => undefined,
+      });
+      let staleFailure: Error | undefined;
+      try {
+        await staleClient.connect();
+      } catch (error) {
+        staleFailure = error instanceof Error ? error : new Error(String(error));
+      } finally {
+        staleClient.close('Rejected stale-device verification complete');
+      }
+      expect(staleFailure).toBeInstanceOf(Error);
+      if (!staleFailure) {
+        throw new Error('The gateway unexpectedly accepted a stale device token.');
+      }
+      expect(staleFailure.message.toLowerCase()).toContain('unauthorized');
+      expect(staleFailure.message).not.toContain(staleDeviceToken);
+      process.stdout.write('[desky-live] wrong bootstrap credential and stale device token rejection passed\n');
+
       const connected = await host.connect({
         gatewayUrl: relayedGatewayUrl,
         authKind: 'token',

@@ -67,7 +67,7 @@ Implemented and fixture-verified:
 - Minimum operator scopes and explicit capability advertisement.
 - OS-encrypted profile, device identity, bootstrap credential, and paired device-token persistence.
 - Session list/create/select/subscription, message send, streamed assistant/tool events, unified approvals, abort, event-gap reconciliation, and exponential reconnect.
-- Narrow IPC validation and reviewer-safe event redaction.
+- Narrow IPC validation, reviewer-safe event mapping, and a bounded secret-redacting error boundary around every renderer-invoked OpenClaw operation.
 - Local WebSocket handshake fixture plus host contract fixture for sessions, streaming, approval resolution, cancellation, and reconnect.
 - Packaged Windows renderer boot through the secure `desky://` scheme.
 - Opt-in live Gateway harness with secrets accepted only from environment variables.
@@ -75,6 +75,7 @@ Implemented and fixture-verified:
 Live-verified on Windows against local OpenClaw 2026.8.1:
 
 - Protocol-v4 authentication and required method/scope negotiation.
+- Wrong bootstrap credentials and stale device tokens are rejected with bounded messages that do not echo the supplied secret.
 - Fresh session creation, selection, and approval-enabled message subscription.
 - Exec approval deny, allow-once, expiry, first-answer-wins reviewer contention, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
 - Unexpected transport loss during an admitted turn through a controllable loopback relay, followed by automatic reconnect, selected-session resubscription, cancellation, and exactly one terminal event.
@@ -168,6 +169,6 @@ These decisions are deliberately not guessed:
 ## Immediate next rounds
 
 1. Re-run the committed live OpenClaw harness when model capacity is available and close the successful-stream gate.
-2. Complete unexpected network-loss, tool-progress, approval expiry/contention, and secure remote `wss://` cases.
+2. Complete tool-progress interruption/reconciliation and secure remote `wss://` cases; network loss and approval expiry/contention are now live-verified.
 3. Begin F3 with the VRM compatibility and animation-retargeting pipeline.
 4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.

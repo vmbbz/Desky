@@ -53,7 +53,7 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 - Persistence uses Electron `safeStorage`; unavailable OS encryption is a hard failure, not a plaintext downgrade.
 - Saved vault records contain base64-encoded ciphertext. Connection state contains URL, auth kind, server version, and redacted status only.
 - URLs containing user-info, query parameters, or fragments are rejected to keep credentials out of logs and diagnostics.
-- Authentication and protocol errors are bounded and redact token/password/authorization patterns before reaching the renderer.
+- Every OpenClaw IPC rejection is bounded and redacted before reaching the renderer. Authentication and protocol failures additionally remove token/password/authorization patterns, the submitted credential, and any saved device token.
 
 ## Avatar parser safety
 
@@ -83,7 +83,7 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 
 ## Current dependency advisory status
 
-As of the foundation build, `npm audit --omit=dev` reports zero production vulnerabilities. The full audit reports advisories in Electron Forge's archive extraction, rebuild, prompt, and development-server dependency tree. npm's automatic forced fix would downgrade Forge packages to incompatible historical versions, so it is not applied.
+As re-verified on 2026-08-22, `npm audit --omit=dev` reports zero production vulnerabilities. The full audit reports 31 findings in Electron Forge's archive extraction, rebuild, prompt, and development-server dependency tree: 1 critical, 24 high, 3 moderate, and 3 low. npm's automatic forced fix would downgrade Forge packages to incompatible historical versions, so it is not applied.
 
 Until upstream packages resolve the tree:
 
