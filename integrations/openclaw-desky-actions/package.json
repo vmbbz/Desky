@@ -1,0 +1,24 @@
+{
+  "name": "@desky/openclaw-actions",
+  "version": "0.1.0",
+  "description": "Typed OpenClaw agent actions for the Desky desktop companion.",
+  "type": "module",
+  "private": true,
+  "files": [
+    "index.js",
+    "plugin.cjs",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "dependencies": {
+    "typebox": "1.1.38"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.5.17"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.js"
+    ]
+  }
+}

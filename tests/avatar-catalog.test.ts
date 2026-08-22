@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { fetchFeaturedCc0Avatar } from '../src/renderer/avatar/catalog';
+import { fetchFeaturedCc0Avatar } from '../src/shared/avatar-catalog';
 
 function jsonResponse(value: unknown): Response {
   return new Response(JSON.stringify(value), {

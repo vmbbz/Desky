@@ -23,6 +23,8 @@ Desky processes untrusted agent text, tool metadata, avatar files, catalog JSON,
 - Approval defaults to deny on timeout, disconnect, restart, or schema mismatch.
 - The companion cannot animate an approval as accepted before runtime acknowledgement.
 - Dangerous permission modes require explicit onboarding disclosure and persistent visible status.
+- Agent-originated avatar actions require an exact registered tool, selected session, live turn, bounded deduplication identity, and a finite Wave/Jump enum. Other arguments are discarded before IPC; text never selects motion.
+- Visual-only actions are reversible and local. Any future action with external side effects must use the runtime's ordinary tool and approval authority instead of this lane.
 
 ## Local process supervision
 
@@ -57,7 +59,8 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 
 ## Avatar parser safety
 
-- Enforce download and decompressed-size limits.
+- Main owns avatar catalog/model download; the sandboxed renderer receives no arbitrary URL-fetch IPC.
+- Enforce HTTPS allowlisted registry hosts, request timeouts, download and decompressed-size limits.
 - Confirm file signature and parse through maintained libraries.
 - Block external resource fetches not declared and validated by the asset loader.
 - Bound texture dimensions, skeleton size, morph count, and animation duration.

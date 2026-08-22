@@ -11,6 +11,7 @@ import type {
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import { getDistributionProfile } from './capabilities';
+import { loadFeaturedAvatarAsset } from './avatar-asset-broker';
 import { CompanionStateHost } from './companion-state-host';
 import {
   ambientPointerRegionChannel,
@@ -21,6 +22,7 @@ import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
+const featuredAvatarChannel = 'desky:avatar:get-featured';
 const openClawChannels = {
   state: 'desky:openclaw:state',
   event: 'desky:openclaw:event',
@@ -37,6 +39,7 @@ const openClawChannels = {
 const companionChannels = {
   state: 'desky:companion:state',
   getState: 'desky:companion:get-state',
+  action: 'desky:companion:action',
   draft: 'desky:companion:draft',
   getDraft: 'desky:companion:get-draft',
   setDraft: 'desky:companion:set-draft',
@@ -109,6 +112,7 @@ export function registerIpc(
     version: app.getVersion(),
     surface: windows.surfaceFor(event.sender),
   }));
+  ipcMain.handle(featuredAvatarChannel, () => loadFeaturedAvatarAsset());
 
   ipcMain.on(windowActionChannel, (event, action: unknown) => {
     if (!isWindowAction(action)) return;
@@ -170,10 +174,17 @@ export function registerIpc(
       window.webContents.send(companionChannels.state, snapshot);
     }
   });
+  openClaw.onAction((command) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (windows.surfaceFor(window.webContents) !== 'ambient') continue;
+      window.webContents.send(companionChannels.action, command);
+    }
+  });
 }
 
 export const ipcChannels = {
   runtimeInfo: runtimeInfoChannel,
+  featuredAvatar: featuredAvatarChannel,
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,
   ambientPointerRegion: ambientPointerRegionChannel,

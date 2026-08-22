@@ -30,7 +30,10 @@ export interface CatalogAvatar {
   thumbnailUrl: string;
 }
 
-type Fetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type AvatarCatalogFetcher = (
+  input: RequestInfo | URL,
+  init?: RequestInit,
+) => Promise<Response>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -92,7 +95,7 @@ function parseAvatar(value: unknown): RegistryAvatar | undefined {
   };
 }
 
-async function fetchJson(url: string, fetcher: Fetcher): Promise<unknown> {
+async function fetchJson(url: string, fetcher: AvatarCatalogFetcher): Promise<unknown> {
   const response = await fetcher(url, { cache: 'no-cache' });
   if (!response.ok) throw new Error(`Catalog request failed (${response.status})`);
 
@@ -107,7 +110,7 @@ async function fetchJson(url: string, fetcher: Fetcher): Promise<unknown> {
 }
 
 export async function fetchFeaturedCc0Avatar(
-  fetcher: Fetcher = fetch,
+  fetcher: AvatarCatalogFetcher = fetch,
   preferredName = 'Milk',
 ): Promise<CatalogAvatar> {
   const projectsValue = await fetchJson(`${registryBase}/projects.json`, fetcher);

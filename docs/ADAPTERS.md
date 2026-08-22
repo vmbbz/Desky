@@ -60,6 +60,12 @@ Initial semantic events:
 - Every terminal approval clears only the matching pending request; late or duplicate terminal events are idempotent.
 - Disconnect waits for safe teardown but has a bounded timeout.
 
+### Ephemeral agent actions
+
+Agent-requested companion behavior is a second, provider-neutral structured command lane, not an `AdapterEvent` and not a state mutation. Version 1 admits only `avatar.perform` with `wave` or `jump`. It carries connection, selected-session, turn, and deduplication identity; it is delivered to live renderers and never replayed from the companion snapshot or inferred from model text.
+
+Adapters may expose this only when their runtime provides a registered structured tool/capability. Provider-native tool arguments are reduced to the finite semantic action before IPC. Unsupported runtimes keep explicit local actions and state animation but report agent actions unavailable. Full rules and integration requirements are in `docs/AGENT-ACTIONS.md`.
+
 ## Normalization rules
 
 - Runtime status names never pass directly into renderer logic.
@@ -114,6 +120,7 @@ Every adapter must pass fixtures for:
 8. malformed and unknown native events;
 9. exactly one terminal event;
 10. bounded queues and backpressure.
+11. typed agent-action admission, duplicate/wrong-session rejection, and no replay after reconnect.
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
 

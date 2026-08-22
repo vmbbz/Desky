@@ -76,9 +76,11 @@ A versioned discriminated union represents runtime-independent events. The proto
 
 The shared reducer maps events to visible state. It is pure and exhaustively tested. `CompanionStateHost` applies it once in the main process and exposes a revisioned snapshot, preventing independently mounted ambient and control-center renderers from disagreeing about current text or approval state. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
 
-Each renderer consumes that snapshot through the UI and motion arbiter. The implemented foundation owns one full-body state plan, resolves priority and exact registered-clip selection, and emits a procedural fallback when no admitted clip can run. Its controller owns the VRM mixer, loop/one-shot policy, fades, reduced-motion suppression, baseline restoration, and disposal. A bounded priority/FIFO cue queue adds procedural emphasis, nod, wave, and jump: the active cue temporarily becomes the body owner, interrupts a lower state clip, and resumes the current accepted state afterward. Higher state priorities interrupt it; approval, cancellation, disconnection, and error clear it. Conversation entry and explicit UI actions create cues, never raw model text.
+Each renderer consumes that snapshot through the UI and motion arbiter. The implemented foundation owns one full-body state plan, resolves priority and exact registered-clip selection, and emits a procedural fallback when no admitted clip can run. Its controller owns the VRM mixer, loop/one-shot policy, fades, reduced-motion suppression, baseline restoration, and disposal. A bounded priority/FIFO cue queue adds procedural emphasis, nod, wave, and jump: the active cue temporarily becomes the body owner, interrupts a lower state clip, and resumes the current accepted state afterward. Higher state priorities interrupt it; approval, cancellation, disconnection, and error clear it. Conversation entry, explicit UI actions, and admitted typed agent-action commands create cues, never raw model text.
 
-Blink, gaze, and expressions are an additive capability-gated controller rather than another body owner. It manipulates only advertised presets/look-at, follows a deterministic bounded schedule, neutralizes gaze under reduced motion, and restores authored baselines on disposal. Missing optional capabilities are no-ops. Speech visemes and a normalized agent-originated action command remain open.
+Blink, gaze, and expressions are an additive capability-gated controller rather than another body owner. It manipulates only advertised presets/look-at, follows a deterministic bounded schedule, neutralizes gaze under reduced motion, and restores authored baselines on disposal. Missing optional capabilities are no-ops. Speech visemes remain open.
+
+Agent actions use a separate ephemeral command because an action must not replay when a renderer opens or reconnects. OpenClaw's exact `desky_avatar_action` tool-start event is reduced in main to a versioned Wave/Jump command, filtered to the selected session/live turn, deduplicated by tool-call identity, then sent through narrow preload IPC. Only the normalized enum reaches the renderer. Runtime setup and the cross-provider policy are specified in `docs/AGENT-ACTIONS.md`.
 
 ### Companion window composition
 
@@ -108,6 +110,7 @@ connection UI -> validated IPC command -> OpenClawAdapterHost
                                         -> secure vault
                                         -> protocol-v4 WebSocket client
 Gateway frame -> main-process validation/redaction -> AdapterEvent -> companion snapshot -> renderers
+Structured action tool -> main-process validation/session filter -> ephemeral AgentActionCommand -> motion queue
 ```
 
 - `gateway-client.ts` owns the challenge-first wire exchange and request correlation.
@@ -120,7 +123,9 @@ The packaged renderer is served from the secure custom `desky://` scheme. This l
 
 ### Avatar catalog
 
-The catalog fetches `projects.json`, then collection-specific avatar files. It joins per-project licences to avatar metadata before any avatar can be selected. Network data is schema-validated, cached with a bounded lifetime, and never treated as executable content.
+The main-process avatar asset broker fetches `projects.json`, then collection-specific avatar files. It joins per-project licences to avatar metadata before any avatar can be selected, restricts model download to HTTPS on an explicit registry-host policy, enforces catalog/model byte limits and a timeout, and returns only validated metadata plus bounded bytes through typed IPC. The sandboxed renderer has no arbitrary avatar-fetch surface. Network data is never treated as executable content.
+
+Disk caching remains open. When added, exact model bytes and their provenance sidecar must be written atomically, bounded by policy, and revalidated on every read; documentation must not imply that current network loads survive offline launch.
 
 ### Avatar renderer
 

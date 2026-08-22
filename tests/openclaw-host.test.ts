@@ -184,7 +184,9 @@ describe('OpenClawAdapterHost contract fixture', () => {
       factory,
     );
     const eventTypes: string[] = [];
+    const actions: string[] = [];
     host.onEvent((event) => eventTypes.push(event.type));
+    host.onAction((command) => actions.push(`${command.commandId}:${command.payload.action}`));
 
     const connected = await host.connect({
       gatewayUrl: 'ws://127.0.0.1:18789',
@@ -203,6 +205,24 @@ describe('OpenClawAdapterHost contract fixture', () => {
     expect(host.getState().activeRunId).toBe('run-1');
     clients[0].options.onEvent('agent', {
       sessionKey: 'agent:main:desky', runId: 'run-1', stream: 'tool', data: { phase: 'start', name: 'workspace' },
+    });
+    const avatarAction = {
+      sessionKey: 'agent:main:desky',
+      runId: 'run-1',
+      stream: 'tool',
+      data: {
+        phase: 'start',
+        name: 'desky_avatar_action',
+        toolCallId: 'action-1',
+        args: { action: 'wave' },
+      },
+    };
+    clients[0].options.onEvent('agent', avatarAction);
+    clients[0].options.onEvent('agent', avatarAction);
+    clients[0].options.onEvent('agent', {
+      ...avatarAction,
+      sessionKey: 'agent:main:other',
+      data: { ...avatarAction.data, toolCallId: 'action-other-session' },
     });
     clients[0].options.onEvent('chat', {
       sessionKey: 'agent:main:desky', runId: 'run-1', seq: 2, state: 'delta', deltaText: 'Done',
@@ -230,6 +250,8 @@ describe('OpenClawAdapterHost contract fixture', () => {
       'approval.requested', 'approval.resolved',
     ]));
     expect(eventTypes.filter((type) => type === 'approval.resolved')).toHaveLength(1);
+    expect(actions).toHaveLength(1);
+    expect(actions[0]).toMatch(/^[a-f0-9]{64}:wave$/);
 
     clients[0].options.onClose('network unavailable', false);
     expect(host.getState()).toMatchObject({ status: 'reconnecting', reconnectAttempt: 1 });

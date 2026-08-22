@@ -28,8 +28,7 @@ import { createAssetProvenance } from '../../shared/asset-provenance';
 import type { DesktopRectangle } from '../../shared/runtime';
 import { AvatarExpressionController } from './avatar-expression-controller';
 import { AvatarMotionController } from './avatar-motion-controller';
-import type { MotionCueKind } from './motion-cue-queue';
-import { fetchFeaturedCc0Avatar } from './catalog';
+import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
 import {
   assertCoreHumanoid,
   assertVrmUsageCompatible,
@@ -37,11 +36,9 @@ import {
   reviewVrmUsage,
 } from './vrm-capabilities';
 
-const maxModelBytes = 100 * 1024 * 1024;
-
 interface AvatarStageProps {
   mode: CompanionMode;
-  motionCue?: { id: string; kind: MotionCueKind };
+  motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
 }
 
@@ -49,17 +46,6 @@ type LoadState =
   | { kind: 'loading'; message: string }
   | { kind: 'ready'; message: string }
   | { kind: 'error'; message: string };
-
-async function fetchModel(url: string): Promise<ArrayBuffer> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Avatar download failed (${response.status})`);
-  const contentLength = Number(response.headers.get('content-length') ?? '0');
-  if (contentLength > maxModelBytes) throw new Error('Avatar exceeds the 100 MB limit');
-
-  const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > maxModelBytes) throw new Error('Avatar exceeds the 100 MB limit');
-  return buffer;
-}
 
 function disposeObject(root: Object3D): void {
   root.traverse((object) => {
@@ -109,7 +95,7 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
   useEffect(() => {
     motionCueRef.current = motionCue;
     if (!motionCue || admittedMotionCueIdRef.current === motionCue.id) return;
-    if (!motionControllerRef.current?.queueMotionCue(motionCue.kind, 'user')) return;
+    if (!motionControllerRef.current?.queueMotionCue(motionCue.kind, motionCue.source)) return;
     admittedMotionCueIdRef.current = motionCue.id;
   }, [motionCue]);
 
@@ -218,11 +204,9 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
 
     const load = async () => {
       try {
-        const avatar = await fetchFeaturedCc0Avatar();
+        const { avatar, bytes: buffer } = await window.desky.avatar.getFeatured();
         if (disposed) return;
         setLoadState({ kind: 'loading', message: `Loading ${avatar.name}…` });
-
-        const buffer = await fetchModel(avatar.modelUrl);
         const loader = new GLTFLoader();
         loader.register((parser) => new VRMLoaderPlugin(parser));
         const gltf = await loader.parseAsync(buffer, new URL('.', avatar.modelUrl).href);
@@ -277,7 +261,7 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
         motionController.setMode(modeRef.current);
         expressionController.setMode(modeRef.current);
         const pendingMotionCue = motionCueRef.current;
-        if (pendingMotionCue && motionController.queueMotionCue(pendingMotionCue.kind, 'user')) {
+        if (pendingMotionCue && motionController.queueMotionCue(pendingMotionCue.kind, pendingMotionCue.source)) {
           admittedMotionCueIdRef.current = pendingMotionCue.id;
         }
         reportVisibleBounds();

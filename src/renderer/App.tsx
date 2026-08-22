@@ -7,6 +7,7 @@ import {
   type CompanionDraftSnapshot,
   type CompanionSnapshot,
 } from '../shared/companion-state';
+import type { AgentActionCommand } from '../shared/agent-actions';
 import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
 import type {
   AmbientSurfaceState,
@@ -15,7 +16,7 @@ import type {
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage } from './avatar/AvatarStage';
-import type { MotionCueKind } from './avatar/motion-cue-queue';
+import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
 
 const initialGateway: OpenClawConnectionState = {
   status: 'disconnected',
@@ -56,7 +57,11 @@ export function App() {
   const adapterModeRef = useRef(adapterMode);
   const pendingDraftTextRef = useRef<string | null>(null);
   const motionCueSequenceRef = useRef(0);
-  const [motionCue, setMotionCue] = useState<{ id: string; kind: MotionCueKind }>();
+  const [motionCue, setMotionCue] = useState<{
+    id: string;
+    kind: MotionCueKind;
+    source: MotionCueSource;
+  }>();
 
   useEffect(() => {
     void window.desky.getRuntimeInfo().then((info) => {
@@ -81,6 +86,15 @@ export function App() {
       setDraft((current) => next.revision >= current.revision ? next : current);
     };
     const removeCompanionState = window.desky.companion.onState(acceptCompanionState);
+    const acceptAgentAction = (command: AgentActionCommand) => {
+      if (adapterModeRef.current !== 'openclaw') return;
+      setMotionCue({
+        id: command.commandId,
+        kind: command.payload.action,
+        source: 'agent',
+      });
+    };
+    const removeCompanionAction = window.desky.companion.onAction(acceptAgentAction);
     const removeDraft = window.desky.companion.onDraft(acceptDraft);
     void window.desky.companion.getState().then(acceptCompanionState);
     void window.desky.companion.getDraft().then(acceptDraft);
@@ -89,6 +103,7 @@ export function App() {
     return () => {
       removeState();
       removeCompanionState();
+      removeCompanionAction();
       removeDraft();
       removeAmbientState();
     };
@@ -232,7 +247,11 @@ export function App() {
 
   const requestAvatarMotion = (kind: MotionCueKind) => {
     motionCueSequenceRef.current += 1;
-    setMotionCue({ id: `ambient-${kind}-${motionCueSequenceRef.current}`, kind });
+    setMotionCue({
+      id: `ambient-${kind}-${motionCueSequenceRef.current}`,
+      kind,
+      source: 'user',
+    });
   };
 
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {

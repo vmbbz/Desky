@@ -68,7 +68,7 @@ The ambient default is now avatar-first: permanent status chrome is gone, the bu
 
 ### Next animation round — expressive motion layers
 
-Status: first procedural slice implemented; admitted production clips, representative binary avatars, and the semantic agent-action route remain open.
+Status: procedural motion, additive expression, and the first semantic agent-action route are implemented; admitted production clips and representative binary avatars remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink, restrained look-at, and speaking emphasis that work without external animation files and obey reduced-motion/cancellation priority.
@@ -78,7 +78,7 @@ Status: first procedural slice implemented; admitted production clips, represent
 
 The controller now owns a bounded deterministic queue for `emphasis`, `nod`, `wave`, and `jump`. Higher-priority normalized states interrupt or reject lower-priority cues, an explicit action temporarily replaces any registered state clip as the sole procedural body owner, and the current state plan resumes afterward. Entering `speaking` schedules one restrained emphasis. The focused ambient surface exposes an explicit Wave control and a deliberate character double-click requests Jump; raw prompt or model text is never parsed as an animation selector. Reduced motion retains a small acknowledgement but removes Jump travel.
 
-A separate additive controller uses the avatar capability inventory before driving deterministic bilateral/single blink, restrained look-at, and small success/error/approval/listening/speaking expressions. Missing managers, presets, or look-at support remain no-ops, and baseline values are restored on disposal. Speech visemes, agent-originated semantic action commands, licensed external clips, and broader binary-avatar evidence remain later work.
+A separate additive controller uses the avatar capability inventory before driving deterministic bilateral/single blink, restrained look-at, and small success/error/approval/listening/speaking expressions. Missing managers, presets, or look-at support remain no-ops, and baseline values are restored on disposal. A provider-neutral ephemeral `avatar.perform` lane now admits only typed Wave/Jump commands for the selected live session; OpenClaw supplies them through the reviewed `desky_avatar_action` tool plugin, never model-text parsing. Speech visemes, licensed external clips, broader binary-avatar evidence, and live plugin evidence remain later work.
 
 ### F3d — resilience, accessibility, and performance
 

@@ -6,6 +6,7 @@ import {
   buildDeviceAuthPayload,
   generateDeviceIdentity,
   normalizeGatewayUrl,
+  normalizeOpenClawAgentAction,
   normalizeOpenClawEvent,
   publicKeyRawBase64Url,
   signDeviceAuth,
@@ -61,6 +62,43 @@ describe('OpenClaw protocol v4 boundary', () => {
     expect(normalizeOpenClawEvent('connection-1', 'chat', {
       sessionKey: 'session-1', runId: 'run-1', seq: 2, state: 'delta', deltaText: 'Hello',
     })[0]).toMatchObject({ type: 'assistant.delta', payload: { text: 'Hello' } });
+  });
+
+  it('normalizes only the exact typed Desky action tool start', () => {
+    const action = normalizeOpenClawAgentAction('connection-1', 'agent', {
+      sessionKey: 'session-1',
+      runId: 'run-1',
+      stream: 'tool',
+      data: {
+        phase: 'start',
+        name: 'desky_avatar_action',
+        toolCallId: 'tool-1',
+        args: { action: 'jump', ignored: 'does-not-cross-ipc' },
+      },
+    });
+    expect(action).toMatchObject({
+      sessionId: 'session-1',
+      turnId: 'run-1',
+      type: 'avatar.perform',
+      payload: { action: 'jump' },
+    });
+    expect(action?.commandId).toMatch(/^[a-f0-9]{64}$/);
+    expect(JSON.stringify(action)).not.toContain('ignored');
+
+    const replayedAfterReconnect = normalizeOpenClawAgentAction('connection-2', 'agent', {
+      sessionKey: 'session-1', runId: 'run-1', stream: 'tool',
+      data: { phase: 'start', name: 'desky_avatar_action', toolCallId: 'tool-1', args: { action: 'jump' } },
+    });
+    expect(replayedAfterReconnect?.commandId).toBe(action?.commandId);
+
+    expect(normalizeOpenClawAgentAction('connection-1', 'agent', {
+      sessionKey: 'session-1', runId: 'run-1', stream: 'tool',
+      data: { phase: 'start', name: 'desky_avatar_action', toolCallId: 'tool-2', args: { action: 'dance' } },
+    })).toBeUndefined();
+    expect(normalizeOpenClawAgentAction('connection-1', 'agent', {
+      sessionKey: 'session-1', runId: 'run-1', stream: 'tool',
+      data: { phase: 'start', name: 'other_tool', toolCallId: 'tool-3', args: { action: 'wave' } },
+    })).toBeUndefined();
   });
 
   it('marks a native abort as cancellation rather than an operational error', () => {

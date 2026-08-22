@@ -1,6 +1,11 @@
 import { createHash, createPublicKey, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 
 import type { AdapterEvent } from '../../shared/adapter-events';
+import {
+  isAvatarActionKind,
+  OPENCLAW_DESKY_ACTION_TOOL,
+  type AgentActionCommand,
+} from '../../shared/agent-actions';
 import { OPENCLAW_PROTOCOL_VERSION } from '../../shared/openclaw';
 
 export const OPENCLAW_SCOPES = [
@@ -295,6 +300,40 @@ export function normalizeOpenClawEvent(
     return [{ ...context, type: 'approval.requested', payload: { requestId: readString(payload.id) ?? 'invalid-approval', kind: 'exec', action: 'Run command', safeTarget: command, allowedDecisions: ['allow-once', 'allow-always', 'deny'] } }];
   }
   return [];
+}
+
+export function normalizeOpenClawAgentAction(
+  connectionId: string,
+  nativeEvent: string,
+  payload: unknown,
+): AgentActionCommand | undefined {
+  if (nativeEvent !== 'agent' || !isRecord(payload) || payload.stream !== 'tool') return undefined;
+  const data = isRecord(payload.data) ? payload.data : undefined;
+  if (!data || data.phase !== 'start' || data.name !== OPENCLAW_DESKY_ACTION_TOOL) return undefined;
+
+  const sessionId = readString(payload.sessionKey);
+  const turnId = readString(payload.runId);
+  const toolCallId = readString(data.toolCallId);
+  const args = isRecord(data.args) ? data.args : undefined;
+  if (!sessionId || !turnId || !toolCallId || toolCallId.length > 256 || !args
+    || !isAvatarActionKind(args.action)) return undefined;
+
+  // Exclude the connection ID so a Gateway replay after reconnect remains the
+  // same command and is rejected by the host's bounded deduplication set.
+  const commandId = createHash('sha256')
+    .update(`${sessionId}\0${turnId}\0${toolCallId}`, 'utf8')
+    .digest('hex');
+
+  return {
+    protocolVersion: 1,
+    commandId,
+    timestamp: new Date().toISOString(),
+    connectionId,
+    sessionId,
+    turnId,
+    type: 'avatar.perform',
+    payload: { action: args.action },
+  };
 }
 
 export function findPairingRequestId(details: unknown): string | undefined {

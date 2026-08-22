@@ -121,7 +121,7 @@ Implemented and test-verified:
 - Conservative embedded VRM usage review against the catalog licence.
 - Validated asset-provenance schema and SHA-256 generation from downloaded avatar bytes.
 - Strict animation conversion manifest with pinned retargeting formula, source/output checksums, and mandatory approved rights review.
-- Integration of those checks into the current remote-avatar load path before the model enters the scene.
+- Integration of those checks into the main-process brokered remote-avatar load path before the model enters the scene.
 - Fresh packaged Windows smoke through `desky://` with the real default reaching `Milk · VRM 0.x · CC0 · 100Avatars R1`.
 - Bundled offline Mixamo/FBX parser and deterministic canonical converter with full official humanoid mapping, fixed sampling/quantization, quaternion continuity, explicit root-motion policy, and fail-closed input limits.
 - Versioned avatar-neutral canonical JSON plus runtime VRM 0.x/1.0 binding with target hips-height scaling.
@@ -152,7 +152,7 @@ Implemented and test-verified:
 Still open in F3b/F3d:
 
 - Admit the first owner-approved redistributable production clip through the rights/provenance manifest. The open-source avatar registry does not license unrelated animation files.
-- Extend the implemented bounded procedural cue queue with a normalized agent-action command and richer reviewed gesture selection; it currently supports speaking emphasis plus explicit ambient wave/jump requests.
+- Live-verify the implemented normalized agent-action command through the installed OpenClaw plugin, then extend richer reviewed gesture selection. The queue currently supports speaking emphasis plus explicit user and typed agent Wave/Jump requests.
 - Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
 - Add an in-product pause/reduced-motion override, occlusion suspension, WebGL recovery, and packaged Windows/macOS visual/performance evidence.
 
@@ -211,7 +211,7 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
 
-The first asset-free animation-expression round is now implemented. The next animation gates are the normalized agent-action command, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+The first asset-free animation-expression round and normalized Wave/Jump agent-action boundary are now implemented. The next animation gates are live OpenClaw plugin evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 

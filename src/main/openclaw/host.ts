@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { AdapterEvent } from '../../shared/adapter-events';
+import type { AgentActionCommand } from '../../shared/agent-actions';
 import type {
   OpenClawConnectInput,
   OpenClawConnectionState,
@@ -13,6 +14,7 @@ import {
   GatewayRequestError,
   generateDeviceIdentity,
   normalizeGatewayUrl,
+  normalizeOpenClawAgentAction,
   normalizeOpenClawEvent,
   type DeviceIdentity,
 } from './protocol';
@@ -135,8 +137,10 @@ export class OpenClawAdapterHost {
   private rememberCredential = false;
   private readonly stateListeners = new Set<(state: OpenClawConnectionState) => void>();
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
+  private readonly actionListeners = new Set<(command: AgentActionCommand) => void>();
   private readonly terminalRuns = new Set<string>();
   private readonly terminalApprovals = new Set<string>();
+  private readonly handledActionCommands = new Set<string>();
   private state: OpenClawConnectionState = {
     status: 'disconnected',
     gatewayUrl: 'ws://127.0.0.1:18789/',
@@ -164,6 +168,11 @@ export class OpenClawAdapterHost {
   onEvent(listener: (event: AdapterEvent) => void): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
+  }
+
+  onAction(listener: (command: AgentActionCommand) => void): () => void {
+    this.actionListeners.add(listener);
+    return () => this.actionListeners.delete(listener);
   }
 
   getState(): OpenClawConnectionState {
@@ -413,6 +422,13 @@ export class OpenClawAdapterHost {
     if (event === 'sessions.changed' || event === 'session.created' || event === 'session.updated') {
       void this.refreshSessions().catch(() => undefined);
     }
+    const action = normalizeOpenClawAgentAction(client.connectionId ?? 'openclaw', event, payload);
+    if (action
+      && action.sessionId === this.state.selectedSessionKey
+      && !this.terminalRuns.has(action.turnId)
+      && rememberTerminal(this.handledActionCommands, action.commandId)) {
+      this.emitAction(action);
+    }
     for (const normalized of normalizeOpenClawEvent(client.connectionId ?? 'openclaw', event, payload)) {
       const terminalTurn = normalized.type === 'turn.completed' || normalized.type === 'turn.failed';
       if (normalized.turnId && !terminalTurn && this.terminalRuns.has(normalized.turnId)) {
@@ -541,6 +557,10 @@ export class OpenClawAdapterHost {
 
   private emitEvent(event: AdapterEvent): void {
     for (const listener of this.eventListeners) listener(event);
+  }
+
+  private emitAction(command: AgentActionCommand): void {
+    for (const listener of this.actionListeners) listener(command);
   }
 
   private emitApprovalResolved(

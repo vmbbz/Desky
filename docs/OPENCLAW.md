@@ -16,6 +16,12 @@ Desky acts as a Gateway `operator` client with these scopes:
 
 It advertises session-scoped events, structured tool events, unified approvals, exec approvals, and plugin approvals. Unknown client IDs are not used; Desky reports the canonical `gateway-client` ID with a human-readable display name.
 
+## Desky avatar actions
+
+The optional agent-action capability is supplied by the reviewed tool-only package in `integrations/openclaw-desky-actions`. It declares one structured OpenClaw tool, `desky_avatar_action`, with a finite `wave`/`jump` enum. Desky accepts only the exact tool-start frame for the selected session and a live turn, deduplicates the tool-call identity, removes every other argument, and sends one ephemeral command to the motion queue. It never parses assistant text and never claims the animation completed merely because the Gateway executed the tool.
+
+Gateway operators install/enable the plugin once and restart or reload the Gateway; restrictive `plugins.allow` and tool policies must also admit it. Ordinary users do not update agent prompts, workspace instructions, `AGENTS.md`, or `CLAUDE.md`: OpenClaw's tool catalog provides the model-facing schema and usage description. Optional personality wording is not protocol setup. See `docs/AGENT-ACTIONS.md` and the integration package README.
+
 ## First connection
 
 1. Start the Gateway and confirm its URL and configured authentication mode.
@@ -39,6 +45,7 @@ Leaving the credential field blank uses saved access. Entering a credential expl
 - Once a run is terminal, late tool progress or result events for that run are discarded. They cannot resurrect cancellation controls or overwrite the terminal companion state.
 - The structured `sessions.abort` acknowledgement is authoritative. If a terminal stream event was lost during reconnect, Desky emits one bounded terminal failure from the acknowledgement instead of leaving the turn active indefinitely.
 - Terminal approval events clear only their matching reviewer card. Late, duplicate, malformed, or unrelated terminal events cannot clear a newer request.
+- Agent action commands are live-only. Reconnect, history replay, a newly opened window, another session, a duplicate tool event, or a terminal turn cannot replay an old gesture.
 
 ## Live F2 verification
 

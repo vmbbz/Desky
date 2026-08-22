@@ -12,6 +12,8 @@ The registry is metadata and URLs, not a bundled runtime or animation library. I
 4. Join `avatar.project_id` to its project before exposing the avatar.
 5. Use `model_file_url` and `thumbnail_url` exactly as published.
 
+Catalog and model network access is owned by `src/main/avatar-asset-broker.ts`, not the sandboxed WebGL renderer. The broker permits only HTTPS model URLs on the reviewed registry host set, rejects credentials and non-default ports, caps catalog/model bytes, and applies a bounded timeout. Typed IPC returns the joined catalog record and exact model bytes; it does not expose a general URL-fetch command.
+
 The project licence applies to its avatars. The registry's CC0 licence applies only to registry metadata, documentation, and reference integration code.
 
 ## Initial licence policy
@@ -46,7 +48,7 @@ interface AssetProvenance {
 
 The downloader validates HTTPS, size, media signature, checksum after download, and cache path containment. Model URLs are never executed as code.
 
-The schema and strict runtime parser live in `src/shared/asset-provenance.ts`. The initial F3a loader computes SHA-256 from the exact downloaded avatar bytes and attaches the validated record to the loaded scene for diagnostics. Disk caching is not implemented yet; when it is, the same parsed record must be written atomically beside the cached bytes and revalidated before reuse.
+The schema and strict runtime parser live in `src/shared/asset-provenance.ts`. The initial F3a loader computes SHA-256 from the exact brokered avatar bytes and attaches the validated record to the loaded scene for diagnostics. Disk caching is not implemented yet; when it is, the same parsed record must be written atomically beside the cached bytes and revalidated before reuse.
 
 ## VRM compatibility
 

@@ -2,7 +2,7 @@ export const motionCueKinds = ['emphasis', 'nod', 'wave', 'jump'] as const;
 
 export type MotionCueKind = (typeof motionCueKinds)[number];
 export type MotionCueLayer = 'gesture' | 'action';
-export type MotionCueSource = 'conversation' | 'user';
+export type MotionCueSource = 'agent' | 'conversation' | 'user';
 
 export interface MotionCue {
   id: string;

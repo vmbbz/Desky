@@ -1,0 +1,19 @@
+{
+  "id": "desky-actions",
+  "name": "Desky Actions",
+  "description": "Adds safe, typed avatar actions for a connected Desky desktop companion.",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "desky_avatar_action"
+    ]
+  }
+}

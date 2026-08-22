@@ -14,6 +14,8 @@ import type {
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import type { AdapterEvent } from '../shared/adapter-events';
+import type { AgentActionCommand } from '../shared/agent-actions';
+import type { AvatarAssetBridge, FeaturedAvatarAsset } from '../shared/avatar-assets';
 import type {
   CompanionDraftSnapshot,
   CompanionSnapshot,
@@ -58,6 +60,7 @@ const openClaw: OpenClawBridge = Object.freeze({
 const companionChannels = {
   state: 'desky:companion:state',
   getState: 'desky:companion:get-state',
+  action: 'desky:companion:action',
   draft: 'desky:companion:draft',
   getDraft: 'desky:companion:get-draft',
   setDraft: 'desky:companion:set-draft',
@@ -70,6 +73,11 @@ const companion = Object.freeze({
     ipcRenderer.on(companionChannels.state, handler);
     return () => ipcRenderer.removeListener(companionChannels.state, handler);
   },
+  onAction: (listener: (command: AgentActionCommand) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: AgentActionCommand) => listener(command);
+    ipcRenderer.on(companionChannels.action, handler);
+    return () => ipcRenderer.removeListener(companionChannels.action, handler);
+  },
   getDraft: () => ipcRenderer.invoke(companionChannels.getDraft) as Promise<CompanionDraftSnapshot>,
   setDraft: (text: string) => ipcRenderer.invoke(companionChannels.setDraft, text) as Promise<CompanionDraftSnapshot>,
   onDraft: (listener: (draft: CompanionDraftSnapshot) => void) => {
@@ -77,6 +85,10 @@ const companion = Object.freeze({
     ipcRenderer.on(companionChannels.draft, handler);
     return () => ipcRenderer.removeListener(companionChannels.draft, handler);
   },
+});
+
+const avatar: AvatarAssetBridge = Object.freeze({
+  getFeatured: () => ipcRenderer.invoke('desky:avatar:get-featured') as Promise<FeaturedAvatarAsset>,
 });
 
 const api = Object.freeze({
@@ -96,6 +108,7 @@ const api = Object.freeze({
     ipcRenderer.send('desky:ambient-pointer-region', region);
   },
   companion,
+  avatar,
   openClaw,
 });
 
