@@ -19,7 +19,7 @@ Agent runtime -> adapter -> Desky event protocol -> state machine -> avatar and 
 
 ## Current status
 
-Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and both fixture and opt-in live Gateway harnesses. Against local OpenClaw 2026.8.1, authentication, rejection of wrong and stale credentials, capability negotiation, session creation, approval deny/allow-once/expiry/contention/duplicate acknowledgement, active-turn cancellation, and reconnect/resubscription pass. A successful assistant stream remains unverified because the configured OpenAI provider is rate-limit-cooldown blocked; secure remote-gateway and macOS checks also remain release gates.
+Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and both fixture and opt-in live Gateway harnesses. Against local OpenClaw 2026.8.1, authentication, rejection and fresh-credential recovery of stale access, capability negotiation, session creation, approval deny/allow-once/expiry/contention/duplicate acknowledgement, active-turn cancellation, and reconnect/resubscription pass. A successful assistant stream remains unverified because the configured OpenAI provider is rate-limit-cooldown blocked; secure remote-gateway and macOS checks also remain release gates.
 
 ## Connect OpenClaw
 

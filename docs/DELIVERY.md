@@ -75,7 +75,7 @@ Implemented and fixture-verified:
 Live-verified on Windows against local OpenClaw 2026.8.1:
 
 - Protocol-v4 authentication and required method/scope negotiation.
-- Wrong bootstrap credentials and stale device tokens are rejected with bounded messages that do not echo the supplied secret.
+- Wrong bootstrap credentials and stale device tokens are rejected with bounded messages that do not echo the supplied secret. An explicit fresh credential bypasses stale saved access, rotates it after success, and leaves the prior saved profile intact after failure.
 - Fresh session creation, selection, and approval-enabled message subscription.
 - Exec approval deny, allow-once, expiry, first-answer-wins reviewer contention, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
 - Unexpected transport loss during an admitted turn through a controllable loopback relay, followed by automatic reconnect, selected-session resubscription, cancellation, and exactly one terminal event.

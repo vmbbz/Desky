@@ -131,6 +131,41 @@ describe('OpenClawAdapterHost contract fixture', () => {
     expect(host.getState().message).toBe(failure.message);
   });
 
+  it('lets an explicit bootstrap credential bypass a stale device token without destroying saved access on failure', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const vault = new SecureVault(join(directory, 'vault.json'), encryption);
+    vault.set('openclaw:active-profile', {
+      gatewayUrl: 'ws://127.0.0.1:18789/',
+      authKind: 'token',
+      deviceToken: 'saved-device-token',
+    });
+    const attempts: GatewayConnectOptions[] = [];
+    const host = new OpenClawAdapterHost(vault, '0.1.0', 'win32', (options) => {
+      attempts.push(options);
+      return new RejectingClient(options);
+    });
+
+    await expect(host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789/',
+      authKind: 'token',
+      credential: 'replacement-bootstrap-token',
+      rememberCredential: false,
+    })).rejects.toThrow();
+    expect(attempts[0]).toMatchObject({
+      credential: 'replacement-bootstrap-token',
+      deviceToken: undefined,
+    });
+    expect(vault.get<{ deviceToken?: string }>('openclaw:active-profile')?.deviceToken).toBe('saved-device-token');
+
+    await expect(host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789/',
+      authKind: 'token',
+      rememberCredential: false,
+    })).rejects.toThrow();
+    expect(attempts[1]).toMatchObject({ deviceToken: 'saved-device-token' });
+  });
+
   it('covers sessions, streaming, approvals, cancellation, and reconnect', async () => {
     vi.useFakeTimers();
     const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));

@@ -16,7 +16,7 @@ The harness uses fresh Ed25519 test identities, creates a labelled session, and 
 | --- | --- | --- |
 | Challenge, device proof, protocol v4 | Pass | Gateway returned `hello-ok` for protocol 4. |
 | Wrong bootstrap credential | Pass | Gateway rejected a fresh invalid token; the host state and caller received the same bounded message without the submitted value. |
-| Stale device token | Pass | Gateway rejected a synthetic stale device token without echoing its value. |
+| Stale device token and recovery | Pass | Gateway rejected a synthetic stale token without echoing it; an explicit valid bootstrap credential bypassed the saved token and replaced it only after successful authentication. |
 | Required scopes and methods | Pass | Read/write/approval scopes and session/chat/abort/unified-approval methods were advertised. |
 | Session create/select/subscribe | Pass | A fresh labelled session was selected with approval replay enabled. |
 | Approval deny | Pass | Gateway recorded the synthetic approval as `denied`. |
@@ -30,7 +30,7 @@ The harness uses fresh Ed25519 test identities, creates a labelled session, and 
 
 ## Local quality gates
 
-- `npm test`: 20 passed, 1 opt-in live test skipped.
+- `npm test`: 21 passed, 1 opt-in live test skipped.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `npm run package`: passed for Windows x64.
@@ -48,5 +48,7 @@ The live runs proved the transport, session, approval, cancellation, and reconne
 4. Native turn-terminal handling cleared the active run and then restored it through the generic activity branch. Terminal and non-terminal transitions are now mutually exclusive, preventing a completed turn from leaving cancellation controls active.
 
 The security review also found that the connection state stored a redacted error while the IPC invocation could still reject with the original exception, and that other OpenClaw IPC operations had no common error boundary. Every renderer-invoked operation now uses one bounded redactor, including exact submitted-secret removal. Unit tests exercise labeled, bearer, and exact-value redaction; the live harness verifies wrong-bootstrap and stale-device-token rejection against the real Gateway.
+
+A final authentication audit found that cached device-token precedence could prevent recovery even when the user explicitly supplied a fresh bootstrap credential. Explicit credentials now bypass cached device access. The new profile is persisted only after successful authentication, while a rejected attempt restores the previous in-memory profile and leaves its encrypted vault record untouched. Both failure preservation and real-Gateway replacement are verified.
 
 F2 remains open. A passing assistant delta plus terminal-success run is required after model capacity becomes available. Tool progress and response-stream interruption, clean-device contention, remote TLS, and macOS Keychain-backed persistence remain explicit gates.

@@ -217,7 +217,29 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       }
       expect(staleFailure.message.toLowerCase()).toContain('unauthorized');
       expect(staleFailure.message).not.toContain(staleDeviceToken);
-      process.stdout.write('[desky-live] wrong bootstrap credential and stale device token rejection passed\n');
+
+      const recoveryVault = new SecureVault(join(directory, 'stale-recovery-vault.json'), liveEncryption);
+      recoveryVault.set('openclaw:active-profile', {
+        gatewayUrl,
+        authKind: 'token',
+        deviceToken: staleDeviceToken,
+      });
+      const recoveryHost = new OpenClawAdapterHost(
+        recoveryVault,
+        '0.1.0-live-verification',
+        process.platform,
+      );
+      const recovered = await recoveryHost.connect({
+        gatewayUrl,
+        authKind: 'token',
+        credential,
+        rememberCredential: false,
+      });
+      expect(recovered.status).toBe('connected');
+      expect(recoveryVault.get<{ deviceToken?: string }>('openclaw:active-profile')?.deviceToken)
+        .not.toBe(staleDeviceToken);
+      await recoveryHost.disconnect();
+      process.stdout.write('[desky-live] wrong bootstrap credential plus stale device-token rejection and recovery passed\n');
 
       const connected = await host.connect({
         gatewayUrl: relayedGatewayUrl,

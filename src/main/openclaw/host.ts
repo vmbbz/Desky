@@ -177,6 +177,8 @@ export class OpenClawAdapterHost {
     if (!credential && !saved?.credential && !saved?.deviceToken) {
       throw new Error('Enter a gateway token or password.');
     }
+    const previousProfile = this.profile;
+    const previousRememberCredential = this.rememberCredential;
     this.manualDisconnect = false;
     this.rememberCredential = input.rememberCredential;
     this.clearReconnectTimer();
@@ -186,13 +188,18 @@ export class OpenClawAdapterHost {
       gatewayUrl: endpoint.url,
       authKind: input.authKind,
       credential: credential ?? saved?.credential,
-      deviceToken: saved?.deviceToken,
+      deviceToken: credential ? undefined : saved?.deviceToken,
       selectedSessionKey: saved?.selectedSessionKey,
     };
-    if (!input.rememberCredential && credential) this.profile.credential = credential;
-    this.persistProfile(this.rememberCredential);
-    await this.connectCurrentProfile(false, this.generation);
-    return this.getState();
+    try {
+      await this.connectCurrentProfile(false, this.generation);
+      this.persistProfile(this.rememberCredential);
+      return this.getState();
+    } catch (error) {
+      this.profile = previousProfile;
+      this.rememberCredential = previousRememberCredential;
+      throw error;
+    }
   }
 
   async disconnect(): Promise<OpenClawConnectionState> {

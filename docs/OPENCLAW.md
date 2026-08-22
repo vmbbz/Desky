@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, wrong-bootstrap and stale-device-token rejection, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -25,6 +25,8 @@ It advertises session-scoped events, structured tool events, unified approvals, 
 5. If the Gateway requires pairing, Desky displays the pairing request ID. Approve it through OpenClaw's device-management flow, then reconnect.
 6. After `hello-ok`, Desky persists any returned device token using OS credential encryption and uses it on subsequent reconnects.
 7. Select an existing session or create a new session before sending input.
+
+Leaving the credential field blank uses saved access. Entering a credential explicitly bypasses any saved device token, allowing a rotated bootstrap credential to recover a stale pairing. Desky replaces saved access only after the new connection succeeds; a rejected replacement does not destroy the last saved profile.
 
 ## Reconnect and recovery
 
