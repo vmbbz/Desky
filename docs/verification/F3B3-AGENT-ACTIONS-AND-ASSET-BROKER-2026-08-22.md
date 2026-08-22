@@ -48,11 +48,14 @@ The initial live development surface displayed `Failed to fetch` in place of Mil
 
 After the repair, live Desky visibly rendered Milk. Windows Notification Center was opened above the ambient companion and then closed; the OS overlay remained authoritative and Desky did not break or force itself above that surface.
 
+A later native-image review found that this first live claim was too broad: the VRM geometry was present, but Electron Forge's default development CSP blocked Three.js's generated `blob:` request for Milk's embedded texture, leaving the carton pale and unlabelled. The packaged `desky://` surface was unaffected and decoded the same embedded 1024x1024 map. Desky now supplies an explicit least-privilege development CSP aligned with the packaged renderer policy, with only Forge's required development `unsafe-eval` addition. A fresh clean-profile development capture then reported `avatarState: ready`, `avatarTextureCount: 1`, and visibly restored Milk's face, blue bands, and label. Policy alignment is fixture-tested, and the visual harness records avatar state and texture count so geometry-only rendering can no longer be mistaken for a successful avatar smoke.
+
 A clean-profile packaged capture passed with:
 
 - URL `desky://app/main_window/index.html?surface=ambient`;
 - title `Desky` and document state `complete`;
 - visible `Milk · VRM 0.x · CC0 · 100Avatars R1` provenance;
+- `avatarState: ready` and `avatarTextureCount: 1`;
 - `documentFocused: false`;
 - exactly two intended interactive regions; and
 - the minimal collapsed `Connect an agent` launcher.

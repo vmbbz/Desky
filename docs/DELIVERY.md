@@ -41,7 +41,7 @@ Exit gate:
 - Every state is reachable and labeled.
 - Packaged renderer has no Node.js access.
 - No downloaded model binary is committed.
-- `DESKY_VISUAL_TEST_PATH` capture shows the packaged companion and records the live avatar load result.
+- `DESKY_VISUAL_TEST_PATH` capture shows the companion and records both the avatar load state and mapped-texture count, preventing geometry-only white models from passing a visual smoke.
 
 ## F2 — OpenClaw production adapter
 

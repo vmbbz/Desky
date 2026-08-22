@@ -8,6 +8,7 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
+import { developmentRendererContentSecurityPolicy } from './src/shared/content-security-policy';
 
 const config: ForgeConfig = {
   packagerConfig: {
@@ -28,6 +29,7 @@ const config: ForgeConfig = {
     new AutoUnpackNativesPlugin({}),
     new WebpackPlugin({
       mainConfig,
+      devContentSecurityPolicy: developmentRendererContentSecurityPolicy,
       renderer: {
         config: rendererConfig,
         entryPoints: [

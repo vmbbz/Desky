@@ -125,7 +125,9 @@ async function captureVisualTest(
     bubbleVisible: document.querySelector('.ambient-companion')?.dataset.bubbleVisible ?? null,
     composerExpanded: document.querySelector('.ambient-companion')?.dataset.composerExpanded ?? null,
     draftValue: document.querySelector('#ambient-prompt')?.value ?? null,
-    launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null
+    launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null,
+    avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
+    avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null
   })`) as unknown;
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());

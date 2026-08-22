@@ -12,13 +12,13 @@ import {
   Clock,
   Color,
   DirectionalLight,
-  Mesh,
   PerspectiveCamera,
   Scene,
   SRGBColorSpace,
   Vector3,
   WebGLRenderer,
   type Material,
+  type Mesh,
   type Object3D,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -44,14 +44,15 @@ interface AvatarStageProps {
 
 type LoadState =
   | { kind: 'loading'; message: string }
-  | { kind: 'ready'; message: string }
+  | { kind: 'ready'; message: string; textureCount: number }
   | { kind: 'error'; message: string };
 
 function disposeObject(root: Object3D): void {
   root.traverse((object) => {
-    if (!(object instanceof Mesh)) return;
-    object.geometry.dispose();
-    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    const mesh = object as Mesh;
+    if (!mesh.isMesh) return;
+    mesh.geometry.dispose();
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const material of materials as Material[]) material.dispose();
   });
 }
@@ -218,6 +219,15 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
         assertCoreHumanoid(capabilities);
         const usageReview = reviewVrmUsage(vrm.meta, avatar.license);
         assertVrmUsageCompatible(usageReview);
+        let textureCount = 0;
+        vrm.scene.traverse((object) => {
+          const mesh = object as Mesh;
+          if (!mesh.isMesh) return;
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const material of materials as Array<Material & { map?: { isTexture?: boolean } }>) {
+            if (material.map?.isTexture) textureCount += 1;
+          }
+        });
         const provenance = await createAssetProvenance({
           assetId: `avatar:${avatar.projectId}/${avatar.id}`,
           kind: 'avatar',
@@ -269,6 +279,7 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
         setLoadState({
           kind: 'ready',
           message: `${avatar.name} · ${capabilities.specLabel} · ${avatar.license} · ${avatar.projectName}`,
+          textureCount,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Avatar loading failed';
@@ -296,7 +307,12 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
   }, []);
 
   return (
-    <section className="avatar-stage" aria-label="Desky avatar">
+    <section
+      className="avatar-stage"
+      aria-label="Desky avatar"
+      data-avatar-state={loadState.kind}
+      data-avatar-texture-count={loadState.kind === 'ready' ? loadState.textureCount : undefined}
+    >
       <canvas ref={canvasRef} />
       <div className={`asset-status asset-status--${loadState.kind}`} role="status">
         {loadState.message}
