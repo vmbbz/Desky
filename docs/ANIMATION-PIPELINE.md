@@ -127,7 +127,24 @@ Runtime binding validates the canonical payload again before creating Three.js t
 - VRM 0.x receives the required X/Z coordinate conversion; and
 - a target with no supported tracks fails visibly.
 
-The motion arbiter will own mixers, layer priority, fades, cancellation, and lifecycle. This converter does not choose animations from model text or agent output.
+The motion arbiter owns mixer selection, full-body state priority, fades, cancellation, and lifecycle. This converter does not choose animations from model text or agent output.
+
+## Runtime arbitration
+
+The first F3b runtime is split into two renderer modules:
+
+- `motion-arbiter.ts` admits rights-reviewed clips and is the pure semantic boundary. It receives one or more normalized companion states plus admitted clip registrations and returns exactly one full-body plan.
+- `avatar-motion-controller.ts` binds that plan to the loaded VRM, owns its `AnimationMixer`, applies loop/one-shot policy, performs clip-to-clip fades, and disposes mixer state with the avatar.
+
+The priority order is intentional: cancellation, approval, and disconnection outrank error, success, active work, conversational states, and idle. A cancellation never starts another clip: it stops the current action immediately, restores controlled transforms, and enters a stable cancelled pose. The adapter host independently rejects late nonterminal events after the terminal event, so stale tool output cannot restart motion.
+
+Admission is fail-closed. `admitMotionClip` parses the canonical clip and approved animation manifest again, requires matching clip ID, state intent, `state` layer, sample rate, and playback contract, then hashes the canonical serialized bytes and compares them with output provenance. Cancellation does not accept a full-body clip. Callers cannot construct the branded runtime registration directly.
+
+Selection after admission is exact and deterministic. Registrations match a normalized state, lower explicit `order` wins, and equal order is resolved by canonical `clipId`. Raw assistant text, tool arguments, and model-selected labels are not animation selectors. Invalid target bindings fail to the state’s procedural pose without blocking the agent turn.
+
+When no reviewed clip is registered, every state has a small procedural treatment derived from the avatar’s post-load baseline. Those movements are deterministic trigonometric offsets, not unbounded random behavior. The controller captures the relaxed avatar pose after model fitting, reapplies offsets without cumulative drift, and restores that baseline during cancellation and disposal.
+
+The renderer subscribes to `prefers-reduced-motion`. In reduced-motion mode it suppresses registered full-body clips, removes time-varying travel and bounce, and retains only a small static semantic pose plus the readable state label. This is an initial system-level route; the control-center override and pause-motion preference remain F3d work.
 
 ## Release gate
 

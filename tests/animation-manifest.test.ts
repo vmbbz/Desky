@@ -92,4 +92,16 @@ describe('animation asset manifest', () => {
       'Unsupported animation retargeting contract',
     );
   });
+
+  it('supports state intents added by the motion arbiter but excludes cancellation clips', () => {
+    const approval = validManifest();
+    approval.intent = 'approval';
+    approval.layer = 'state';
+    approval.playback = 'loop';
+    expect(parseAnimationAssetManifest(approval).intent).toBe('approval');
+
+    const cancelled = validManifest();
+    cancelled.intent = 'cancelled';
+    expect(() => parseAnimationAssetManifest(cancelled)).toThrow(/intent/i);
+  });
 });

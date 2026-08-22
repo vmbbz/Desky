@@ -360,8 +360,11 @@ describe('OpenClawAdapterHost contract fixture', () => {
         return client;
       },
     );
-    const eventTypes: string[] = [];
-    host.onEvent((event) => eventTypes.push(event.type));
+    const events: Array<{ type: string; kind?: string }> = [];
+    host.onEvent((event) => events.push({
+      type: event.type,
+      kind: event.type === 'turn.failed' ? event.payload.kind : undefined,
+    }));
     await host.connect({
       gatewayUrl: 'ws://127.0.0.1:18789',
       authKind: 'token',
@@ -378,7 +381,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
     });
 
     await host.cancel();
-    const terminalEventCount = eventTypes.length;
+    const terminalEventCount = events.length;
     client?.options.onEvent('agent', {
       sessionKey: 'agent:main:desky',
       runId: 'run-1',
@@ -387,8 +390,10 @@ describe('OpenClawAdapterHost contract fixture', () => {
     });
 
     expect(host.getState().activeRunId).toBeUndefined();
-    expect(eventTypes).toHaveLength(terminalEventCount);
-    expect(eventTypes.filter((type) => type === 'turn.failed')).toHaveLength(1);
-    expect(eventTypes.filter((type) => type === 'tool.completed')).toHaveLength(0);
+    expect(events).toHaveLength(terminalEventCount);
+    expect(events.filter((event) => event.type === 'turn.failed')).toEqual([
+      { type: 'turn.failed', kind: 'cancelled' },
+    ]);
+    expect(events.filter((event) => event.type === 'tool.completed')).toHaveLength(0);
   });
 });

@@ -118,7 +118,7 @@ The normalized state remains the source of truth. Each state needs a readable la
 | `speaking` | Stable streamed bubble text | Subtle conversational gestures, expression, and optional visemes |
 | `success` | Concise completion status | One 0.8–1.5 second acknowledgement, then return to idle |
 | `error` | Plain-language problem and recovery action | One brief concern reaction, then a stable recoverable pose |
-| cancelled turn | Immediate cancelled status and ready state | Stop the active action and settle; late tool events must not restart it |
+| `cancelled` | Immediate cancelled status and ready state | Stop the active action and settle; late tool events must not restart it |
 
 ### Motion layers
 
@@ -232,6 +232,8 @@ The budgets in `docs/ARCHITECTURE.md` apply to the composed companion, not just 
 - Implement the animation layer arbiter independently of any one avatar.
 - Map fixture and live adapter events to deterministic motion intents.
 - Add baseline, state, conversational, action, face, and speech layers with safe fallbacks.
+
+The implemented F3b foundation currently covers the first two bullets and the full-body state portion of the third. `motion-arbiter.ts` resolves concurrent semantic requests by fixed priority and admits only clips registered for the exact normalized state. `avatar-motion-controller.ts` owns the mixer, clip lifecycle, cross-fades, cancellation stop, reduced-motion behavior, and a deterministic procedural fallback for all ten states. Conversational/action queues, blink/look-at, expression, and viseme layers remain later F3b work and must preserve the same ownership boundary.
 
 ### F3c — desktop-presence composition
 

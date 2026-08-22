@@ -302,6 +302,7 @@ export class OpenClawAdapterHost {
         result.status === 'aborted'
           ? 'Turn cancelled'
           : 'Turn ended while Desky was reconnecting; refresh the transcript.',
+        result.status === 'aborted' ? 'cancelled' : 'error',
       );
     } else {
       this.patchState({ message: result.status === 'aborted' ? 'Session work cancelled' : 'No active work to cancel' });
@@ -559,7 +560,11 @@ export class OpenClawAdapterHost {
     });
   }
 
-  private emitTurnFailed(turnId: string, safeError: string): void {
+  private emitTurnFailed(
+    turnId: string,
+    safeError: string,
+    kind: 'cancelled' | 'error' = 'error',
+  ): void {
     if (!rememberTerminal(this.terminalRuns, turnId)) return;
     this.patchState({ activeRunId: undefined, message: safeError });
     this.emitEvent({
@@ -570,7 +575,7 @@ export class OpenClawAdapterHost {
       sessionId: this.state.selectedSessionKey,
       turnId,
       type: 'turn.failed',
-      payload: { safeError },
+      payload: { safeError, kind },
     });
   }
 

@@ -74,7 +74,7 @@ A versioned discriminated union represents runtime-independent events. The proto
 
 The reducer maps events to visible state. It is pure and exhaustively tested. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
 
-The renderer consumes that state through a motion arbiter. The arbiter owns baseline, state-loop, conversational-gesture, action, and facial layers; resolves clip priority and bone ownership; and emits safe neutral fallbacks when an avatar lacks a capability. Cancellation, approval, and disconnection override lower-priority motion. Terminal turns reject late nonterminal animation intents just as the adapter host rejects late lifecycle events.
+The renderer consumes that state through a motion arbiter. The implemented foundation owns one full-body state plan, resolves priority and exact registered-clip selection, and emits a procedural fallback when no admitted clip can run. Its controller owns the VRM mixer, loop/one-shot policy, fades, reduced-motion suppression, baseline restoration, and disposal. Cancellation, approval, and disconnection override lower-priority motion. Terminal turns reject late nonterminal animation intents just as the adapter host rejects late lifecycle events. Conversational/action queues and additive face, blink, look-at, and speech layers will extend this boundary without creating a second full-body owner.
 
 ### Companion window composition
 
@@ -124,7 +124,7 @@ The catalog fetches `projects.json`, then collection-specific avatar files. It j
 
 ### Animation pipeline
 
-The source registry contains avatars, not animation clips. Desky will maintain a reproducible offline conversion pipeline:
+The source registry contains avatars, not animation clips. Desky maintains a reproducible offline conversion pipeline:
 
 1. Record source animation, author, licence, and checksum.
 2. Convert Mixamo/FBX animation to a canonical intermediate representation.
@@ -138,6 +138,8 @@ Runtime prompt-generated conversions are not release inputs. Conversion scripts 
 Animation admission is separate from conversion. `src/shared/animation-manifest.ts` rejects clips without validated source/output provenance, the pinned retargeting profile, deterministic sampling/root-motion parameters, and an approved rights review. No runtime clip loader may bypass this parser.
 
 The canonical clip stores rest-corrected rotations in VRM 1.0 normalized-humanoid coordinates and hips translation in source-rest-height units. `src/renderer/avatar/create-vrm-animation-clip.ts` scales hips to the selected avatar and performs the VRM 0.x axis conversion only while binding. This separates deterministic offline conversion from target-specific runtime mechanics. Operational detail is in `docs/ANIMATION-PIPELINE.md`.
+
+`src/renderer/avatar/motion-arbiter.ts` admits a runtime clip only after parsing the approved manifest and canonical payload, matching clip ID/state intent/layer/sample rate, and verifying the exact canonical output checksum. It then maps normalized state to an admitted clip and playback contract. `src/renderer/avatar/avatar-motion-controller.ts` owns the per-avatar mixer and the deterministic procedural fallback. Cancellation never depends on clip availability, and an invalid target binding degrades to the procedural state instead of failing the render loop or turn.
 
 ## Persistence
 

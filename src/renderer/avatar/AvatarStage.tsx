@@ -25,6 +25,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
+import { AvatarMotionController } from './avatar-motion-controller';
 import { fetchFeaturedCc0Avatar } from './catalog';
 import {
   assertCoreHumanoid,
@@ -80,6 +81,7 @@ function applyRelaxedPose(vrm: VRM): void {
 export function AvatarStage({ mode }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
+  const motionControllerRef = useRef<AvatarMotionController>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
     message: 'Finding a licensed CC0 avatar…',
@@ -87,6 +89,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
 
   useEffect(() => {
     modeRef.current = mode;
+    motionControllerRef.current?.setMode(mode);
   }, [mode]);
 
   useEffect(() => {
@@ -97,8 +100,11 @@ export function AvatarStage({ mode }: AvatarStageProps) {
     let frameId = 0;
     let currentVrm: VRM | undefined;
     let avatarRoot: Object3D | undefined;
-    let baseY = 0;
-    let baseRotationY = 0;
+    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const updateReducedMotion = () => {
+      motionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
+    };
+    reducedMotionQuery.addEventListener('change', updateReducedMotion);
 
     const renderer = new WebGLRenderer({
       canvas,
@@ -141,15 +147,8 @@ export function AvatarStage({ mode }: AvatarStageProps) {
       if (disposed) return;
       const delta = Math.min(clock.getDelta(), 0.1);
       const elapsed = clock.elapsedTime;
+      motionControllerRef.current?.update(delta, elapsed);
       currentVrm?.update(delta);
-
-      if (avatarRoot) {
-        const energetic = ['thinking', 'working', 'speaking'].includes(modeRef.current);
-        const amplitude = energetic ? 0.018 : 0.008;
-        const speed = energetic ? 3.2 : 1.6;
-        avatarRoot.position.y = baseY + Math.sin(elapsed * speed) * amplitude;
-        avatarRoot.rotation.y = baseRotationY + Math.sin(elapsed * 0.55) * 0.035;
-      }
 
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
@@ -193,8 +192,6 @@ export function AvatarStage({ mode }: AvatarStageProps) {
           capabilities,
           usageReview,
         };
-        baseRotationY = avatarRoot.rotation.y;
-        avatarRoot.rotation.y = baseRotationY;
 
         const bounds = new Box3().setFromObject(avatarRoot);
         const size = bounds.getSize(new Vector3());
@@ -208,9 +205,11 @@ export function AvatarStage({ mode }: AvatarStageProps) {
         avatarRoot.position.x -= center.x;
         avatarRoot.position.y -= center.y;
         avatarRoot.position.z -= center.z;
-        baseY = avatarRoot.position.y;
-        avatarRoot.position.y = baseY;
         scene.add(avatarRoot);
+        const motionController = new AvatarMotionController(vrm, avatarRoot);
+        motionControllerRef.current = motionController;
+        motionController.setReducedMotion(reducedMotionQuery.matches);
+        motionController.setMode(modeRef.current);
 
         setLoadState({
           kind: 'ready',
@@ -229,6 +228,9 @@ export function AvatarStage({ mode }: AvatarStageProps) {
       disposed = true;
       cancelAnimationFrame(frameId);
       resizeObserver.disconnect();
+      reducedMotionQuery.removeEventListener('change', updateReducedMotion);
+      motionControllerRef.current?.dispose();
+      motionControllerRef.current = undefined;
       if (avatarRoot) disposeObject(avatarRoot);
       renderer.dispose();
     };

@@ -79,6 +79,8 @@ The offline converter and canonical runtime format are implemented in `src/tools
 
 The converter is not a licence oracle. It will not emit an admitted manifest without explicit review metadata, and no reviewed production clip is committed yet. The first legally redistributable source/output fixture remains an owner/reviewer gate.
 
+Runtime admission enforces the same boundary. `admitMotionClip` accepts only a parsed approved manifest whose clip identity, semantic state, layer, sample rate, and exact canonical output checksum match the clip bytes. The controller never treats the open-source status of an avatar as evidence that a separate animation may be redistributed.
+
 ## Store content rules
 
 - The catalog is an indexed set of data assets, not downloadable executable code.

@@ -7,6 +7,7 @@ export const companionModes = [
   'approval',
   'speaking',
   'success',
+  'cancelled',
   'error',
 ] as const;
 
@@ -48,5 +49,11 @@ export type AdapterEvent = EventContext & (
       };
     }
   | { type: 'turn.completed'; payload: { summary: string } }
-  | { type: 'turn.failed'; payload: { safeError: string } }
+  | {
+      type: 'turn.failed';
+      payload: {
+        safeError: string;
+        kind?: 'cancelled' | 'error';
+      };
+    }
 );

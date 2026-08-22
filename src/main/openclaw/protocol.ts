@@ -224,7 +224,14 @@ export function normalizeOpenClawEvent(
       return [{ ...context, type: 'turn.completed', payload: { summary: safeText(payload.stopReason, 'Turn completed') } }];
     }
     if (payload.state === 'aborted' || payload.state === 'error') {
-      return [{ ...context, type: 'turn.failed', payload: { safeError: safeText(payload.errorMessage, payload.state === 'aborted' ? 'Turn cancelled' : 'Turn failed') } }];
+      return [{
+        ...context,
+        type: 'turn.failed',
+        payload: {
+          safeError: safeText(payload.errorMessage, payload.state === 'aborted' ? 'Turn cancelled' : 'Turn failed'),
+          kind: payload.state === 'aborted' ? 'cancelled' : 'error',
+        },
+      }];
     }
   }
 

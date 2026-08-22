@@ -137,6 +137,27 @@ Open before the F3a slice is complete:
 - Test proportions, materials, spring bones, expressions, coordinates, foot contact, and hips scaling against the binary suite.
 - Complete the packaged state matrix and performance evidence on Windows, then repeat package, visual, and performance checks on macOS.
 
+### F3b motion-runtime foundation — 2026-08-22
+
+Implemented and test-verified:
+
+- Added an explicit normalized `cancelled` companion state while preserving the terminal `turn.failed` protocol shape; native and acknowledged aborts carry `payload.kind: cancelled`, and older/missing kinds remain errors.
+- Added a pure motion arbiter with a fixed priority table, exact state registration, stable `order`/`clipId` tie-breaking, bounded fade metadata, and one authoritative full-body plan.
+- Added branded runtime admission that reparses the canonical clip and approved manifest, matches identity/state/layer/sample rate, verifies the exact output checksum, and refuses cancellation clips.
+- Added a per-avatar motion controller that owns the Three.js mixer, canonical VRM clip binding, loop/one-shot policy, clip-to-clip fades, immediate cancellation stop, baseline restoration, and disposal.
+- Replaced the undifferentiated avatar bob with deterministic procedural poses for disconnected, idle, listening, thinking, working, approval, speaking, success, cancelled, and error.
+- Added a system `prefers-reduced-motion` route that suppresses full-body clips and time-varying travel while retaining a small static semantic pose and readable state.
+- Added fixtures for all state fallbacks, priority, deterministic clip selection, reduced motion, mixer playback, invalid-clip degradation, transform cleanup, gateway abort classification, reducer cancellation, and late-tool rejection.
+
+Still open in F3b/F3d:
+
+- Admit the first owner-approved redistributable production clip through the rights/provenance manifest. The open-source avatar registry does not license unrelated animation files.
+- Add queued conversational gestures and explicit user-requested action choreography without permitting random idle motion to interrupt them.
+- Add capability-aware blink, look-at, expression, and optional viseme layers.
+- Add an in-product pause/reduced-motion override, occlusion suspension, WebGL recovery, and packaged Windows/macOS visual/performance evidence.
+
+The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
+
 ## F4 — control surface and daily usability
 
 Deliverables:
@@ -200,8 +221,8 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Approve and verify the first redistributable animation source, then begin the deterministic motion arbiter using the canonical runtime format. The successful-stream and actual-tool-interruption engineering gates are closed.
-   Use `docs/ANIMATION-PIPELINE.md` and the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation.
+1. Approve and verify the first redistributable animation source, then register it with the implemented deterministic motion runtime. The successful-stream, actual-tool-interruption, converter, and state-motion-arbiter engineering gates are closed.
+   Use `docs/ANIMATION-PIPELINE.md` and the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation. Continue with queued user-requested actions and additive expression/look-at/blink layers only after the first clip passes provenance review.
 2. Complete response-stream interruption and secure remote `wss://` cases; network loss, tool cancellation/recovery, and approval expiry/contention are live-verified.
 3. Verify clean-device pairing, cross-device contention, and paired-token rotation.
 4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.

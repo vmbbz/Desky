@@ -54,6 +54,23 @@ describe('reduceCompanionState', () => {
     expect(state.bubbleText).not.toContain('undefined');
   });
 
+  it('distinguishes an intentional cancellation from an operational error', () => {
+    const state = reduceCompanionState(initialCompanionState, {
+      ...context,
+      type: 'turn.failed',
+      payload: { safeError: 'Turn cancelled', kind: 'cancelled' },
+    });
+
+    expect(state).toMatchObject({
+      mode: 'cancelled',
+      label: 'Cancelled',
+      detail: 'Turn cancelled',
+      activeTurnId: undefined,
+      pendingApproval: undefined,
+    });
+    expect(state.bubbleText).toBe('That turn was cancelled.');
+  });
+
   it('clears only the approval named by an authoritative terminal event', () => {
     const pending = reduceCompanionState(initialCompanionState, {
       ...context,

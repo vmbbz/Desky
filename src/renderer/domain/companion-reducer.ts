@@ -113,15 +113,19 @@ export function reduceCompanionState(
         activeTurnId: undefined,
         pendingApproval: undefined,
       };
-    case 'turn.failed':
+    case 'turn.failed': {
+      const cancelled = event.payload.kind === 'cancelled';
       return {
         ...state,
-        mode: 'error',
-        label: 'Needs attention',
+        mode: cancelled ? 'cancelled' : 'error',
+        label: cancelled ? 'Cancelled' : 'Needs attention',
         detail: event.payload.safeError,
-        bubbleText: 'That turn did not complete. Open details to recover.',
+        bubbleText: cancelled
+          ? 'That turn was cancelled.'
+          : 'That turn did not complete. Open details to recover.',
         activeTurnId: undefined,
         pendingApproval: undefined,
       };
+    }
   }
 }

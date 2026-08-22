@@ -63,6 +63,21 @@ describe('OpenClaw protocol v4 boundary', () => {
     })[0]).toMatchObject({ type: 'assistant.delta', payload: { text: 'Hello' } });
   });
 
+  it('marks a native abort as cancellation rather than an operational error', () => {
+    expect(normalizeOpenClawEvent('connection-1', 'chat', {
+      sessionKey: 'session-1', runId: 'run-1', state: 'aborted',
+    })[0]).toMatchObject({
+      type: 'turn.failed',
+      payload: { safeError: 'Turn cancelled', kind: 'cancelled' },
+    });
+    expect(normalizeOpenClawEvent('connection-1', 'chat', {
+      sessionKey: 'session-1', runId: 'run-2', state: 'error', errorMessage: 'Provider unavailable',
+    })[0]).toMatchObject({
+      type: 'turn.failed',
+      payload: { safeError: 'Provider unavailable', kind: 'error' },
+    });
+  });
+
   it('preserves only reviewer-safe approval fields and always offers deny', () => {
     const [event] = normalizeOpenClawEvent('connection-1', 'session.approval', {
       sessionKey: 'session-1',

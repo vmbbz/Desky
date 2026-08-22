@@ -49,7 +49,7 @@ Initial semantic events:
 | `approval.requested` | runtime is blocked on an explicit user decision |
 | `approval.resolved` | runtime recorded an allowed, denied, expired, or cancelled approval terminal state |
 | `turn.completed` | terminal success for a turn |
-| `turn.failed` | terminal failure with a safe error |
+| `turn.failed` | terminal non-success with a safe error and optional `error`/`cancelled` kind |
 
 ## Command semantics
 
@@ -69,6 +69,7 @@ Initial semantic events:
 - Tokens, authorization headers, environment values, and raw subprocess commands never enter event payloads.
 - Unknown native events are logged as redacted diagnostics and ignored until mapped deliberately.
 - A `turn.completed` or `turn.failed` event is emitted exactly once per accepted turn.
+- Native aborts and acknowledged user cancellation set `turn.failed.payload.kind` to `cancelled`; missing or `error` kinds fail closed to the recoverable error state for backward compatibility.
 
 ## Planned adapters
 

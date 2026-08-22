@@ -47,6 +47,7 @@ button { cursor: pointer; }
 .companion--speaking { --accent: #68cfff; --accent-rgb: 104, 207, 255; }
 .companion--success { --accent: #89f29b; --accent-rgb: 137, 242, 155; }
 .companion--approval { --accent: #ffc56b; --accent-rgb: 255, 197, 107; }
+.companion--cancelled { --accent: #9fb2c9; --accent-rgb: 159, 178, 201; }
 .companion--error { --accent: #ff7d91; --accent-rgb: 255, 125, 145; }
 .companion--disconnected { --accent: #9aa6ba; --accent-rgb: 154, 166, 186; }
 

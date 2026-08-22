@@ -4,9 +4,12 @@ import {
 } from './asset-provenance';
 
 export const motionIntents = [
+  'disconnected',
   'idle',
+  'listening',
   'thinking',
   'working',
+  'approval',
   'speaking',
   'success',
   'error',
