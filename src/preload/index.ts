@@ -14,6 +14,10 @@ import type {
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import type { AdapterEvent } from '../shared/adapter-events';
+import type {
+  CompanionDraftSnapshot,
+  CompanionSnapshot,
+} from '../shared/companion-state';
 
 const channels = {
   state: 'desky:openclaw:state',
@@ -51,6 +55,30 @@ const openClaw: OpenClawBridge = Object.freeze({
   },
 });
 
+const companionChannels = {
+  state: 'desky:companion:state',
+  getState: 'desky:companion:get-state',
+  draft: 'desky:companion:draft',
+  getDraft: 'desky:companion:get-draft',
+  setDraft: 'desky:companion:set-draft',
+} as const;
+
+const companion = Object.freeze({
+  getState: () => ipcRenderer.invoke(companionChannels.getState) as Promise<CompanionSnapshot>,
+  onState: (listener: (state: CompanionSnapshot) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: CompanionSnapshot) => listener(state);
+    ipcRenderer.on(companionChannels.state, handler);
+    return () => ipcRenderer.removeListener(companionChannels.state, handler);
+  },
+  getDraft: () => ipcRenderer.invoke(companionChannels.getDraft) as Promise<CompanionDraftSnapshot>,
+  setDraft: (text: string) => ipcRenderer.invoke(companionChannels.setDraft, text) as Promise<CompanionDraftSnapshot>,
+  onDraft: (listener: (draft: CompanionDraftSnapshot) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, draft: CompanionDraftSnapshot) => listener(draft);
+    ipcRenderer.on(companionChannels.draft, handler);
+    return () => ipcRenderer.removeListener(companionChannels.draft, handler);
+  },
+});
+
 const api = Object.freeze({
   getRuntimeInfo: (): Promise<RuntimeInfo> =>
     ipcRenderer.invoke('desky:runtime-info') as Promise<RuntimeInfo>,
@@ -67,6 +95,7 @@ const api = Object.freeze({
   setAmbientPointerRegion: (region: AmbientPointerRegion): void => {
     ipcRenderer.send('desky:ambient-pointer-region', region);
   },
+  companion,
   openClaw,
 });
 

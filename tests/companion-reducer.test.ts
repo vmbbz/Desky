@@ -4,7 +4,7 @@ import type { AdapterEvent } from '../src/shared/adapter-events';
 import {
   initialCompanionState,
   reduceCompanionState,
-} from '../src/renderer/domain/companion-reducer';
+} from '../src/shared/companion-state';
 
 const context = {
   protocolVersion: 1 as const,
@@ -40,6 +40,50 @@ describe('reduceCompanionState', () => {
     expect(modes).toEqual(['idle', 'listening', 'thinking', 'working', 'speaking', 'success']);
     expect(state.detail).toBe('Done');
     expect(state.activeTurnId).toBeUndefined();
+    expect(state.responseText).toBe('Finished.');
+  });
+
+  it('keeps the current response while presenting a concise ambient preview', () => {
+    const longResponse = 'A'.repeat(260);
+    const state = reduceCompanionState(initialCompanionState, {
+      ...context,
+      type: 'assistant.delta',
+      payload: { text: longResponse },
+    });
+
+    expect(state.responseText).toBe(longResponse);
+    expect(state.bubbleText).toHaveLength(221);
+    expect(state.bubbleText.endsWith('…')).toBe(true);
+    expect(state.bubbleOverflow).toBe(true);
+  });
+
+  it('starts each accepted input with a fresh response buffer', () => {
+    const answered = reduceCompanionState(initialCompanionState, {
+      ...context,
+      type: 'assistant.delta',
+      payload: { text: 'Previous answer' },
+    });
+    const next = reduceCompanionState(answered, {
+      ...context,
+      type: 'user.input.accepted',
+      payload: { summary: 'Next request' },
+    });
+
+    expect(next.responseText).toBe('');
+    expect(next.bubbleText).toBe('');
+    expect(next.bubbleOverflow).toBe(false);
+  });
+
+  it('bounds the live response and discloses truncation', () => {
+    const state = reduceCompanionState(initialCompanionState, {
+      ...context,
+      type: 'assistant.delta',
+      payload: { text: 'B'.repeat(100_050) },
+    });
+
+    expect(state.responseText).toHaveLength(100_000);
+    expect(state.responseTruncated).toBe(true);
+    expect(state.bubbleOverflow).toBe(true);
   });
 
   it('fails closed into an explicit error state', () => {

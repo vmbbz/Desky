@@ -186,7 +186,20 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C2-DESKTOP-BEHAVIOR-2026-08-22.md`.
 
-F3c.3 is now the next desktop-presence round: contextual composer reveal/collapse with draft persistence, long-response overflow and **Open conversation**, plus cross-window approval reconciliation. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+### F3c.3 focused-companion status — 2026-08-22
+
+Implemented and package-verified on Windows:
+
+- Replaced permanent ambient status and management chrome with an avatar-first resting composition and a compact contextual launcher.
+- Added explicit character/launcher composer reveal, `Escape` collapse, successful-send collapse, and a shared session-only draft that is not written to application data.
+- Moved normalized companion reduction into one main-owned revisioned snapshot so late-opening windows recover the current response, terminal state, and pending approval.
+- Preserved compact ambient approval decisions and Stop while keeping full approval detail, session choice, and runtime setup in the control center.
+- Added a bounded full live response, a concise ambient preview, and **Open conversation** for overflow or recoverable error detail.
+- Package-verified idle, collapse/re-open draft, and completed-response surfaces through `desky://`; all remained unfocused, and the exact draft survived the packaged collapse exercise.
+
+Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
+
+The next product round returns to animation expressiveness: deterministic action and conversational gesture queues plus capability-aware procedural blink/look-at/speaking layers. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 

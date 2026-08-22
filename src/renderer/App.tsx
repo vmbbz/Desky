@@ -1,5 +1,12 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import {
+  initialCompanionDraftSnapshot,
+  initialCompanionSnapshot,
+  reduceCompanionSnapshot,
+  type CompanionDraftSnapshot,
+  type CompanionSnapshot,
+} from '../shared/companion-state';
 import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
 import type {
   AmbientSurfaceState,
@@ -8,10 +15,6 @@ import type {
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage } from './avatar/AvatarStage';
-import {
-  initialCompanionState,
-  reduceCompanionState,
-} from './domain/companion-reducer';
 
 const initialGateway: OpenClawConnectionState = {
   status: 'disconnected',
@@ -22,6 +25,7 @@ const initialGateway: OpenClawConnectionState = {
   reconnectAttempt: 0,
   sessions: [],
 };
+const visualTestState = new URLSearchParams(window.location.search).get('visualState');
 
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : 'The operation failed.';
@@ -30,21 +34,26 @@ function errorMessage(error: unknown): string {
 
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
-  const [state, dispatch] = useReducer(reduceCompanionState, initialCompanionState);
+  const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
+  const [draft, setDraft] = useState<CompanionDraftSnapshot>(initialCompanionDraftSnapshot);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo>();
   const [ambientState, setAmbientState] = useState<AmbientSurfaceState>();
   const [avatarBounds, setAvatarBounds] = useState<DesktopRectangle>();
-  const [adapterMode, setAdapterMode] = useState<'openclaw' | 'simulation'>('openclaw');
+  const [adapterMode, setAdapterMode] = useState<'openclaw' | 'simulation'>(
+    visualTestState ? 'simulation' : 'openclaw',
+  );
   const [gateway, setGateway] = useState<OpenClawConnectionState>(initialGateway);
   const [showConnection, setShowConnection] = useState(true);
   const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
   const [rememberCredential, setRememberCredential] = useState(true);
-  const [prompt, setPrompt] = useState('Inspect the project and tell me what to do next.');
   const [busy, setBusy] = useState(false);
   const [uiError, setUiError] = useState('');
+  const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
+  const adapterModeRef = useRef(adapterMode);
+  const pendingDraftTextRef = useRef<string | null>(null);
 
   useEffect(() => {
     void window.desky.getRuntimeInfo().then((info) => {
@@ -58,15 +67,38 @@ export function App() {
       setShowConnection(next.status !== 'connected');
     });
     const removeState = window.desky.openClaw.onState(setGateway);
-    const removeEvents = window.desky.openClaw.onEvent(dispatch);
+    const acceptCompanionState = (next: CompanionSnapshot) => {
+      if (adapterModeRef.current !== 'openclaw') return;
+      setState((current) => next.revision >= current.revision ? next : current);
+    };
+    const acceptDraft = (next: CompanionDraftSnapshot) => {
+      const pendingText = pendingDraftTextRef.current;
+      if (pendingText !== null && next.text !== pendingText) return;
+      if (pendingText === next.text) pendingDraftTextRef.current = null;
+      setDraft((current) => next.revision >= current.revision ? next : current);
+    };
+    const removeCompanionState = window.desky.companion.onState(acceptCompanionState);
+    const removeDraft = window.desky.companion.onDraft(acceptDraft);
+    void window.desky.companion.getState().then(acceptCompanionState);
+    void window.desky.companion.getDraft().then(acceptDraft);
     void window.desky.getAmbientSurfaceState().then(setAmbientState);
     const removeAmbientState = window.desky.onAmbientSurfaceState(setAmbientState);
     return () => {
       removeState();
-      removeEvents();
+      removeCompanionState();
+      removeDraft();
       removeAmbientState();
     };
   }, []);
+
+  useEffect(() => {
+    adapterModeRef.current = adapterMode;
+    if (adapterMode === 'openclaw') {
+      void window.desky.companion.getState().then((next) => {
+        setState(next);
+      });
+    }
+  }, [adapterMode]);
 
   useEffect(() => {
     if (runtimeInfo?.surface !== 'ambient' || ambientState?.fullClickThrough) return undefined;
@@ -96,11 +128,40 @@ export function App() {
     let active = true;
     void (async () => {
       for await (const event of simulation.connect()) {
-        if (active) dispatch(event);
+        if (active) setState((current) => reduceCompanionSnapshot(current, event));
       }
     })();
     return () => { active = false; };
   }, [adapterMode, simulation]);
+
+  useEffect(() => {
+    if (visualTestState !== 'response' || adapterMode !== 'simulation') return;
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        for await (const event of simulation.run('Show the packaged response bubble.')) {
+          if (!active) return;
+          setState((current) => reduceCompanionSnapshot(current, event));
+        }
+      })();
+    }, 400);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [adapterMode, simulation]);
+
+  const updateDraft = (text: string) => {
+    pendingDraftTextRef.current = text;
+    setDraft((current) => ({ ...current, text }));
+    void window.desky.companion.setDraft(text).then((next) => {
+      if (pendingDraftTextRef.current === next.text) pendingDraftTextRef.current = null;
+      setDraft((current) => {
+        if (pendingDraftTextRef.current !== null && next.text !== pendingDraftTextRef.current) return current;
+        return next.revision >= current.revision ? next : current;
+      });
+    }).catch((error: unknown) => setUiError(errorMessage(error)));
+  };
 
   const withBusy = async (operation: () => Promise<void>) => {
     if (busy) return;
@@ -128,13 +189,17 @@ export function App() {
   });
 
   const run = () => withBusy(async () => {
-    const text = prompt.trim();
+    const text = draft.text.trim();
     if (!text) return;
     if (adapterMode === 'simulation') {
-      for await (const event of simulation.run(text)) dispatch(event);
-      return;
+      for await (const event of simulation.run(text)) {
+        setState((current) => reduceCompanionSnapshot(current, event));
+      }
+    } else {
+      await window.desky.openClaw.send(text);
     }
-    await window.desky.openClaw.send(text);
+    updateDraft('');
+    setComposerExpanded(false);
   });
 
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
@@ -147,6 +212,20 @@ export function App() {
   const recoveryShortcutLabel = runtimeInfo?.platform === 'darwin'
     ? 'Cmd+Shift+D'
     : 'Ctrl+Shift+D';
+  const activeRun = adapterMode === 'openclaw' && Boolean(gateway.activeRunId);
+  const meaningfulModes = ['listening', 'thinking', 'working', 'approval', 'speaking', 'success', 'cancelled', 'error'];
+  const bubbleMessage = uiError || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
+  const showAmbientBubble = Boolean(bubbleMessage)
+    && (Boolean(uiError) || meaningfulModes.includes(state.mode));
+
+  const openComposer = () => {
+    if (!connected || !hasSession) {
+      window.desky.performWindowAction('open-control-center');
+      return;
+    }
+    setComposerExpanded(true);
+    requestAnimationFrame(() => ambientPromptRef.current?.focus());
+  };
 
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
     const approval = state.pendingApproval;
@@ -183,31 +262,52 @@ export function App() {
       <main
         className={`ambient-companion companion--${state.mode}`}
         data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
+        data-bubble-visible={showAmbientBubble}
+        data-composer-expanded={composerExpanded}
         data-horizontal-placement={ambientState?.horizontalPlacement ?? 'center'}
         data-recovery-available={ambientState?.recoveryAvailable ?? false}
       >
-        <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Desky" aria-hidden="true">•••</div>
-        <div className="ambient-actions" data-desky-interactive="true">
-          <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
-          <button type="button" aria-label="Enable full click-through" title={`Click through everything; recover with the tray or ${recoveryShortcutLabel}`} onClick={() => window.desky.performWindowAction('toggle-full-click-through')}>⇥</button>
-          <button type="button" aria-label="Hide Desky companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
-        </div>
+        {composerExpanded ? (
+          <>
+            <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Desky" aria-label="Drag Desky">•••</div>
+            <div className="ambient-actions" data-desky-interactive="true">
+              <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
+              <button type="button" aria-label="Enable full click-through" title={`Click through everything; recover with the tray or ${recoveryShortcutLabel}`} onClick={() => window.desky.performWindowAction('toggle-full-click-through')}>⇥</button>
+              <button type="button" aria-label="Hide Desky companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
+            </div>
 
-        <button
-          type="button"
-          className={`ambient-status connection-badge connection-badge--${connectionStatus}`}
-          data-desky-interactive="true"
-          onClick={() => window.desky.performWindowAction('open-control-center')}
-          title={statusDetail}
-        >
-          <span className="status-dot" aria-hidden="true" />
-          <span>{runtimeLabel} · {connectionStatus}</span>
-        </button>
+            <button
+              type="button"
+              className={`ambient-status connection-badge connection-badge--${connectionStatus}`}
+              data-desky-interactive="true"
+              onClick={() => window.desky.performWindowAction('open-control-center')}
+              title={statusDetail}
+            >
+              <span className="status-dot" aria-hidden="true" />
+              <span>{runtimeLabel} · {connectionStatus}</span>
+            </button>
+          </>
+        ) : null}
 
-        <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
-          <strong>{state.label}</strong>
-          <p>{uiError || state.bubbleText || statusDetail || '…'}</p>
-        </section>
+        {showAmbientBubble ? (
+          <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
+            <strong>{uiError ? 'Needs attention' : state.label}</strong>
+            <p>{bubbleMessage}</p>
+            {state.pendingApproval && adapterMode === 'openclaw' ? (
+              <div className="ambient-approval-actions" aria-label="Approval choices">
+                {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
+                  <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-once'))}>Allow once</button>
+                ) : null}
+                <button type="button" className="danger" disabled={busy} onClick={() => void withBusy(() => resolveApproval('deny'))}>Deny</button>
+                <button type="button" className="quiet" onClick={() => window.desky.performWindowAction('open-control-center')}>Details</button>
+              </div>
+            ) : state.bubbleOverflow || uiError ? (
+              <button type="button" className="ambient-open-conversation" onClick={() => window.desky.performWindowAction('open-control-center')}>
+                Open conversation
+              </button>
+            ) : null}
+          </section>
+        ) : null}
 
         <div className="ambient-avatar">
           <AvatarStage mode={state.mode} onVisibleBounds={setAvatarBounds} />
@@ -217,34 +317,47 @@ export function App() {
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
               aria-label="Focus the Desky composer"
-              title="Ask Desky"
+              title={connected && hasSession ? 'Ask Desky' : 'Set up Desky'}
               style={{
                 left: avatarBounds.x,
                 top: avatarBounds.y,
                 width: avatarBounds.width,
                 height: avatarBounds.height,
               }}
-              onClick={() => ambientPromptRef.current?.focus()}
+              onClick={openComposer}
             />
           ) : null}
         </div>
 
-        {approvalCard ? <div className="ambient-approval" data-desky-interactive="true">{approvalCard}</div> : null}
-
-        {connected && hasSession ? (
-          <form className="ambient-prompt" data-desky-interactive="true" onSubmit={(event) => { event.preventDefault(); void run(); }}>
+        {composerExpanded && connected && hasSession ? (
+          <form
+            className="ambient-prompt ambient-prompt--expanded"
+            data-desky-interactive="true"
+            onSubmit={(event) => { event.preventDefault(); void run(); }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Escape') return;
+              event.preventDefault();
+              setComposerExpanded(false);
+            }}
+          >
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
-            <input ref={ambientPromptRef} id="ambient-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy} autoComplete="off" />
-            {adapterMode === 'openclaw' && gateway.activeRunId ? (
+            <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Desky anything…" />
+            {activeRun ? (
               <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
             ) : (
-              <button type="submit" disabled={busy || !prompt.trim()}>{busy ? '…' : 'Send'}</button>
+              <button type="submit" disabled={busy || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
             )}
           </form>
         ) : (
-          <button type="button" className="ambient-setup" data-desky-interactive="true" onClick={() => window.desky.performWindowAction('open-control-center')}>
-            {connected ? 'Choose a session' : 'Connect an agent'}
-          </button>
+          <div className="ambient-launcher" data-desky-interactive="true">
+            {activeRun ? (
+              <button className="ambient-stop" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
+            ) : (
+              <button type="button" onClick={openComposer}>
+                {connected ? (hasSession ? 'Ask Desky…' : 'Choose a session') : 'Connect an agent'}
+              </button>
+            )}
+          </div>
         )}
       </main>
     );
@@ -276,7 +389,8 @@ export function App() {
       </div>
 
       <section className="speech-bubble control-center__bubble" aria-live="polite">
-        <p>{uiError || state.bubbleText || 'Your agent’s short responses will appear here.'}</p>
+        {state.responseTruncated ? <span className="response-truncation">Earlier response content was omitted from this live view.</span> : null}
+        <p>{uiError || state.responseText || state.bubbleText || 'Your agent’s current response will appear here.'}</p>
       </section>
 
       {approvalCard}
@@ -327,11 +441,11 @@ export function App() {
 
       <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
         <label className="sr-only" htmlFor="control-prompt">Message</label>
-        <input id="control-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" />
+        <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Desky anything…" />
         {adapterMode === 'openclaw' && gateway.activeRunId ? (
           <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
         ) : (
-          <button type="submit" disabled={busy || !prompt.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
+          <button type="submit" disabled={busy || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
         )}
       </form>
 

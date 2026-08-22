@@ -21,12 +21,12 @@ The rejected Tauri approach is recorded in ADR 0001. The deciding constraint was
 ┌──────────────────────────────────────────────────────────────┐
 │ Electron main process                                       │
 │ window lifecycle | tray | secure storage | adapter host     │
-│ distribution capabilities | diagnostics | update policy      │
+│ companion snapshot | session draft | distribution policy    │
 └───────────────────────────┬──────────────────────────────────┘
                             │ narrow, typed IPC
 ┌───────────────────────────▼──────────────────────────────────┐
 │ Sandboxed renderer                                           │
-│ React UI | event reducer | avatar state machine | Three.js    │
+│ React UI | snapshot consumer | avatar state machine | Three.js│
 └───────────────────────────┬──────────────────────────────────┘
                             │ HTTPS asset requests
 ┌───────────────────────────▼──────────────────────────────────┐
@@ -49,6 +49,8 @@ Adapter host connections:
 - Validate all IPC inputs and expose explicit commands only.
 - Record redacted diagnostics.
 - Coordinate shutdown, cancellation, and child-process cleanup.
+- Reduce normalized adapter events into one revisioned companion snapshot shared by every window.
+- Hold the unsent composer draft only for the current application process.
 
 ### Preload bridge
 
@@ -59,7 +61,7 @@ Adapter host connections:
 ### Renderer
 
 - Render character and accessible controls.
-- Reduce normalized adapter events into a deterministic companion state.
+- Render revisioned normalized companion snapshots supplied by main; simulation fixtures may apply the same pure reducer locally.
 - Never receive long-lived secrets.
 - Never construct shell commands.
 - Treat avatar metadata, model files, and agent text as untrusted input.
@@ -72,9 +74,9 @@ A versioned discriminated union represents runtime-independent events. The proto
 
 ### Companion state machine
 
-The reducer maps events to visible state. It is pure and exhaustively tested. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
+The shared reducer maps events to visible state. It is pure and exhaustively tested. `CompanionStateHost` applies it once in the main process and exposes a revisioned snapshot, preventing independently mounted ambient and control-center renderers from disagreeing about current text or approval state. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
 
-The renderer consumes that state through a motion arbiter. The implemented foundation owns one full-body state plan, resolves priority and exact registered-clip selection, and emits a procedural fallback when no admitted clip can run. Its controller owns the VRM mixer, loop/one-shot policy, fades, reduced-motion suppression, baseline restoration, and disposal. Cancellation, approval, and disconnection override lower-priority motion. Terminal turns reject late nonterminal animation intents just as the adapter host rejects late lifecycle events. Conversational/action queues and additive face, blink, look-at, and speech layers will extend this boundary without creating a second full-body owner.
+Each renderer consumes that snapshot through the UI and motion arbiter. The implemented foundation owns one full-body state plan, resolves priority and exact registered-clip selection, and emits a procedural fallback when no admitted clip can run. Its controller owns the VRM mixer, loop/one-shot policy, fades, reduced-motion suppression, baseline restoration, and disposal. Cancellation, approval, and disconnection override lower-priority motion. Terminal turns reject late nonterminal animation intents just as the adapter host rejects late lifecycle events. Conversational/action queues and additive face, blink, look-at, and speech layers will extend this boundary without creating a second full-body owner.
 
 ### Companion window composition
 
@@ -91,6 +93,8 @@ The behavior and acceptance matrix are specified in `docs/COMPANION-EXPERIENCE.m
 
 The ambient renderer reports only `interactive` or `transparent` pointer intent through typed IPC. Interactive DOM regions are explicit, and the avatar uses projected scene bounds rather than its full canvas. Main applies Electron mouse-event forwarding for selective hit testing and owns the stronger full-window click-through mode. Full click-through is not persisted across launch and cannot enable without a live tray or global-shortcut recovery surface. Tray and native context menus also expose show, hide, position reset, always-on-top, control-center, and quit actions. Runtime state broadcasts never call `show` or `focus`; ambient restoration uses `showInactive`, while an explicit character click may focus the composer.
 
+The contextual composer uses a separate typed companion bridge. Main holds one bounded, revisioned draft in memory, broadcasts changes to existing windows, and returns it to windows opened later. It is cleared only after an accepted send or explicit user deletion; collapsing, reconnecting, or recreating a renderer does not discard it. The draft is intentionally absent from `desktop-state.json`, the secure credential vault, and transcript persistence. Main also broadcasts the revisioned companion snapshot after every normalized adapter event, while the renderer uses a concise response preview and routes the bounded live response to the control center.
+
 Surface separation does not make the OpenClaw bridge the generic adapter contract. F5a will put an executable adapter registry and shared connection/session/capability types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
 
 ### OpenClaw adapter host
@@ -101,14 +105,14 @@ The first production adapter is owned entirely by the main process:
 connection UI -> validated IPC command -> OpenClawAdapterHost
                                         -> secure vault
                                         -> protocol-v4 WebSocket client
-Gateway frame -> main-process validation/redaction -> AdapterEvent -> renderer reducer
+Gateway frame -> main-process validation/redaction -> AdapterEvent -> companion snapshot -> renderers
 ```
 
 - `gateway-client.ts` owns the challenge-first wire exchange and request correlation.
 - `protocol.ts` owns the pinned v4 constants, Ed25519 device proof, URL policy, native frame guards, and redacted event mapping.
 - `secure-vault.ts` stores encrypted opaque values only; it has no plaintext fallback.
 - `host.ts` owns profiles, sessions, terminal-event deduplication, approval routing, cancellation, reconciliation, and bounded reconnect.
-- Preload exposes semantic commands and two read-only event subscriptions. It never exposes sockets, native frames, credentials, or `ipcRenderer`.
+- Preload exposes semantic commands, read-only runtime events/state, and revisioned companion snapshot/draft methods. It never exposes sockets, native frames, credentials, or `ipcRenderer`.
 
 The packaged renderer is served from the secure custom `desky://` scheme. This lets the file-protocol privilege fuse remain disabled without making packaged assets unavailable.
 
@@ -153,6 +157,7 @@ Initial persistence is split by sensitivity:
 
 - OS credential encryption (`safeStorage`): gateway credentials, Ed25519 private identity, and paired device tokens in an opaque application-data vault.
 - Application data directory: validated settings, bounded display-arrangement placement records, selected avatar reference, redacted session index. Full click-through is intentionally not persisted.
+- Main-process memory only: the current unsent composer draft and revisioned live companion snapshot; both end when the application exits.
 - Optional transcript store: disabled until encryption, retention controls, and deletion semantics are implemented.
 - Cache directory: catalog JSON, previews, and avatar binaries with licence/provenance sidecars and bounded size.
 

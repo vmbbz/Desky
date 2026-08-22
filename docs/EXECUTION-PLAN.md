@@ -57,12 +57,24 @@ The implementation stores at most sixteen recent geometry-keyed placements, clam
 
 ### F3c.3 — focused companion behavior
 
-Status: next implementation round.
+Status: implemented and package-verified on Windows; assistive-technology and macOS evidence remain broader F3/F3d gates.
 
 - Reveal and collapse the composer contextually while preserving drafts.
 - Keep session selection and runtime setup out of the permanent ambient layout.
 - Add concise overflow behavior and an **Open conversation** route for long responses.
 - Reconcile approval presentation between the ambient prompt and control center.
+
+The ambient default is now avatar-first: permanent status chrome is gone, the bubble exists only for meaningful activity, and a small **Ask Desky** or connection pill is the resting control. Character or launcher activation explicitly reveals the composer; `Escape` collapses it without clearing its session-only draft. Main owns one revisioned normalized companion snapshot and draft, so a control center opened after streaming or approval begins receives the authoritative current response and decision state. Long responses retain a bounded full live view in the control center and use a concise ambient preview with **Open conversation**. Draft text is never added to the settings or credential stores.
+
+### Next animation round — expressive motion layers
+
+Status: next implementation round, subject to the existing provenance gate for external clips.
+
+- Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
+- Add capability-aware procedural blink, restrained look-at, and speaking emphasis that work without external animation files and obey reduced-motion/cancellation priority.
+- Select the first candidate production clip only after its modification and commercial/store redistribution rights, source checksum, conversion inputs, and reviewer approval are recorded.
+- Exercise the animation matrix against the current Milk VRM and the representative VRM 0.x/1.0 suite as licensed fixtures become available.
+- Keep every state readable and controllable when a clip or avatar capability is absent.
 
 ### F3d — resilience, accessibility, and performance
 

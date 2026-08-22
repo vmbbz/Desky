@@ -11,6 +11,7 @@ import type {
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import { getDistributionProfile } from './capabilities';
+import { CompanionStateHost } from './companion-state-host';
 import {
   ambientPointerRegionChannel,
   ambientStateChannel,
@@ -32,6 +33,13 @@ const openClawChannels = {
   send: 'desky:openclaw:send',
   cancel: 'desky:openclaw:cancel',
   resolveApproval: 'desky:openclaw:resolve-approval',
+} as const;
+const companionChannels = {
+  state: 'desky:companion:state',
+  getState: 'desky:companion:get-state',
+  draft: 'desky:companion:draft',
+  getDraft: 'desky:companion:get-draft',
+  setDraft: 'desky:companion:set-draft',
 } as const;
 
 function isWindowAction(value: unknown): value is WindowAction {
@@ -93,6 +101,8 @@ export function registerIpc(
   openClaw: OpenClawAdapterHost,
   windows: DeskyWindowManager,
 ): void {
+  const companion = new CompanionStateHost();
+
   ipcMain.handle(runtimeInfoChannel, (event) => ({
     distributionProfile: getDistributionProfile(),
     platform: process.platform,
@@ -110,6 +120,17 @@ export function registerIpc(
   ipcMain.on(ambientPointerRegionChannel, (event, region: unknown) => {
     if (!isAmbientPointerRegion(region)) return;
     windows.setPointerRegion(event.sender, region);
+  });
+
+  ipcMain.handle(companionChannels.getState, () => companion.getSnapshot());
+  ipcMain.handle(companionChannels.getDraft, () => companion.getDraft());
+  ipcMain.handle(companionChannels.setDraft, (_event, value: unknown) => {
+    const text = assertText(value, 'draft', 100_000);
+    const draft = companion.setDraft(text);
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(companionChannels.draft, draft);
+    }
+    return draft;
   });
 
   ipcMain.handle(openClawChannels.getState, () => openClaw.getState());
@@ -143,7 +164,11 @@ export function registerIpc(
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(openClawChannels.state, state);
   });
   openClaw.onEvent((adapterEvent) => {
-    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(openClawChannels.event, adapterEvent);
+    const snapshot = companion.applyEvent(adapterEvent);
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(openClawChannels.event, adapterEvent);
+      window.webContents.send(companionChannels.state, snapshot);
+    }
   });
 }
 
@@ -152,5 +177,6 @@ export const ipcChannels = {
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,
   ambientPointerRegion: ambientPointerRegionChannel,
+  companion: companionChannels,
   openClaw: openClawChannels,
 } as const;

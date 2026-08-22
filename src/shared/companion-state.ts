@@ -1,25 +1,72 @@
-import type { AdapterEvent, CompanionMode } from '../../shared/adapter-events';
+import type { AdapterEvent, CompanionMode } from './adapter-events';
 
 export interface CompanionViewState {
   mode: CompanionMode;
   label: string;
   detail: string;
   bubbleText: string;
+  responseText: string;
+  responseTruncated: boolean;
+  bubbleOverflow: boolean;
   activeTurnId?: string;
   pendingApproval?: Extract<AdapterEvent, { type: 'approval.requested' }>['payload'];
+}
+
+export interface CompanionSnapshot extends CompanionViewState {
+  revision: number;
+}
+
+export interface CompanionDraftSnapshot {
+  revision: number;
+  text: string;
 }
 
 export const initialCompanionState: CompanionViewState = {
   mode: 'disconnected',
   label: 'Offline',
   detail: 'Choose an agent connection',
-  bubbleText: 'I’ll be right here when you’re ready.',
+  bubbleText: '',
+  responseText: '',
+  responseTruncated: false,
+  bubbleOverflow: false,
 };
 
-const maxBubbleCharacters = 360;
+export const initialCompanionSnapshot: CompanionSnapshot = {
+  ...initialCompanionState,
+  revision: 0,
+};
 
-function appendBubble(current: string, delta: string): string {
-  return `${current}${delta}`.slice(-maxBubbleCharacters);
+export const initialCompanionDraftSnapshot: CompanionDraftSnapshot = {
+  revision: 0,
+  text: '',
+};
+
+const maxBubbleCharacters = 220;
+const maxResponseCharacters = 100_000;
+
+function createBubblePreview(response: string, responseTruncated: boolean) {
+  const overflow = responseTruncated || response.length > maxBubbleCharacters;
+  return {
+    bubbleText: overflow
+      ? `${response.slice(0, maxBubbleCharacters).trimEnd()}…`
+      : response,
+    bubbleOverflow: overflow,
+  };
+}
+
+function appendResponse(
+  current: string,
+  delta: string,
+  wasTruncated: boolean,
+): Pick<CompanionViewState, 'responseText' | 'responseTruncated' | 'bubbleText' | 'bubbleOverflow'> {
+  const next = `${current}${delta}`;
+  const responseTruncated = wasTruncated || next.length > maxResponseCharacters;
+  const responseText = responseTruncated ? next.slice(-maxResponseCharacters) : next;
+  return {
+    responseText,
+    responseTruncated,
+    ...createBubblePreview(responseText, responseTruncated),
+  };
 }
 
 export function reduceCompanionState(
@@ -29,19 +76,18 @@ export function reduceCompanionState(
   switch (event.type) {
     case 'connection.ready':
       return {
+        ...initialCompanionState,
         mode: 'idle',
         label: 'Ready',
         detail: event.payload.runtimeName,
-        bubbleText: `Connected to ${event.payload.runtimeName}.`,
-        pendingApproval: undefined,
       };
     case 'connection.closed':
       return {
+        ...initialCompanionState,
         mode: 'disconnected',
         label: 'Offline',
         detail: event.payload.reason,
         bubbleText: 'The agent connection closed.',
-        pendingApproval: undefined,
       };
     case 'user.input.accepted':
       return {
@@ -49,6 +95,9 @@ export function reduceCompanionState(
         label: 'Listening',
         detail: event.payload.summary,
         bubbleText: '',
+        responseText: '',
+        responseTruncated: false,
+        bubbleOverflow: false,
         activeTurnId: event.turnId,
       };
     case 'agent.thinking':
@@ -82,6 +131,7 @@ export function reduceCompanionState(
         label: 'Approval needed',
         detail: `${event.payload.action}: ${event.payload.safeTarget}`,
         bubbleText: 'I need your approval before I continue.',
+        bubbleOverflow: false,
         pendingApproval: event.payload,
       };
     case 'approval.resolved': {
@@ -93,6 +143,7 @@ export function reduceCompanionState(
         label: allowed ? 'Approval accepted' : 'Approval closed',
         detail: `The runtime marked the request ${event.payload.status}.`,
         bubbleText: allowed ? 'Continuing with the approved action.' : 'The approval request is closed.',
+        bubbleOverflow: false,
         pendingApproval: undefined,
       };
     }
@@ -102,7 +153,7 @@ export function reduceCompanionState(
         mode: 'speaking',
         label: 'Responding',
         detail: 'Streaming a response',
-        bubbleText: appendBubble(state.bubbleText, event.payload.text),
+        ...appendResponse(state.responseText, event.payload.text, state.responseTruncated),
       };
     case 'turn.completed':
       return {
@@ -123,9 +174,20 @@ export function reduceCompanionState(
         bubbleText: cancelled
           ? 'That turn was cancelled.'
           : 'That turn did not complete. Open details to recover.',
+        bubbleOverflow: false,
         activeTurnId: undefined,
         pendingApproval: undefined,
       };
     }
   }
+}
+
+export function reduceCompanionSnapshot(
+  snapshot: CompanionSnapshot,
+  event: AdapterEvent,
+): CompanionSnapshot {
+  return {
+    ...reduceCompanionState(snapshot, event),
+    revision: snapshot.revision + 1,
+  };
 }

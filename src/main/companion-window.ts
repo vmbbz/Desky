@@ -84,6 +84,24 @@ async function captureVisualTest(
   outputPath: string,
 ): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 8_000));
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'draft') {
+    await window.webContents.executeJavaScript(`(async () => {
+      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+      document.querySelector('.ambient-launcher button')?.click();
+      await wait(120);
+      const input = document.querySelector('#ambient-prompt');
+      if (input instanceof HTMLInputElement) {
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(input, 'A draft that must survive collapse');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await wait(120);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        await wait(120);
+        document.querySelector('.ambient-launcher button')?.click();
+        await wait(120);
+      }
+    })()`);
+  }
   const diagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
@@ -95,7 +113,11 @@ async function captureVisualTest(
     bubblePlacement: document.querySelector('.ambient-companion')?.dataset.bubblePlacement ?? null,
     horizontalPlacement: document.querySelector('.ambient-companion')?.dataset.horizontalPlacement ?? null,
     interactiveRegions: document.querySelectorAll('[data-desky-interactive="true"]').length,
-    recoveryAvailable: document.querySelector('.ambient-companion')?.dataset.recoveryAvailable ?? null
+    recoveryAvailable: document.querySelector('.ambient-companion')?.dataset.recoveryAvailable ?? null,
+    bubbleVisible: document.querySelector('.ambient-companion')?.dataset.bubbleVisible ?? null,
+    composerExpanded: document.querySelector('.ambient-companion')?.dataset.composerExpanded ?? null,
+    draftValue: document.querySelector('#ambient-prompt')?.value ?? null,
+    launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null
   })`) as unknown;
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());
@@ -109,6 +131,8 @@ function rendererUrl(surface: SurfaceKind): string {
     : MAIN_WINDOW_WEBPACK_ENTRY;
   const url = new URL(base);
   url.searchParams.set('surface', surface);
+  const visualTestState = process.env.DESKY_VISUAL_TEST_STATE;
+  if (visualTestState) url.searchParams.set('visualState', visualTestState);
   return url.toString();
 }
 
