@@ -4,7 +4,7 @@
 
 - Desky base commit: `2f836e7` (`feat: add OpenClaw gateway adapter foundation`).
 - Platform: Windows, loopback WebSocket.
-- Gateway: OpenClaw 2026.8.1 development profile on `ws://127.0.0.1:19001`.
+- Gateway: OpenClaw 2026.8.1 development profile on `ws://127.0.0.1:19001`, reached by Desky through a controllable loopback WebSocket relay.
 - Authentication: token supplied to the test process without printing or embedding it in the URL or command line.
 - Harness: `tests/openclaw-live.test.ts` through `npm run test:openclaw:live`.
 
@@ -21,7 +21,7 @@ The harness uses fresh Ed25519 test identities, creates a labelled session, and 
 | Approval allow once | Pass | Gateway recorded the synthetic approval as `allowed` with `allow-once`. |
 | Duplicate approval response | Pass | Gateway returned `applied: false`; Desky now reports the authoritative existing terminal state instead of claiming a new decision was applied. |
 | Cancellation | Pass | Immediate abort produced one normalized cancelled terminal failure. |
-| Controlled reconnect | Pass | Desky reauthenticated and restored the selected session subscription. |
+| Unexpected transport loss | Pass | The harness terminated the relayed socket without a Desky disconnect request; Desky entered reconnecting state, reauthenticated, and restored the selected session subscription. |
 | Assistant streaming | Blocked | The runtime returned the configured Codex account's subscription-usage-limit error before generating assistant deltas. |
 
 ## Consequence

@@ -1,11 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { once } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import WebSocket, { WebSocketServer } from 'ws';
 
 import type { AdapterEvent } from '../src/shared/adapter-events';
+import type { OpenClawConnectionState } from '../src/shared/openclaw';
 import { OpenClawGatewayClient } from '../src/main/openclaw/gateway-client';
 import { OpenClawAdapterHost } from '../src/main/openclaw/host';
 import { generateDeviceIdentity } from '../src/main/openclaw/protocol';
@@ -21,6 +24,57 @@ const liveEncryption: EncryptionProvider = {
   encryptString: (value) => Buffer.from(`live:${value}`),
   decryptString: (value) => value.toString().replace(/^live:/, ''),
 };
+
+class LiveGatewayRelay {
+  private readonly server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+  private readonly pairs = new Set<{ downstream: WebSocket; upstream: WebSocket }>();
+
+  constructor(private readonly upstreamUrl: string) {
+    this.server.on('connection', (downstream) => {
+      const upstream = new WebSocket(this.upstreamUrl, { perMessageDeflate: false });
+      const pair = { downstream, upstream };
+      this.pairs.add(pair);
+      downstream.on('message', (data, isBinary) => {
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+      });
+      upstream.on('message', (data, isBinary) => {
+        if (downstream.readyState === WebSocket.OPEN) downstream.send(data, { binary: isBinary });
+      });
+      downstream.on('close', () => {
+        this.pairs.delete(pair);
+        if (upstream.readyState < WebSocket.CLOSING) upstream.close();
+      });
+      upstream.on('close', () => {
+        this.pairs.delete(pair);
+        if (downstream.readyState < WebSocket.CLOSING) downstream.close();
+      });
+      upstream.on('error', () => downstream.terminate());
+    });
+  }
+
+  async start(): Promise<string> {
+    if (!this.server.address()) await once(this.server, 'listening');
+    const address = this.server.address();
+    if (!address || typeof address === 'string') throw new Error('Live Gateway relay did not bind to TCP.');
+    return `ws://127.0.0.1:${address.port}`;
+  }
+
+  dropConnections(): void {
+    for (const pair of this.pairs) {
+      pair.downstream.terminate();
+      pair.upstream.terminate();
+    }
+    this.pairs.clear();
+  }
+
+  async close(): Promise<void> {
+    this.dropConnections();
+    await new Promise<void>((resolve, reject) => this.server.close((error) => {
+      if (error) reject(error);
+      else resolve();
+    }));
+  }
+}
 
 function waitForEvent(
   host: OpenClawAdapterHost,
@@ -41,10 +95,33 @@ function waitForEvent(
   });
 }
 
+function waitForState(
+  host: OpenClawAdapterHost,
+  predicate: (state: OpenClawConnectionState) => boolean,
+  timeoutMs: number,
+): Promise<OpenClawConnectionState> {
+  const current = host.getState();
+  if (predicate(current)) return Promise.resolve(current);
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Timed out waiting for live OpenClaw connection state.'));
+    }, timeoutMs);
+    const unsubscribe = host.onState((state) => {
+      if (!predicate(state)) return;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(state);
+    });
+  });
+}
+
 describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
   it('covers capabilities, approvals, cancellation, reconnect, and streaming', async () => {
     expect(credential, 'DESKY_OPENCLAW_LIVE_CREDENTIAL is required for live verification').toBeTruthy();
     const directory = mkdtempSync(join(tmpdir(), 'desky-openclaw-live-'));
+    const relay = new LiveGatewayRelay(gatewayUrl);
+    const relayedGatewayUrl = await relay.start();
     const host = new OpenClawAdapterHost(
       new SecureVault(join(directory, 'vault.json'), liveEncryption),
       '0.1.0-live-verification',
@@ -61,11 +138,13 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       onClose: () => undefined,
     });
     const events: AdapterEvent[] = [];
+    const connectionStates: OpenClawConnectionState[] = [];
     host.onEvent((event) => events.push(event));
+    host.onState((state) => connectionStates.push(state));
 
     try {
       const connected = await host.connect({
-        gatewayUrl,
+        gatewayUrl: relayedGatewayUrl,
         authKind: 'token',
         credential,
         rememberCredential: false,
@@ -155,15 +234,18 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       expect(cancelled.payload.safeError.toLowerCase()).toContain('cancel');
       process.stdout.write('[desky-live] cancellation passed\n');
 
-      await host.disconnect();
-      const reconnected = await host.connect({
-        gatewayUrl,
-        authKind: 'token',
-        credential,
-        rememberCredential: false,
-      });
+      const automaticReconnect = waitForState(
+        host,
+        (state) => state.status === 'connected'
+          && state.selectedSessionKey === sessionKey
+          && connectionStates.some((candidate) => candidate.status === 'reconnecting'),
+        15_000,
+      );
+      relay.dropConnections();
+      const reconnected = await automaticReconnect;
+      expect(connectionStates.some((state) => state.status === 'reconnecting')).toBe(true);
       expect(reconnected).toMatchObject({ status: 'connected', selectedSessionKey: sessionKey });
-      process.stdout.write('[desky-live] reconnect and session resubscription passed\n');
+      process.stdout.write('[desky-live] unexpected network loss, reconnect, and session resubscription passed\n');
 
       const streamedTerminal = waitForEvent(
         host,
@@ -184,6 +266,7 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
     } finally {
       requester.close('Desky live verification complete');
       await host.disconnect();
+      await relay.close();
       rmSync(directory, { recursive: true, force: true });
     }
   }, 210_000);

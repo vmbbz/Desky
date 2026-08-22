@@ -78,7 +78,7 @@ Live-verified on Windows against local OpenClaw 2026.8.1:
 - Fresh session creation, selection, and approval-enabled message subscription.
 - Exec approval deny, allow-once, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
 - Cancellation with an authoritative cancelled terminal event.
-- Controlled disconnect/reconnect with selected-session resubscription.
+- Unexpected idle transport loss through a controllable loopback relay, followed by automatic reconnect and selected-session resubscription.
 
 Open before F2 exit:
 

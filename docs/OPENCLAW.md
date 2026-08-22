@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny and allow-once, duplicate approval acknowledgement, cancellation, and reconnect/resubscription against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured Codex account's subscription limit, so F2 is not complete.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny and allow-once, duplicate approval acknowledgement, cancellation, and recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured Codex account's subscription limit, so F2 is not complete.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
