@@ -346,4 +346,49 @@ describe('OpenClawAdapterHost contract fixture', () => {
 
     expect(host.getState().activeRunId).toBeUndefined();
   });
+
+  it('ignores late tool events after a cancelled turn', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    let client: FixtureClient | undefined;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        client = new FixtureClient(options);
+        return client;
+      },
+    );
+    const eventTypes: string[] = [];
+    host.onEvent((event) => eventTypes.push(event.type));
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    await host.selectSession('agent:main:desky');
+    await host.send('Start a tool and wait');
+    client?.options.onEvent('agent', {
+      sessionKey: 'agent:main:desky',
+      runId: 'run-1',
+      stream: 'tool',
+      data: { phase: 'start', name: 'bash' },
+    });
+
+    await host.cancel();
+    const terminalEventCount = eventTypes.length;
+    client?.options.onEvent('agent', {
+      sessionKey: 'agent:main:desky',
+      runId: 'run-1',
+      stream: 'tool',
+      data: { phase: 'result', name: 'bash' },
+    });
+
+    expect(host.getState().activeRunId).toBeUndefined();
+    expect(eventTypes).toHaveLength(terminalEventCount);
+    expect(eventTypes.filter((type) => type === 'turn.failed')).toHaveLength(1);
+    expect(eventTypes.filter((type) => type === 'tool.completed')).toHaveLength(0);
+  });
 });

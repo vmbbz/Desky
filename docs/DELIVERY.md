@@ -79,12 +79,13 @@ Live-verified on Windows against local OpenClaw 2026.8.1:
 - Fresh session creation, selection, and approval-enabled message subscription.
 - Exec approval deny, allow-once, expiry, first-answer-wins reviewer contention, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
 - Unexpected transport loss during an admitted turn through a controllable loopback relay, followed by automatic reconnect, selected-session resubscription, cancellation, and exactly one terminal event.
+- A fresh assistant turn streamed the required text and reached one successful terminal state through the configured ChatGPT/Codex OAuth route.
+- A packaged Desky session interrupted a real 90-second shell-tool execution. Gateway acknowledged the abort, the tool ended as an error, the lifecycle ended aborted, and a same-session recovery turn then streamed and completed successfully.
 
 Open before F2 exit:
 
-- Complete and record a successful fresh-session assistant stream after the configured OpenAI provider leaves rate-limit cooldown or another owner-authorized provider is selected.
 - Verify live exec/plugin allow-always where offered and cross-device contention on separate clean device profiles.
-- Interrupt a live turn specifically during tool use and response streaming; verify tool and text reconciliation after reconnect.
+- Interrupt a live turn specifically during response streaming; tool-execution interruption and same-session recovery are now verified.
 - Verify device pairing and paired-token rotation on a second clean machine profile.
 - Connect the Store capability profile to a trusted remote `wss://` gateway and validate certificate failure behavior.
 - Run the same live matrix on macOS with Keychain-backed `safeStorage`.
@@ -168,7 +169,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Re-run the committed live OpenClaw harness when model capacity is available and close the successful-stream gate.
-2. Complete tool-progress interruption/reconciliation and secure remote `wss://` cases; network loss and approval expiry/contention are now live-verified.
-3. Begin F3 with the VRM compatibility and animation-retargeting pipeline.
+1. Begin F3 with the VRM compatibility and animation-retargeting pipeline; the successful-stream and actual-tool-interruption engineering gates are closed.
+2. Complete response-stream interruption and secure remote `wss://` cases; network loss, tool cancellation/recovery, and approval expiry/contention are live-verified.
+3. Verify clean-device pairing, cross-device contention, and paired-token rotation.
 4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.

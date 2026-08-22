@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Against local OpenClaw 2026.8.1, the opt-in harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, active-turn recovery from unexpected transport loss, and a successful assistant stream. A packaged-app gate also passes cancellation during real shell-tool execution and a successful same-session turn immediately afterward. Secure remote-gateway and macOS checks keep F2 open.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -36,6 +36,7 @@ Leaving the credential field blank uses saved access. Entering a credential expl
 - An event sequence gap triggers the same bounded reconciliation path.
 - Desky deduplicates terminal events per run and never converts natural-language text into an approval.
 - A native terminal event clears the active run in one exclusive transition; it cannot be reclassified as fresh activity by the same event.
+- Once a run is terminal, late tool progress or result events for that run are discarded. They cannot resurrect cancellation controls or overwrite the terminal companion state.
 - The structured `sessions.abort` acknowledgement is authoritative. If a terminal stream event was lost during reconnect, Desky emits one bounded terminal failure from the acknowledgement instead of leaving the turn active indefinitely.
 - Terminal approval events clear only their matching reviewer card. Late, duplicate, malformed, or unrelated terminal events cannot clear a newer request.
 
@@ -64,6 +65,8 @@ Record the Gateway version, Desky commit, platform, connection profile, and reda
 6. Authentication: wrong token, stale device token, unapproved pairing, and scope rejection must expose bounded redacted errors.
 7. Transport: remote `ws://`, URL credentials, URL queries, malformed frames, binary frames, oversized frames, and request backpressure must fail closed.
 8. Remote Store profile: connect through trusted `wss://`; confirm a bad or untrusted certificate cannot be bypassed.
+
+The 2026-08-22 packaged Windows gate additionally started a harmless 90-second shell command, invoked Desky's visible Stop control after the structured tool-start event, observed an authoritative abort acknowledgement, an errored tool result, and an aborted lifecycle terminal, then completed a new assistant turn in the same session. See the dated verification record for the redacted timings.
 
 ## Diagnostics policy
 

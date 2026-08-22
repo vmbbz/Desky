@@ -413,13 +413,16 @@ export class OpenClawAdapterHost {
       void this.refreshSessions().catch(() => undefined);
     }
     for (const normalized of normalizeOpenClawEvent(client.connectionId ?? 'openclaw', event, payload)) {
+      const terminalTurn = normalized.type === 'turn.completed' || normalized.type === 'turn.failed';
+      if (normalized.turnId && !terminalTurn && this.terminalRuns.has(normalized.turnId)) {
+        continue;
+      }
       if (normalized.type === 'approval.requested'
         && this.terminalApprovals.has(normalized.payload.requestId)) continue;
       if (normalized.type === 'approval.resolved') {
         if (!rememberTerminal(this.terminalApprovals, normalized.payload.requestId)) continue;
         this.patchState({ message: `Approval ${normalized.payload.status} by OpenClaw` });
       }
-      const terminalTurn = normalized.type === 'turn.completed' || normalized.type === 'turn.failed';
       if (terminalTurn && normalized.turnId) {
         if (!rememberTerminal(this.terminalRuns, normalized.turnId)) continue;
         this.patchState({ activeRunId: undefined });
