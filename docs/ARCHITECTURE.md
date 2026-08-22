@@ -74,6 +74,19 @@ A versioned discriminated union represents runtime-independent events. The proto
 
 The reducer maps events to visible state. It is pure and exhaustively tested. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
 
+The renderer consumes that state through a motion arbiter. The arbiter owns baseline, state-loop, conversational-gesture, action, and facial layers; resolves clip priority and bone ownership; and emits safe neutral fallbacks when an avatar lacks a capability. Cancellation, approval, and disconnection override lower-priority motion. Terminal turns reject late nonterminal animation intents just as the adapter host rejects late lifecycle events.
+
+### Companion window composition
+
+The experience uses separate coordinated windows rather than one permanent card:
+
+- The ambient companion is a tightly bounded transparent window for the avatar and transient anchored bubble/composer UI. It does not activate when state changes.
+- The control center is an ordinary accessible window for setup, transcripts, approvals, settings, licences, and diagnostics.
+- The main process owns placement, work-area clamping, always-on-top policy, full-screen policy, and click-through state. Renderer code reports measured visible bounds and requests semantic window actions through typed IPC.
+- Interactive regions remain explicit. Transparent ambient regions pass pointer input where the platform permits, and a tray/menu/global escape route can disable full click-through.
+
+The behavior and acceptance matrix are specified in `docs/COMPANION-EXPERIENCE.md`.
+
 ### OpenClaw adapter host
 
 The first production adapter is owned entirely by the main process:
@@ -104,6 +117,7 @@ The catalog fetches `projects.json`, then collection-specific avatar files. It j
 - Fixed timestep where animation correctness requires it; render interpolation for display refresh.
 - Pause or reduce work when hidden, occluded, on battery-saving mode, or reduced-motion is enabled.
 - Dispose geometries, materials, textures, mixers, and object URLs on replacement.
+- Measure the character's projected visible bounds for safe bubble/composer placement without treating the full transparent canvas as occupied.
 
 ### Animation pipeline
 

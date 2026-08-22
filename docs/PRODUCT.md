@@ -30,12 +30,15 @@ Desky is a client, not a model provider and not an autonomous agent platform. It
 
 Desky has two coordinated surfaces:
 
+The default presentation is a desktop presence, not a conventional app card. The ambient character stays beside the user's work without taking focus; speech, a compact composer, and Stop appear locally when relevant. Detailed conversation, configuration, diagnostics, and security decisions expand into the standard control surface. The complete spatial, motion, input, platform, and accessibility contract is defined in `docs/COMPANION-EXPERIENCE.md`.
+
 ### Companion surface
 
-- Small, frameless, optionally always-on-top character window.
+- Small, transparent, frameless, optionally always-on-top character window with no permanent dense chrome.
 - Drag to reposition; remembers position per display arrangement.
 - Speech bubble for short streamed responses and approval prompts.
-- Click-through mode when the user wants an unobtrusive ambient presence.
+- Compact composer and Stop control revealed in context rather than occupying the ambient layout.
+- Transparent-region click-through and an explicit full click-through mode when the user wants an unobtrusive ambient presence.
 - Reduced-motion and pause-rendering controls.
 - Keyboard-accessible controls and an alternate non-animated status view.
 

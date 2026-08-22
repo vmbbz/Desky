@@ -56,6 +56,7 @@ npm run package
 ## Documentation
 
 - [Product definition](docs/PRODUCT.md)
+- [Desktop companion experience and motion specification](docs/COMPANION-EXPERIENCE.md)
 - [System architecture](docs/ARCHITECTURE.md)
 - [Agent adapter protocol](docs/ADAPTERS.md)
 - [OpenClaw integration and verification](docs/OPENCLAW.md)

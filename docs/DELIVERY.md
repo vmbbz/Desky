@@ -96,14 +96,19 @@ Deliverables:
 
 - Version-aware VRM 0.x/1.0 loader.
 - Reproducible animation conversion pipeline.
-- Idle/thinking/working/speaking/success/error clips.
-- Look-at, blink, expression blending, and optional speech visemes.
+- Provenance-bearing idle/thinking/working/speaking/success/error clips plus action one-shots.
+- Deterministic layered motion arbiter for baseline, state, conversational, action, look-at, blink, expression, and optional speech-viseme behavior.
+- Desktop-presence companion composition: transparent ambient avatar, anchored streamed bubble, contextual composer/Stop, safe-area flipping, deliberate drag, and transparent-region click-through.
+- Window focus, always-on-top, full-screen, position-restoration, and click-through escape behavior that remains under user control.
 - GPU/CPU budgets, occlusion pause, reduced motion, and WebGL recovery.
 
 Exit gate:
 
 - Representative avatar compatibility suite passes.
 - No animation asset lacks redistributable provenance.
+- Packaged companion remains above another application without taking focus; transparent hit testing and every work-area edge pass at representative display scales.
+- Fixture and live state matrices match `docs/COMPANION-EXPERIENCE.md`, including immediate cancellation motion and rejection of late tool animation.
+- Stop, hide, pause, click-through escape, and control-center routes remain reachable by pointer and keyboard.
 - Idle and active performance budgets pass on reference machines.
 
 ## F4 — control surface and daily usability
@@ -170,6 +175,7 @@ These decisions are deliberately not guessed:
 ## Immediate next rounds
 
 1. Begin F3 with the VRM compatibility and animation-retargeting pipeline; the successful-stream and actual-tool-interruption engineering gates are closed.
+   Use the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation.
 2. Complete response-stream interruption and secure remote `wss://` cases; network loss, tool cancellation/recovery, and approval expiry/contention are live-verified.
 3. Verify clean-device pairing, cross-device contention, and paired-token rotation.
 4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.
