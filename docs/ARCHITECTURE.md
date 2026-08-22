@@ -113,7 +113,10 @@ The catalog fetches `projects.json`, then collection-specific avatar files. It j
 ### Avatar renderer
 
 - WebGL renderer with alpha enabled.
-- VRM 0.x and VRM 1.0 detection.
+- VRM 0.x and VRM 1.0 detection from parsed metadata, with legacy coordinate rotation restricted to VRM 0.x.
+- Preflight capability inventory for normalized humanoid bones, expressions/visemes, blink, look-at, and spring-bone joints.
+- Fail-closed core humanoid and embedded usage-permission checks before a model enters the scene.
+- SHA-256 provenance over the exact downloaded model bytes, joined to reviewed catalog licence metadata and retained with the loaded scene.
 - Fixed timestep where animation correctness requires it; render interpolation for display refresh.
 - Pause or reduce work when hidden, occluded, on battery-saving mode, or reduced-motion is enabled.
 - Dispose geometries, materials, textures, mixers, and object URLs on replacement.
@@ -131,6 +134,8 @@ The source registry contains avatars, not animation clips. Desky will maintain a
 6. Test clips against a representative VRM 0.x/1.0 compatibility suite.
 
 Runtime prompt-generated conversions are not release inputs. Conversion scripts and deterministic outputs are reviewed and versioned.
+
+Animation admission is separate from conversion. `src/shared/animation-manifest.ts` rejects clips without validated source/output provenance, the pinned retargeting profile, deterministic sampling/root-motion parameters, and an approved rights review. No runtime clip loader may bypass this parser.
 
 ## Persistence
 

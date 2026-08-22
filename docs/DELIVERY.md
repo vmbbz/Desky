@@ -111,6 +111,29 @@ Exit gate:
 - Stop, hide, pause, click-through escape, and control-center routes remain reachable by pointer and keyboard.
 - Idle and active performance budgets pass on reference machines.
 
+### F3a implementation status — 2026-08-22
+
+Implemented and test-verified:
+
+- Runtime VRM 0.x/1.0 version detection and legacy-rotation decision.
+- Normalized humanoid, preset-expression, viseme, blink, look-at, and spring-bone capability inventory.
+- Exact core-retarget-bone diagnostics and fail-closed admission.
+- Conservative embedded VRM usage review against the catalog licence.
+- Validated asset-provenance schema and SHA-256 generation from downloaded avatar bytes.
+- Strict animation conversion manifest with pinned retargeting formula, source/output checksums, and mandatory approved rights review.
+- Integration of those checks into the current remote-avatar load path before the model enters the scene.
+- Fresh packaged Windows smoke through `desky://` with the real default reaching `Milk · VRM 0.x · CC0 · 100Avatars R1`.
+
+Verified against the current remote Milk default without committing its binary: the registry declares project CC0; embedded VRM 0.x metadata declares everyone/commercial use/CC0; all core retarget bones are present; and the 1,338,344 downloaded bytes hash to `99e32f15d529eb47b3892aa44d5f053c07dabf55a0851aca7e7ab74f5f17e107`.
+
+Open before the F3a slice is complete:
+
+- Implement the deterministic offline FBX/Mixamo conversion tool and serialized clip format.
+- Add legally redistributable representative VRM 0.x/1.0 and animation fixtures with reviewed provenance; structural unit fixtures are not the binary compatibility suite.
+- Persist provenance atomically beside bounded cached assets and verify it on cache reads.
+- Test proportions, materials, spring bones, expressions, coordinates, foot contact, and hips scaling against the binary suite.
+- Complete the packaged state matrix and performance evidence on Windows, then repeat package, visual, and performance checks on macOS.
+
 ## F4 — control surface and daily usability
 
 Deliverables:

@@ -24,7 +24,14 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import type { CompanionMode } from '../../shared/adapter-events';
+import { createAssetProvenance } from '../../shared/asset-provenance';
 import { fetchFeaturedCc0Avatar } from './catalog';
+import {
+  assertCoreHumanoid,
+  assertVrmUsageCompatible,
+  inspectVrmCapabilities,
+  reviewVrmUsage,
+} from './vrm-capabilities';
 
 const maxModelBytes = 100 * 1024 * 1024;
 
@@ -162,10 +169,30 @@ export function AvatarStage({ mode }: AvatarStageProps) {
 
         const vrm = gltf.userData.vrm as VRM | undefined;
         if (!vrm) throw new Error('The selected file is not a readable VRM avatar');
-        VRMUtils.rotateVRM0(vrm);
+        const capabilities = inspectVrmCapabilities(vrm);
+        assertCoreHumanoid(capabilities);
+        const usageReview = reviewVrmUsage(vrm.meta, avatar.license);
+        assertVrmUsageCompatible(usageReview);
+        const provenance = await createAssetProvenance({
+          assetId: `avatar:${avatar.projectId}/${avatar.id}`,
+          kind: 'avatar',
+          sourceUrl: avatar.modelUrl,
+          sourceProject: avatar.projectName,
+          creator: usageReview.creator,
+          licenseId: avatar.license,
+          attribution: usageReview.requiresCredit ? usageReview.creator : undefined,
+          bytes: buffer,
+        });
+        if (disposed) return;
+        if (capabilities.requiresLegacyRotation) VRMUtils.rotateVRM0(vrm);
         applyRelaxedPose(vrm);
         currentVrm = vrm;
         avatarRoot = vrm.scene;
+        avatarRoot.userData.deskyAsset = {
+          provenance,
+          capabilities,
+          usageReview,
+        };
         baseRotationY = avatarRoot.rotation.y;
         avatarRoot.rotation.y = baseRotationY;
 
@@ -187,7 +214,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
 
         setLoadState({
           kind: 'ready',
-          message: `${avatar.name} · ${avatar.license} · ${avatar.projectName}`,
+          message: `${avatar.name} · ${capabilities.specLabel} · ${avatar.license} · ${avatar.projectName}`,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Avatar loading failed';

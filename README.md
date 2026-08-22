@@ -21,6 +21,8 @@ Agent runtime -> adapter -> Desky event protocol -> state machine -> avatar and 
 
 Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and both fixture and opt-in live Gateway harnesses. Against local OpenClaw 2026.8.1, authentication and stale-access recovery, capability negotiation, session creation, approval deny/allow-once/expiry/contention/duplicate acknowledgement, transport-loss recovery, successful assistant streaming, and interruption during a real shell-tool execution pass. A same-session assistant turn after the tool cancellation also passes. Secure remote-gateway and macOS checks remain F2 release gates.
 
+F3a has begun with runtime VRM 0.x/1.0 capability inspection, core-humanoid validation, embedded usage-permission conflict checks, SHA-256 avatar provenance, and a strict versioned manifest for reviewed animation conversions. The actual converter, representative binary VRM suite, persistent asset sidecars, and motion runtime remain open.
+
 ## Connect OpenClaw
 
 1. Start or identify an OpenClaw Gateway and obtain its configured token or password.
