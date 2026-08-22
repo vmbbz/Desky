@@ -13,6 +13,7 @@ export const companionModes = [
 export type CompanionMode = (typeof companionModes)[number];
 
 interface EventContext {
+  protocolVersion: 1;
   eventId: string;
   timestamp: string;
   connectionId: string;
@@ -31,7 +32,13 @@ export type AdapterEvent = EventContext & (
   | { type: 'tool.completed'; payload: { toolName: string; safeSummary: string } }
   | {
       type: 'approval.requested';
-      payload: { requestId: string; action: string; safeTarget: string };
+      payload: {
+        requestId: string;
+        kind: 'exec' | 'plugin' | 'system-agent';
+        action: string;
+        safeTarget: string;
+        allowedDecisions: Array<'allow-once' | 'allow-always' | 'deny'>;
+      };
     }
   | { type: 'turn.completed'; payload: { summary: string } }
   | { type: 'turn.failed'; payload: { safeError: string } }

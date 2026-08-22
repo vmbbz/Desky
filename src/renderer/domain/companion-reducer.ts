@@ -6,6 +6,7 @@ export interface CompanionViewState {
   detail: string;
   bubbleText: string;
   activeTurnId?: string;
+  pendingApproval?: Extract<AdapterEvent, { type: 'approval.requested' }>['payload'];
 }
 
 export const initialCompanionState: CompanionViewState = {
@@ -32,6 +33,7 @@ export function reduceCompanionState(
         label: 'Ready',
         detail: event.payload.runtimeName,
         bubbleText: `Connected to ${event.payload.runtimeName}.`,
+        pendingApproval: undefined,
       };
     case 'connection.closed':
       return {
@@ -39,6 +41,7 @@ export function reduceCompanionState(
         label: 'Offline',
         detail: event.payload.reason,
         bubbleText: 'The agent connection closed.',
+        pendingApproval: undefined,
       };
     case 'user.input.accepted':
       return {
@@ -79,6 +82,7 @@ export function reduceCompanionState(
         label: 'Approval needed',
         detail: `${event.payload.action}: ${event.payload.safeTarget}`,
         bubbleText: 'I need your approval before I continue.',
+        pendingApproval: event.payload,
       };
     case 'assistant.delta':
       return {
@@ -95,6 +99,7 @@ export function reduceCompanionState(
         label: 'Done',
         detail: event.payload.summary,
         activeTurnId: undefined,
+        pendingApproval: undefined,
       };
     case 'turn.failed':
       return {
@@ -104,6 +109,7 @@ export function reduceCompanionState(
         detail: event.payload.safeError,
         bubbleText: 'That turn did not complete. Open details to recover.',
         activeTurnId: undefined,
+        pendingApproval: undefined,
       };
   }
 }

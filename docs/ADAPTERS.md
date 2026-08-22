@@ -73,6 +73,8 @@ Initial semantic events:
 ### OpenClaw — first production adapter
 
 - Transport: authenticated WebSocket Gateway protocol.
+- Compatibility: protocol v4 pinned to official source revision `66c0a23a063908fa5d83d344cebff171c7dea832`; see ADR 0003.
+- Package status: the recommended npm packages currently publish placeholder-only `0.0.0` tarballs, so the temporary internal wire client is isolated for later replacement.
 - Distribution: Store and direct profiles.
 - Why first: broad agent semantics, sessions, approvals, and an explicit control-plane protocol.
 - Gate: handshake/version negotiation, reconnect, approval, cancellation, and transcript redaction tests.

@@ -18,7 +18,8 @@ body,
 }
 
 button,
-input { font: inherit; }
+input,
+select { font: inherit; }
 
 button { cursor: pointer; }
 
@@ -29,7 +30,7 @@ button { cursor: pointer; }
   height: 100%;
   position: relative;
   display: grid;
-  grid-template-rows: 42px 36px minmax(0, 1fr) auto auto 22px;
+  grid-template-rows: 42px 36px minmax(0, 1fr) repeat(3, auto) 22px;
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 28px;
@@ -71,16 +72,23 @@ button { cursor: pointer; }
   box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.42);
 }
 
-.simulation-badge {
+.connection-badge {
+  -webkit-app-region: no-drag;
   padding: 3px 7px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
   color: #aab4c7;
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.connection-badge--connected { color: #89f29b; }
+.connection-badge--connecting,
+.connection-badge--reconnecting,
+.connection-badge--pairing { color: #ffc56b; }
+.connection-badge--error { color: #ff8fa1; }
 
 .window-actions { -webkit-app-region: no-drag; display: flex; gap: 4px; }
 .window-actions button {
@@ -95,7 +103,14 @@ button { cursor: pointer; }
 .window-actions button:hover { background: rgba(255, 255, 255, 0.08); color: white; }
 .window-actions button:focus-visible,
 .prompt-bar button:focus-visible,
-.prompt-bar input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.prompt-bar input:focus-visible,
+.connection-badge:focus-visible,
+.connection-sheet button:focus-visible,
+.connection-sheet input:focus-visible,
+.connection-sheet select:focus-visible,
+.session-row button:focus-visible,
+.session-row select:focus-visible,
+.approval-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .status-row {
   display: flex;
@@ -159,6 +174,39 @@ button { cursor: pointer; }
 }
 .speech-bubble p { min-height: 34px; margin: 0; color: #eef2fb; font-size: 13px; line-height: 1.45; }
 
+.approval-card {
+  margin: 0 10px 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 197, 107, 0.3);
+  border-radius: 14px;
+  background: rgba(61, 43, 18, 0.82);
+}
+.approval-card strong { font-size: 12px; color: #ffe1a8; }
+.approval-card p { margin: 4px 0 8px; color: #e8dcc5; font-size: 11px; line-height: 1.35; overflow-wrap: anywhere; }
+.approval-card div { display: flex; gap: 6px; }
+.approval-card button { padding: 6px 9px; border: 0; border-radius: 8px; background: #ffc56b; color: #211508; font-size: 10px; font-weight: 750; }
+.approval-card button.danger { margin-left: auto; background: rgba(255, 125, 145, 0.18); color: #ff9aaa; }
+
+.session-row {
+  -webkit-app-region: no-drag;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  margin: 0 10px 7px;
+}
+.session-row select,
+.session-row button {
+  min-width: 0;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 9px;
+  background: rgba(7, 10, 17, 0.88);
+  color: #dce3ef;
+  font-size: 10px;
+}
+.session-row select { padding: 0 8px; }
+.session-row button { padding: 0 10px; }
+
 .prompt-bar {
   -webkit-app-region: no-drag;
   display: grid;
@@ -174,9 +222,55 @@ button { cursor: pointer; }
 }
 .prompt-bar input { min-width: 0; padding: 0 12px; background: rgba(0, 0, 0, 0.22); color: white; }
 .prompt-bar button { padding: 0 14px; background: var(--accent); color: #081018; font-weight: 750; }
+.prompt-bar .cancel-button { background: #ff8fa1; }
 .prompt-bar button:disabled { cursor: default; opacity: 0.55; }
 
 footer { display: flex; justify-content: space-between; padding: 0 12px; color: #748096; font-size: 9px; }
+
+.connection-sheet {
+  -webkit-app-region: no-drag;
+  position: absolute;
+  z-index: 20;
+  inset: 48px 12px 12px;
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 20px;
+  background: rgba(10, 14, 23, 0.98);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.58);
+}
+.connection-sheet__header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+.connection-sheet__header div { display: grid; gap: 3px; }
+.connection-sheet__header strong { font-size: 15px; }
+.connection-sheet__header span { color: #8f9bb0; font-size: 10px; }
+.connection-sheet__header button { border: 0; background: transparent; color: #aeb8ca; font-size: 20px; }
+.mode-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, 0.05); }
+.mode-switch button { padding: 7px; border: 0; border-radius: 8px; background: transparent; color: #8f9bb0; font-size: 11px; }
+.mode-switch button.active { background: rgba(117, 230, 215, 0.16); color: #a9fff3; }
+.connection-sheet form { display: grid; gap: 7px; }
+.connection-sheet form > label:not(.remember-row) { margin-top: 4px; color: #aeb8ca; font-size: 10px; font-weight: 650; }
+.connection-sheet form > input,
+.connection-sheet form > select {
+  width: 100%;
+  height: 38px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.24);
+  color: #f3f6fc;
+}
+.remember-row { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: #aeb8ca; font-size: 10px; }
+.remember-row input { accent-color: #75e6d7; }
+.connection-warning,
+.connection-error,
+.pairing-id { margin: 3px 0; padding: 8px 9px; border-radius: 9px; font-size: 10px; line-height: 1.35; }
+.connection-warning { background: rgba(255, 197, 107, 0.1); color: #e9c98c; }
+.connection-error { background: rgba(255, 125, 145, 0.1); color: #ff9aaa; }
+.pairing-id { background: rgba(104, 207, 255, 0.1); color: #a9e4ff; }
+.pairing-id code { user-select: text; }
+.connection-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 8px; }
+.connection-actions button { padding: 9px 13px; border: 0; border-radius: 10px; background: #75e6d7; color: #081018; font-size: 11px; font-weight: 750; }
+.connection-actions button.secondary { margin-right: auto; border: 1px solid rgba(255, 255, 255, 0.12); background: transparent; color: #d7deea; }
 
 .sr-only {
   position: absolute;

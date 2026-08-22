@@ -19,7 +19,17 @@ Agent runtime -> adapter -> Desky event protocol -> state machine -> avatar and 
 
 ## Current status
 
-The repository is in Foundation milestone F1. This round establishes the architecture, distribution strategy, event contract, secure Electron shell, avatar registry integration, and a deterministic simulation harness. No production agent adapter is represented as complete yet.
+Foundation milestone F1 is complete. F2 now contains the first production OpenClaw adapter slice: protocol-v4 device authentication, encrypted connection persistence, session discovery/creation/selection, chat streaming, tool activity, approvals, cancellation, reconnect, and a real WebSocket contract harness. It is not yet F2-complete: no OpenClaw installation is available in the current development environment, so the fresh real-agent turn, live allow/deny, live disconnect recovery, and secure remote-gateway checks remain release gates.
+
+## Connect OpenClaw
+
+1. Start or identify an OpenClaw Gateway and obtain its configured token or password.
+2. Open Desky's connection sheet and enter `ws://127.0.0.1:18789/` for a local gateway, or a trusted `wss://` URL for a remote gateway.
+3. Enter the credential. Desky passes it directly to its main process and can persist it only through operating-system credential encryption.
+4. If OpenClaw requests device pairing, approve the displayed request in OpenClaw and reconnect.
+5. Select an existing session or create a new Desky session, then send a message.
+
+Plain `ws://` is rejected outside loopback. See the [OpenClaw integration guide](docs/OPENCLAW.md) for protocol scope, diagnostics, and the remaining live verification procedure.
 
 ## Development
 
@@ -48,6 +58,7 @@ npm run package
 - [Product definition](docs/PRODUCT.md)
 - [System architecture](docs/ARCHITECTURE.md)
 - [Agent adapter protocol](docs/ADAPTERS.md)
+- [OpenClaw integration and verification](docs/OPENCLAW.md)
 - [Avatar and asset policy](docs/ASSETS.md)
 - [Security and privacy model](docs/SECURITY.md)
 - [Store and direct distribution](docs/DISTRIBUTION.md)

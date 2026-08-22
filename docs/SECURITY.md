@@ -10,6 +10,7 @@ Desky processes untrusted agent text, tool metadata, avatar files, catalog JSON,
 - `contextIsolation: true`; `nodeIntegration: false`.
 - Narrow preload bridge with explicit IPC channels.
 - Content Security Policy denies arbitrary scripts, frames, objects, and navigation.
+- Packaged renderer assets use the privileged, local `desky://` scheme; the legacy file-protocol extra-privilege fuse stays disabled.
 - Navigation and new-window requests denied unless explicitly allowlisted.
 - Secrets stay in the main process and operating-system credential storage.
 - Runtime input is schema-validated before state transitions.
@@ -43,6 +44,16 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 - Certificate errors never offer a silent bypass in production.
 - Redirects, DNS rebinding, localhost access, and private-network endpoints receive adapter-specific policy.
 - Gateway tokens are scoped to the minimum supported permissions.
+- OpenClaw requests only `operator.read`, `operator.write`, and `operator.approvals`; device tokens are bound to the paired Ed25519 identity and exact saved endpoint profile.
+
+## OpenClaw credential handling
+
+- The renderer submits a credential through one validated invocation and clears its input after a successful connection.
+- The credential, device private key, and paired device token are never returned through IPC.
+- Persistence uses Electron `safeStorage`; unavailable OS encryption is a hard failure, not a plaintext downgrade.
+- Saved vault records contain base64-encoded ciphertext. Connection state contains URL, auth kind, server version, and redacted status only.
+- URLs containing user-info, query parameters, or fragments are rejected to keep credentials out of logs and diagnostics.
+- Authentication and protocol errors are bounded and redact token/password/authorization patterns before reaching the renderer.
 
 ## Avatar parser safety
 

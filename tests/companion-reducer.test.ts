@@ -7,6 +7,7 @@ import {
 } from '../src/renderer/domain/companion-reducer';
 
 const context = {
+  protocolVersion: 1 as const,
   eventId: 'event-1',
   timestamp: '2026-08-22T00:00:00.000Z',
   connectionId: 'test-connection',

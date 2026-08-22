@@ -59,6 +59,27 @@ Exit gate:
 - Approval allow/deny and disconnect paths are verified.
 - Store profile connects to a secure remote gateway.
 
+### F2 implementation status — 2026-08-22
+
+Implemented and fixture-verified:
+
+- Exact protocol-v4 challenge/connect envelope and Ed25519 device proof.
+- Minimum operator scopes and explicit capability advertisement.
+- OS-encrypted profile, device identity, bootstrap credential, and paired device-token persistence.
+- Session list/create/select/subscription, message send, streamed assistant/tool events, unified approvals, abort, event-gap reconciliation, and exponential reconnect.
+- Narrow IPC validation and reviewer-safe event redaction.
+- Local WebSocket handshake fixture plus host contract fixture for sessions, streaming, approval resolution, cancellation, and reconnect.
+- Packaged Windows renderer boot through the secure `desky://` scheme.
+
+Open before F2 exit:
+
+- Install or connect a real current OpenClaw Gateway and record a fresh-session agent turn.
+- Verify live exec/plugin allow-once, allow-always where offered, deny, expiry, and duplicate-resolution behavior.
+- Interrupt a live turn during thinking, tool use, and response streaming; verify authoritative terminal state after reconnect.
+- Verify device pairing and paired-token rotation on a second clean machine profile.
+- Connect the Store capability profile to a trusted remote `wss://` gateway and validate certificate failure behavior.
+- Run the same live matrix on macOS with Keychain-backed `safeStorage`.
+
 ## F3 — expressive avatar runtime
 
 Deliverables:

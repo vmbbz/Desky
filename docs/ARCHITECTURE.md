@@ -74,6 +74,25 @@ A versioned discriminated union represents runtime-independent events. The proto
 
 The reducer maps events to visible state. It is pure and exhaustively tested. Animation selection is a second mapping from visible state plus avatar capabilities, which prevents gateway quirks from leaking into render code.
 
+### OpenClaw adapter host
+
+The first production adapter is owned entirely by the main process:
+
+```text
+connection UI -> validated IPC command -> OpenClawAdapterHost
+                                        -> secure vault
+                                        -> protocol-v4 WebSocket client
+Gateway frame -> main-process validation/redaction -> AdapterEvent -> renderer reducer
+```
+
+- `gateway-client.ts` owns the challenge-first wire exchange and request correlation.
+- `protocol.ts` owns the pinned v4 constants, Ed25519 device proof, URL policy, native frame guards, and redacted event mapping.
+- `secure-vault.ts` stores encrypted opaque values only; it has no plaintext fallback.
+- `host.ts` owns profiles, sessions, terminal-event deduplication, approval routing, cancellation, reconciliation, and bounded reconnect.
+- Preload exposes semantic commands and two read-only event subscriptions. It never exposes sockets, native frames, credentials, or `ipcRenderer`.
+
+The packaged renderer is served from the secure custom `desky://` scheme. This lets the file-protocol privilege fuse remain disabled without making packaged assets unavailable.
+
 ### Avatar catalog
 
 The catalog fetches `projects.json`, then collection-specific avatar files. It joins per-project licences to avatar metadata before any avatar can be selected. Network data is schema-validated, cached with a bounded lifetime, and never treated as executable content.
@@ -103,7 +122,7 @@ Runtime prompt-generated conversions are not release inputs. Conversion scripts 
 
 Initial persistence is split by sensitivity:
 
-- OS credential store: gateway tokens and refresh credentials.
+- OS credential encryption (`safeStorage`): gateway credentials, Ed25519 private identity, and paired device tokens in an opaque application-data vault.
 - Application data directory: settings, window placement, selected avatar reference, redacted session index.
 - Optional transcript store: disabled until encryption, retention controls, and deletion semantics are implemented.
 - Cache directory: catalog JSON, previews, and avatar binaries with licence/provenance sidecars and bounded size.

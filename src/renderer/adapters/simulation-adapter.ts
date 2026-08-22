@@ -4,6 +4,7 @@ const connectionId = 'desky-simulation';
 
 function eventContext(turnId?: string) {
   return {
+    protocolVersion: 1 as const,
     eventId: crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     connectionId,
