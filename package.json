@@ -1,0 +1,56 @@
+{
+  "name": "desky",
+  "productName": "Desky",
+  "version": "0.1.0",
+  "description": "An expressive desktop companion for the AI agent you already use.",
+  "main": ".webpack/main",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=11.0.0"
+  },
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "3.5.5",
+    "electron-squirrel-startup": "1.0.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "three": "0.185.1"
+  },
+  "devDependencies": {
+    "@electron-forge/cli": "7.11.2",
+    "@electron-forge/maker-squirrel": "7.11.2",
+    "@electron-forge/maker-zip": "7.11.2",
+    "@electron-forge/plugin-auto-unpack-natives": "7.11.2",
+    "@electron-forge/plugin-fuses": "7.11.2",
+    "@electron-forge/plugin-webpack": "7.11.2",
+    "@electron/fuses": "1.8.0",
+    "@types/node": "22.15.0",
+    "@types/electron-squirrel-startup": "1.0.2",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@types/three": "0.185.0",
+    "@vercel/webpack-asset-relocator-loader": "1.7.3",
+    "css-loader": "7.1.2",
+    "electron": "43.4.1",
+    "eslint": "10.0.0",
+    "fork-ts-checker-webpack-plugin": "9.1.0",
+    "node-loader": "2.1.0",
+    "style-loader": "4.0.0",
+    "ts-loader": "9.6.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.67.0",
+    "vitest": "4.1.11",
+    "webpack": "5.109.2",
+    "webpack-cli": "6.0.1"
+  }
+}
