@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
-import type { RuntimeInfo } from '../shared/runtime';
+import type {
+  AmbientSurfaceState,
+  DesktopRectangle,
+  RuntimeInfo,
+} from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage } from './avatar/AvatarStage';
 import {
@@ -28,6 +32,8 @@ export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, dispatch] = useReducer(reduceCompanionState, initialCompanionState);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo>();
+  const [ambientState, setAmbientState] = useState<AmbientSurfaceState>();
+  const [avatarBounds, setAvatarBounds] = useState<DesktopRectangle>();
   const [adapterMode, setAdapterMode] = useState<'openclaw' | 'simulation'>('openclaw');
   const [gateway, setGateway] = useState<OpenClawConnectionState>(initialGateway);
   const [showConnection, setShowConnection] = useState(true);
@@ -38,6 +44,7 @@ export function App() {
   const [prompt, setPrompt] = useState('Inspect the project and tell me what to do next.');
   const [busy, setBusy] = useState(false);
   const [uiError, setUiError] = useState('');
+  const ambientPromptRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     void window.desky.getRuntimeInfo().then((info) => {
@@ -52,11 +59,37 @@ export function App() {
     });
     const removeState = window.desky.openClaw.onState(setGateway);
     const removeEvents = window.desky.openClaw.onEvent(dispatch);
+    void window.desky.getAmbientSurfaceState().then(setAmbientState);
+    const removeAmbientState = window.desky.onAmbientSurfaceState(setAmbientState);
     return () => {
       removeState();
       removeEvents();
+      removeAmbientState();
     };
   }, []);
+
+  useEffect(() => {
+    if (runtimeInfo?.surface !== 'ambient' || ambientState?.fullClickThrough) return undefined;
+    let lastRegion: 'interactive' | 'transparent' | undefined;
+    const reportRegion = (region: 'interactive' | 'transparent') => {
+      if (lastRegion === region) return;
+      lastRegion = region;
+      window.desky.setAmbientPointerRegion(region);
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      const interactive = document.elementsFromPoint(event.clientX, event.clientY)
+        .some((element) => element.closest('[data-desky-interactive="true"]'));
+      reportRegion(interactive ? 'interactive' : 'transparent');
+    };
+    const handleMouseLeave = () => reportRegion('transparent');
+    reportRegion('transparent');
+    document.addEventListener('mousemove', handleMouseMove, true);
+    document.addEventListener('mouseleave', handleMouseLeave, true);
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove, true);
+      document.removeEventListener('mouseleave', handleMouseLeave, true);
+    };
+  }, [ambientState?.fullClickThrough, runtimeInfo?.surface]);
 
   useEffect(() => {
     if (adapterMode !== 'simulation') return;
@@ -111,6 +144,9 @@ export function App() {
   const statusDetail = adapterMode === 'openclaw' && gateway.status !== 'connected'
     ? gateway.message
     : state.detail;
+  const recoveryShortcutLabel = runtimeInfo?.platform === 'darwin'
+    ? 'Cmd+Shift+D'
+    : 'Ctrl+Shift+D';
 
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
     const approval = state.pendingApproval;
@@ -144,16 +180,23 @@ export function App() {
 
   if (runtimeInfo.surface === 'ambient') {
     return (
-      <main className={`ambient-companion companion--${state.mode}`}>
-        <div className="ambient-drag-handle" title="Drag Desky" aria-hidden="true">•••</div>
-        <div className="ambient-actions">
+      <main
+        className={`ambient-companion companion--${state.mode}`}
+        data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
+        data-horizontal-placement={ambientState?.horizontalPlacement ?? 'center'}
+        data-recovery-available={ambientState?.recoveryAvailable ?? false}
+      >
+        <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Desky" aria-hidden="true">•••</div>
+        <div className="ambient-actions" data-desky-interactive="true">
           <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
-          <button type="button" aria-label="Close Desky companion" onClick={() => window.desky.performWindowAction('close')}>×</button>
+          <button type="button" aria-label="Enable full click-through" title={`Click through everything; recover with the tray or ${recoveryShortcutLabel}`} onClick={() => window.desky.performWindowAction('toggle-full-click-through')}>⇥</button>
+          <button type="button" aria-label="Hide Desky companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
         </div>
 
         <button
           type="button"
           className={`ambient-status connection-badge connection-badge--${connectionStatus}`}
+          data-desky-interactive="true"
           onClick={() => window.desky.performWindowAction('open-control-center')}
           title={statusDetail}
         >
@@ -161,21 +204,37 @@ export function App() {
           <span>{runtimeLabel} · {connectionStatus}</span>
         </button>
 
-        <section className="ambient-speech-bubble" aria-live="polite">
+        <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
           <strong>{state.label}</strong>
           <p>{uiError || state.bubbleText || statusDetail || '…'}</p>
         </section>
 
         <div className="ambient-avatar">
-          <AvatarStage mode={state.mode} />
+          <AvatarStage mode={state.mode} onVisibleBounds={setAvatarBounds} />
+          {avatarBounds ? (
+            <button
+              type="button"
+              className="ambient-avatar-hitbox"
+              data-desky-interactive="true"
+              aria-label="Focus the Desky composer"
+              title="Ask Desky"
+              style={{
+                left: avatarBounds.x,
+                top: avatarBounds.y,
+                width: avatarBounds.width,
+                height: avatarBounds.height,
+              }}
+              onClick={() => ambientPromptRef.current?.focus()}
+            />
+          ) : null}
         </div>
 
-        {approvalCard ? <div className="ambient-approval">{approvalCard}</div> : null}
+        {approvalCard ? <div className="ambient-approval" data-desky-interactive="true">{approvalCard}</div> : null}
 
         {connected && hasSession ? (
-          <form className="ambient-prompt" onSubmit={(event) => { event.preventDefault(); void run(); }}>
+          <form className="ambient-prompt" data-desky-interactive="true" onSubmit={(event) => { event.preventDefault(); void run(); }}>
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
-            <input id="ambient-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy} autoComplete="off" />
+            <input ref={ambientPromptRef} id="ambient-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)} disabled={busy} autoComplete="off" />
             {adapterMode === 'openclaw' && gateway.activeRunId ? (
               <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
             ) : (
@@ -183,7 +242,7 @@ export function App() {
             )}
           </form>
         ) : (
-          <button type="button" className="ambient-setup" onClick={() => window.desky.performWindowAction('open-control-center')}>
+          <button type="button" className="ambient-setup" data-desky-interactive="true" onClick={() => window.desky.performWindowAction('open-control-center')}>
             {connected ? 'Choose a session' : 'Connect an agent'}
           </button>
         )}
@@ -221,6 +280,33 @@ export function App() {
       </section>
 
       {approvalCard}
+
+      <section className="desktop-presence-card" aria-label="Desktop presence controls">
+        <div>
+          <strong>Desktop presence</strong>
+          <span>
+            Transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
+          </span>
+        </div>
+        <div className="desktop-presence-card__actions">
+          <button
+            type="button"
+            aria-pressed={ambientState?.alwaysOnTop ?? true}
+            onClick={() => window.desky.performWindowAction('toggle-always-on-top')}
+          >
+            Always on top: {ambientState?.alwaysOnTop === false ? 'Off' : 'On'}
+          </button>
+          <button
+            type="button"
+            aria-pressed={ambientState?.fullClickThrough ?? false}
+            onClick={() => window.desky.performWindowAction('toggle-full-click-through')}
+          >
+            Full click-through: {ambientState?.fullClickThrough ? 'On' : 'Off'}
+          </button>
+          <button type="button" onClick={() => window.desky.performWindowAction('reset-ambient-position')}>Reset position</button>
+          <button type="button" onClick={() => window.desky.performWindowAction('hide-ambient')}>Hide companion</button>
+        </div>
+      </section>
 
       {adapterMode === 'openclaw' && gateway.status === 'connected' ? (
         <div className="session-row">

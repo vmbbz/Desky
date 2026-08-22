@@ -87,7 +87,9 @@ The experience uses separate coordinated windows rather than one permanent card:
 
 The behavior and acceptance matrix are specified in `docs/COMPANION-EXPERIENCE.md`.
 
-The first F3c slice implements this separation through `DeskyWindowManager`. Each renderer receives a typed `ambient` or `control-center` identity from main-process ownership rather than selecting its own privileges. The ambient window is transparent, fixed-size, taskbar-free, and always-on-top under the current pre-preference policy; the control center is an ordinary resizable window. Renderer code can request only semantic window actions such as opening the control center or showing the companion. Position persistence, click-through, safe-area logic, tray escape, and the user-controlled always-on-top preference remain later F3c work.
+`DeskyWindowManager` implements this separation and owns all native desktop policy. Each renderer receives a typed `ambient` or `control-center` identity from main-process ownership rather than selecting its own privileges. The ambient window is transparent, fixed-size, and taskbar-free; the control center is an ordinary resizable window. Geometry-keyed placement and the always-on-top preference live in a bounded, validated, atomically replaced application-data record. The main process clamps the real native window against current Electron `Display.workArea` values after moves and display topology/metric events.
+
+The ambient renderer reports only `interactive` or `transparent` pointer intent through typed IPC. Interactive DOM regions are explicit, and the avatar uses projected scene bounds rather than its full canvas. Main applies Electron mouse-event forwarding for selective hit testing and owns the stronger full-window click-through mode. Full click-through is not persisted across launch and cannot enable without a live tray or global-shortcut recovery surface. Tray and native context menus also expose show, hide, position reset, always-on-top, control-center, and quit actions. Runtime state broadcasts never call `show` or `focus`; ambient restoration uses `showInactive`, while an explicit character click may focus the composer.
 
 Surface separation does not make the OpenClaw bridge the generic adapter contract. F5a will put an executable adapter registry and shared connection/session/capability types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
 
@@ -150,7 +152,7 @@ The canonical clip stores rest-corrected rotations in VRM 1.0 normalized-humanoi
 Initial persistence is split by sensitivity:
 
 - OS credential encryption (`safeStorage`): gateway credentials, Ed25519 private identity, and paired device tokens in an opaque application-data vault.
-- Application data directory: settings, window placement, selected avatar reference, redacted session index.
+- Application data directory: validated settings, bounded display-arrangement placement records, selected avatar reference, redacted session index. Full click-through is intentionally not persisted.
 - Optional transcript store: disabled until encryption, retention controls, and deletion semantics are implemented.
 - Cache directory: catalog JSON, previews, and avatar binaries with licence/provenance sidecars and bounded size.
 

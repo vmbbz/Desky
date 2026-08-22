@@ -1,12 +1,21 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 
-import { windowActions, type WindowAction } from '../shared/runtime';
+import {
+  ambientPointerRegions,
+  windowActions,
+  type AmbientPointerRegion,
+  type WindowAction,
+} from '../shared/runtime';
 import type {
   OpenClawConnectInput,
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
 import { getDistributionProfile } from './capabilities';
-import type { DeskyWindowManager } from './companion-window';
+import {
+  ambientPointerRegionChannel,
+  ambientStateChannel,
+  type DeskyWindowManager,
+} from './companion-window';
 import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 
 const runtimeInfoChannel = 'desky:runtime-info';
@@ -27,6 +36,11 @@ const openClawChannels = {
 
 function isWindowAction(value: unknown): value is WindowAction {
   return typeof value === 'string' && windowActions.includes(value as WindowAction);
+}
+
+function isAmbientPointerRegion(value: unknown): value is AmbientPointerRegion {
+  return typeof value === 'string'
+    && ambientPointerRegions.includes(value as AmbientPointerRegion);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -92,6 +106,12 @@ export function registerIpc(
     windows.performAction(event.sender, action);
   });
 
+  ipcMain.handle(ambientStateChannel, () => windows.getAmbientState());
+  ipcMain.on(ambientPointerRegionChannel, (event, region: unknown) => {
+    if (!isAmbientPointerRegion(region)) return;
+    windows.setPointerRegion(event.sender, region);
+  });
+
   ipcMain.handle(openClawChannels.getState, () => openClaw.getState());
   ipcMain.handle(openClawChannels.connect, (_event, input: unknown) => {
     const connection = readConnectInput(input);
@@ -130,5 +150,7 @@ export function registerIpc(
 export const ipcChannels = {
   runtimeInfo: runtimeInfoChannel,
   windowAction: windowActionChannel,
+  ambientState: ambientStateChannel,
+  ambientPointerRegion: ambientPointerRegionChannel,
   openClaw: openClawChannels,
 } as const;

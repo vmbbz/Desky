@@ -25,6 +25,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
+import type { DesktopRectangle } from '../../shared/runtime';
 import { AvatarMotionController } from './avatar-motion-controller';
 import { fetchFeaturedCc0Avatar } from './catalog';
 import {
@@ -38,6 +39,7 @@ const maxModelBytes = 100 * 1024 * 1024;
 
 interface AvatarStageProps {
   mode: CompanionMode;
+  onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
 }
 
 type LoadState =
@@ -78,9 +80,10 @@ function applyRelaxedPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function AvatarStage({ mode }: AvatarStageProps) {
+export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
+  const onVisibleBoundsRef = useRef(onVisibleBounds);
   const motionControllerRef = useRef<AvatarMotionController>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
@@ -93,6 +96,10 @@ export function AvatarStage({ mode }: AvatarStageProps) {
   }, [mode]);
 
   useEffect(() => {
+    onVisibleBoundsRef.current = onVisibleBounds;
+  }, [onVisibleBounds]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
@@ -100,6 +107,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
     let frameId = 0;
     let currentVrm: VRM | undefined;
     let avatarRoot: Object3D | undefined;
+    let lastBoundsSignature = '';
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const updateReducedMotion = () => {
       motionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
@@ -123,6 +131,43 @@ export function AvatarStage({ mode }: AvatarStageProps) {
     camera.position.set(0, 0, 4.2);
     camera.lookAt(0, 0, 0);
 
+    const reportVisibleBounds = () => {
+      if (!avatarRoot) return;
+      scene.updateMatrixWorld(true);
+      const bounds = new Box3().setFromObject(avatarRoot);
+      if (bounds.isEmpty()) return;
+      const minimum = bounds.min;
+      const maximum = bounds.max;
+      const corners = [
+        new Vector3(minimum.x, minimum.y, minimum.z),
+        new Vector3(minimum.x, minimum.y, maximum.z),
+        new Vector3(minimum.x, maximum.y, minimum.z),
+        new Vector3(minimum.x, maximum.y, maximum.z),
+        new Vector3(maximum.x, minimum.y, minimum.z),
+        new Vector3(maximum.x, minimum.y, maximum.z),
+        new Vector3(maximum.x, maximum.y, minimum.z),
+        new Vector3(maximum.x, maximum.y, maximum.z),
+      ];
+      const width = Math.max(canvas.clientWidth, 1);
+      const height = Math.max(canvas.clientHeight, 1);
+      const projected = corners.map((corner) => corner.project(camera));
+      const left = Math.max(0, Math.min(...projected.map((point) => (point.x + 1) * width / 2)));
+      const right = Math.min(width, Math.max(...projected.map((point) => (point.x + 1) * width / 2)));
+      const top = Math.max(0, Math.min(...projected.map((point) => (1 - point.y) * height / 2)));
+      const bottom = Math.min(height, Math.max(...projected.map((point) => (1 - point.y) * height / 2)));
+      if (right <= left || bottom <= top) return;
+      const nextBounds = {
+        x: Math.round(left),
+        y: Math.round(top),
+        width: Math.round(right - left),
+        height: Math.round(bottom - top),
+      };
+      const signature = JSON.stringify(nextBounds);
+      if (signature === lastBoundsSignature) return;
+      lastBoundsSignature = signature;
+      onVisibleBoundsRef.current?.(nextBounds);
+    };
+
     scene.add(new AmbientLight(0xffffff, 2.2));
     const keyLight = new DirectionalLight(0xe5f7ff, 3.2);
     keyLight.position.set(2, 4, 3);
@@ -137,6 +182,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
       renderer.setSize(width, height, false);
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      reportVisibleBounds();
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(canvas);
@@ -210,6 +256,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
         motionControllerRef.current = motionController;
         motionController.setReducedMotion(reducedMotionQuery.matches);
         motionController.setMode(modeRef.current);
+        reportVisibleBounds();
 
         setLoadState({
           kind: 'ready',
@@ -233,6 +280,7 @@ export function AvatarStage({ mode }: AvatarStageProps) {
       motionControllerRef.current = undefined;
       if (avatarRoot) disposeObject(avatarRoot);
       renderer.dispose();
+      onVisibleBoundsRef.current?.(undefined);
     };
   }, []);
 

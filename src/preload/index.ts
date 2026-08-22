@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-import type { RuntimeInfo, WindowAction } from '../shared/runtime';
+import type {
+  AmbientPointerRegion,
+  AmbientSurfaceState,
+  RuntimeInfo,
+  WindowAction,
+} from '../shared/runtime';
 import type {
   OpenClawBridge,
   OpenClawConnectInput,
@@ -49,8 +54,18 @@ const openClaw: OpenClawBridge = Object.freeze({
 const api = Object.freeze({
   getRuntimeInfo: (): Promise<RuntimeInfo> =>
     ipcRenderer.invoke('desky:runtime-info') as Promise<RuntimeInfo>,
+  getAmbientSurfaceState: (): Promise<AmbientSurfaceState> =>
+    ipcRenderer.invoke('desky:ambient-state') as Promise<AmbientSurfaceState>,
+  onAmbientSurfaceState: (listener: (state: AmbientSurfaceState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: AmbientSurfaceState) => listener(state);
+    ipcRenderer.on('desky:ambient-state', handler);
+    return () => ipcRenderer.removeListener('desky:ambient-state', handler);
+  },
   performWindowAction: (action: WindowAction): void => {
     ipcRenderer.send('desky:window-action', action);
+  },
+  setAmbientPointerRegion: (region: AmbientPointerRegion): void => {
+    ipcRenderer.send('desky:ambient-pointer-region', region);
   },
   openClaw,
 });

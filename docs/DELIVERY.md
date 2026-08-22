@@ -171,7 +171,22 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C1-SURFACE-SEPARATION-2026-08-22.md`.
 
-Next F3c exits are position persistence, work-area clamping, measured bubble anchoring, deliberate drag, click-through plus escape routes, focus evidence, and contextual composer behavior. The active dependency order is maintained in `docs/EXECUTION-PLAN.md`.
+### F3c.2 spatial and pointer status — 2026-08-22
+
+Implemented and package-verified on Windows:
+
+- Added validated, bounded display-arrangement placement persistence and atomic application-data replacement.
+- Restored the ambient window before showing it and clamped the real native bounds after dragging, display add/remove, work-area, scale, bounds, and rotation changes.
+- Added work-area-aware above/below and horizontal speech-bubble placement.
+- Projected the loaded VRM scene bounds into the canvas and used that measured rectangle as the deliberate character interaction target.
+- Added selective transparent-region pass-through and session-only full click-through.
+- Added tray, native context-menu, global `Ctrl/Cmd+Shift+D`, and control-center recovery routes. Full click-through cannot enable when neither tray nor shortcut recovery is available.
+- Added saved always-on-top, reset-position, hide, show, control-center, and quit controls without exposing raw Electron APIs.
+- Proved in a packaged Windows harness that inactive ambient show, state publication, and native clamping preserve focus on the active control center.
+
+Evidence is recorded in `docs/verification/F3C2-DESKTOP-BEHAVIOR-2026-08-22.md`.
+
+F3c.3 is now the next desktop-presence round: contextual composer reveal/collapse with draft persistence, long-response overflow and **Open conversation**, plus cross-window approval reconciliation. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 
@@ -238,8 +253,8 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Exit F3c.1 with packaged ambient/control-center captures, then implement F3c.2 position, safe-area, measured anchoring, click-through, tray/escape, and focus behavior.
-2. Start F5a generic adapter-host extraction after the F3c.1 boundary; finish it before Codex and before F4 connection management is finalized.
+1. Implement F3c.3 contextual composer, draft, overflow, open-conversation, and cross-window approval reconciliation behavior.
+2. Start F5a generic adapter-host extraction now that the F3c surface and desktop-policy boundaries exist; finish it before Codex and before F4 connection management is finalized.
 3. In parallel, approve the first redistributable animation, build the binary VRM suite, and persist provenance-bearing cache records.
 4. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
 5. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.

@@ -44,7 +44,7 @@ Status: implemented and package-verified on Windows; macOS evidence remains part
 
 ### F3c.2 — spatial and pointer behavior
 
-Status: next implementation round.
+Status: implemented and package-verified on Windows; the multi-scale/multi-monitor manual matrix and macOS evidence remain broader F3 exit gates.
 
 - Persist position per display arrangement and clamp to the active work area.
 - Add deliberate drag regions without turning ordinary avatar clicks into drags.
@@ -53,9 +53,11 @@ Status: next implementation round.
 - Add tray/menu and keyboard escape routes so click-through or hidden state cannot trap the user.
 - Verify that event-driven updates never steal application focus.
 
+The implementation stores at most sixteen recent geometry-keyed placements, clamps the native window after user moves and display changes, derives bubble orientation from current work-area clearance, and uses the projected VRM bounds rather than the full transparent canvas as the character hit target. Selective transparent-region pass-through is the safe default. Full click-through is deliberately session-only and cannot enable unless a tray or global recovery route exists. Always-on-top is persisted separately.
+
 ### F3c.3 — focused companion behavior
 
-Status: queued after F3c.2.
+Status: next implementation round.
 
 - Reveal and collapse the composer contextually while preserving drafts.
 - Keep session selection and runtime setup out of the permanent ambient layout.

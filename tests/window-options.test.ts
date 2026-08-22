@@ -21,6 +21,7 @@ describe('desktop surface contract', () => {
         nodeIntegration: false,
         sandbox: true,
         webSecurity: true,
+        focusOnNavigation: false,
       },
     });
   });
@@ -39,6 +40,7 @@ describe('desktop surface contract', () => {
         nodeIntegration: false,
         sandbox: true,
         webSecurity: true,
+        focusOnNavigation: false,
       },
     });
     expect(createWindowOptions('control-center', 'preload.js').alwaysOnTop).not.toBe(true);
@@ -48,5 +50,16 @@ describe('desktop surface contract', () => {
     expect(surfaceKinds).toEqual(['ambient', 'control-center']);
     expect(windowActions).toContain('open-control-center');
     expect(windowActions).toContain('show-ambient');
+    expect(windowActions).toContain('toggle-full-click-through');
+    expect(windowActions).toContain('reset-ambient-position');
+  });
+
+  it('applies a restored ambient position before the window becomes visible', () => {
+    expect(createWindowOptions('ambient', 'preload.js', {
+      x: 1420,
+      y: 420,
+      width: 420,
+      height: 580,
+    })).toMatchObject({ x: 1420, y: 420, width: 420, height: 580, show: false });
   });
 });

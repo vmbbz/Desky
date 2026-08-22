@@ -244,6 +244,8 @@ The implemented F3b foundation currently covers the first two bullets and the fu
 
 F3c.1 now establishes separate ambient and control-center windows and removes the permanent card from the default companion. The ambient surface retains a short bubble, avatar, status, prompt/Stop, approval actions, and a route to setup; the standard resizable control center owns connection and session management. Position persistence, measured edge-aware anchoring, click-through, tray escape, focus evidence, and contextual composer collapse remain F3c.2/F3c.3 gates.
 
+F3c.2 now implements geometry-keyed position persistence, 12-pixel work-area clamping after user moves and display changes, above/below and horizontal bubble adjustment, a projected VRM-bounds character hit target, selective transparent-region pass-through, a session-only full click-through mode, saved always-on-top control, and tray/context-menu/global-shortcut/control-center recovery routes. Packaged Windows diagnostics prove that an active control center retains focus while the ambient window is shown inactive, repositioned, and updated. Manual pointer pass-through at every required display scale, equivalent macOS behavior, full-screen policy, and sleep/wake/display-reconnect device evidence remain F3/F3d gates. F3c.3 owns contextual composer collapse and draft reconciliation.
+
 ### F3d — resilience and evidence
 
 - Add reduced-motion, paused, WebGL-loss, missing-clip, and avatar-load fallbacks.

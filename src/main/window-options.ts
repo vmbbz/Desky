@@ -1,6 +1,6 @@
 import type { BrowserWindowConstructorOptions } from 'electron';
 
-import type { SurfaceKind } from '../shared/runtime';
+import type { DesktopRectangle, SurfaceKind } from '../shared/runtime';
 
 function secureWebPreferences(preload: string): NonNullable<BrowserWindowConstructorOptions['webPreferences']> {
   return {
@@ -9,17 +9,21 @@ function secureWebPreferences(preload: string): NonNullable<BrowserWindowConstru
     nodeIntegration: false,
     sandbox: true,
     webSecurity: true,
+    focusOnNavigation: false,
   };
 }
 
 export function createWindowOptions(
   surface: SurfaceKind,
   preload: string,
+  ambientBounds?: DesktopRectangle,
 ): BrowserWindowConstructorOptions {
   if (surface === 'ambient') {
     return {
-      width: 420,
-      height: 580,
+      width: ambientBounds?.width ?? 420,
+      height: ambientBounds?.height ?? 580,
+      x: ambientBounds?.x,
+      y: ambientBounds?.y,
       minWidth: 420,
       minHeight: 580,
       maxWidth: 420,
