@@ -76,15 +76,14 @@ Live-verified on Windows against local OpenClaw 2026.8.1:
 
 - Protocol-v4 authentication and required method/scope negotiation.
 - Fresh session creation, selection, and approval-enabled message subscription.
-- Exec approval deny, allow-once, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
-- Cancellation with an authoritative cancelled terminal event.
-- Unexpected idle transport loss through a controllable loopback relay, followed by automatic reconnect and selected-session resubscription.
+- Exec approval deny, allow-once, expiry, first-answer-wins reviewer contention, and authoritative duplicate acknowledgement. The probes create approval records but never execute a command.
+- Unexpected transport loss during an admitted turn through a controllable loopback relay, followed by automatic reconnect, selected-session resubscription, cancellation, and exactly one terminal event.
 
 Open before F2 exit:
 
-- Complete and record a successful fresh-session assistant stream after the configured Codex subscription limit resets or another owner-authorized provider is selected.
-- Verify live exec/plugin allow-always where offered, expiry, and cross-device contention.
-- Interrupt a live turn during thinking, tool use, and response streaming; verify authoritative terminal state after reconnect.
+- Complete and record a successful fresh-session assistant stream after the configured OpenAI provider leaves rate-limit cooldown or another owner-authorized provider is selected.
+- Verify live exec/plugin allow-always where offered and cross-device contention on separate clean device profiles.
+- Interrupt a live turn specifically during tool use and response streaming; verify tool and text reconciliation after reconnect.
 - Verify device pairing and paired-token rotation on a second clean machine profile.
 - Connect the Store capability profile to a trusted remote `wss://` gateway and validate certificate failure behavior.
 - Run the same live matrix on macOS with Keychain-backed `safeStorage`.

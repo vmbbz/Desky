@@ -34,6 +34,7 @@ class FixtureClient implements GatewayClientPort {
   constructor(
     readonly options: GatewayConnectOptions,
     private readonly approvalResult?: unknown,
+    private readonly abortResult: unknown = { ok: true, abortedRunId: 'run-1', status: 'aborted' },
   ) {}
 
   connect() {
@@ -53,17 +54,20 @@ class FixtureClient implements GatewayClientPort {
 
   request<T>(method: string, params: unknown = {}): Promise<T> {
     this.calls.push({ method, params });
-    const value = method === 'sessions.list'
-      ? { sessions: [{ key: 'agent:main:desky', label: 'Desky session', updatedAt: 10 }] }
-      : method === 'sessions.messages.subscribe'
-        ? { approvals: [] }
-        : method === 'sessions.create'
-          ? { ok: true, key: 'agent:main:new' }
-      : method === 'chat.send'
-            ? { runId: 'run-1' }
-            : method === 'approval.resolve'
-              ? this.resolveApproval(params)
-            : { ok: true };
+    let value: unknown = { ok: true };
+    if (method === 'sessions.list') {
+      value = { sessions: [{ key: 'agent:main:desky', label: 'Desky session', updatedAt: 10 }] };
+    } else if (method === 'sessions.messages.subscribe') {
+      value = { approvals: [] };
+    } else if (method === 'sessions.create') {
+      value = { ok: true, key: 'agent:main:new' };
+    } else if (method === 'chat.send') {
+      value = { runId: 'run-1' };
+    } else if (method === 'approval.resolve') {
+      value = this.resolveApproval(params);
+    } else if (method === 'sessions.abort') {
+      value = this.abortResult;
+    }
     return Promise.resolve(value as T);
   }
 
@@ -136,6 +140,10 @@ describe('OpenClawAdapterHost contract fixture', () => {
     });
     await host.resolveApproval({ requestId: 'approval-1', kind: 'exec', decision: 'allow-once' });
     expect(host.getState().message).toBe('Approval accepted by OpenClaw');
+    clients[0].options.onEvent('session.approval', {
+      sessionKey: 'agent:main:desky', phase: 'terminal',
+      approval: { id: 'approval-1', status: 'allowed', decision: 'allow-once' },
+    });
     await host.resolveApproval({ requestId: 'approval-1', kind: 'exec', decision: 'allow-once' });
     expect(host.getState().message).toBe('Approval already allowed in OpenClaw');
     await host.cancel();
@@ -143,9 +151,12 @@ describe('OpenClawAdapterHost contract fixture', () => {
       method: 'sessions.abort',
       params: { key: 'agent:main:desky', runId: 'run-1', clearQueued: true },
     });
+    expect(host.getState().activeRunId).toBeUndefined();
     expect(eventTypes).toEqual(expect.arrayContaining([
-      'connection.ready', 'user.input.accepted', 'tool.started', 'assistant.delta', 'approval.requested',
+      'connection.ready', 'user.input.accepted', 'tool.started', 'assistant.delta',
+      'approval.requested', 'approval.resolved',
     ]));
+    expect(eventTypes.filter((type) => type === 'approval.resolved')).toHaveLength(1);
 
     clients[0].options.onClose('network unavailable', false);
     expect(host.getState()).toMatchObject({ status: 'reconnecting', reconnectAttempt: 1 });
@@ -176,5 +187,90 @@ describe('OpenClawAdapterHost contract fixture', () => {
       kind: 'exec',
       decision: 'deny',
     })).rejects.toThrow('Gateway returned an invalid approval acknowledgement.');
+  });
+
+  it('fails closed when a cancellation acknowledgement is malformed', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new FixtureClient(options, undefined, { ok: true }),
+    );
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    await host.selectSession('agent:main:desky');
+    await host.send('Start a turn');
+
+    await expect(host.cancel()).rejects.toThrow('Gateway returned an invalid cancellation acknowledgement.');
+    expect(host.getState().activeRunId).toBe('run-1');
+  });
+
+  it('closes a run whose terminal event was missed before a no-active-run acknowledgement', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new FixtureClient(options, undefined, {
+        ok: true,
+        abortedRunId: null,
+        status: 'no-active-run',
+      }),
+    );
+    const terminalEvents: string[] = [];
+    host.onEvent((event) => {
+      if (event.type === 'turn.failed') terminalEvents.push(event.payload.safeError);
+    });
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    await host.selectSession('agent:main:desky');
+    await host.send('Start a turn');
+    await host.cancel();
+
+    expect(terminalEvents).toEqual(['Turn ended while Desky was reconnecting; refresh the transcript.']);
+    expect(host.getState().activeRunId).toBeUndefined();
+  });
+
+  it('does not reactivate a run after a native terminal event', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    let client: FixtureClient | undefined;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        client = new FixtureClient(options);
+        return client;
+      },
+    );
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    await host.selectSession('agent:main:desky');
+    await host.send('Complete a turn');
+    client?.options.onEvent('chat', {
+      sessionKey: 'agent:main:desky',
+      runId: 'run-1',
+      seq: 1,
+      state: 'final',
+      stopReason: 'complete',
+    });
+
+    expect(host.getState().activeRunId).toBeUndefined();
   });
 });

@@ -53,4 +53,35 @@ describe('reduceCompanionState', () => {
     expect(state.detail).toBe('Connection interrupted');
     expect(state.bubbleText).not.toContain('undefined');
   });
+
+  it('clears only the approval named by an authoritative terminal event', () => {
+    const pending = reduceCompanionState(initialCompanionState, {
+      ...context,
+      type: 'approval.requested',
+      payload: {
+        requestId: 'approval-1',
+        kind: 'exec',
+        action: 'Run command',
+        safeTarget: 'npm test',
+        allowedDecisions: ['allow-once', 'deny'],
+      },
+    });
+    const unrelated = reduceCompanionState(pending, {
+      ...context,
+      type: 'approval.resolved',
+      payload: { requestId: 'approval-old', status: 'expired' },
+    });
+    expect(unrelated).toBe(pending);
+
+    const resolved = reduceCompanionState(pending, {
+      ...context,
+      type: 'approval.resolved',
+      payload: { requestId: 'approval-1', status: 'denied' },
+    });
+    expect(resolved).toMatchObject({
+      mode: 'idle',
+      label: 'Approval closed',
+      pendingApproval: undefined,
+    });
+  });
 });

@@ -116,8 +116,39 @@ function waitForState(
   });
 }
 
+async function requestExecApproval(input: {
+  requester: OpenClawGatewayClient;
+  host: OpenClawAdapterHost;
+  sessionKey: string | undefined;
+  command: string;
+  timeoutMs?: number;
+  id?: string;
+}): Promise<string> {
+  const id = input.id ?? `desky-live-${randomUUID()}`;
+  const pending = waitForEvent(
+    input.host,
+    (event) => event.type === 'approval.requested' && event.payload.requestId === id,
+    20_000,
+  );
+  await expect(input.requester.request('exec.approval.request', {
+    id,
+    command: input.command,
+    host: 'local',
+    ask: 'always',
+    sessionKey: input.sessionKey,
+    twoPhase: true,
+    requireDeliveryRoute: false,
+    timeoutMs: input.timeoutMs ?? 60_000,
+  })).resolves.toMatchObject({ status: 'accepted', id });
+  const requested = await pending;
+  expect(requested.type).toBe('approval.requested');
+  if (requested.type !== 'approval.requested') throw new Error('Expected approval request.');
+  expect(requested.payload.safeTarget).toContain(input.command);
+  return id;
+}
+
 describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
-  it('covers capabilities, approvals, cancellation, reconnect, and streaming', async () => {
+  it('covers capabilities, approval lifecycle, active reconnect/cancellation, and streaming', async () => {
     expect(credential, 'DESKY_OPENCLAW_LIVE_CREDENTIAL is required for live verification').toBeTruthy();
     const directory = mkdtempSync(join(tmpdir(), 'desky-openclaw-live-'));
     const relay = new LiveGatewayRelay(gatewayUrl);
@@ -171,26 +202,12 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       ]));
       process.stdout.write(`[desky-live] OpenClaw ${hello.server.version}: protocol capabilities passed\n`);
 
-      const approvalId = `desky-live-${randomUUID()}`;
-      const approvalEvent = waitForEvent(
+      const approvalId = await requestExecApproval({
+        requester,
         host,
-        (event) => event.type === 'approval.requested' && event.payload.requestId === approvalId,
-        20_000,
-      );
-      await expect(requester.request('exec.approval.request', {
-        id: approvalId,
-        command: 'Write-Output DESKY_APPROVAL_PROBE',
-        host: 'local',
-        ask: 'always',
         sessionKey,
-        twoPhase: true,
-        requireDeliveryRoute: false,
-        timeoutMs: 60_000,
-      })).resolves.toMatchObject({ status: 'accepted', id: approvalId });
-      const requested = await approvalEvent;
-      expect(requested.type).toBe('approval.requested');
-      if (requested.type !== 'approval.requested') throw new Error('Expected approval request.');
-      expect(requested.payload.safeTarget).toContain('DESKY_APPROVAL_PROBE');
+        command: 'Write-Output DESKY_APPROVAL_PROBE',
+      });
       await host.resolveApproval({ requestId: approvalId, kind: 'exec', decision: 'deny' });
       await expect(requester.request('approval.get', { id: approvalId })).resolves.toMatchObject({
         approval: { id: approvalId, status: 'denied', decision: 'deny' },
@@ -198,54 +215,104 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       await host.resolveApproval({ requestId: approvalId, kind: 'exec', decision: 'deny' });
       expect(host.getState().message).toBe('Approval already denied in OpenClaw');
 
-      const allowedApprovalId = `desky-live-${randomUUID()}`;
-      const allowedApprovalEvent = waitForEvent(
+      const allowedApprovalId = await requestExecApproval({
+        requester,
         host,
-        (event) => event.type === 'approval.requested' && event.payload.requestId === allowedApprovalId,
-        20_000,
-      );
-      await expect(requester.request('exec.approval.request', {
-        id: allowedApprovalId,
-        command: 'Write-Output DESKY_APPROVAL_ALLOW_ONCE_PROBE',
-        host: 'local',
-        ask: 'always',
         sessionKey,
-        twoPhase: true,
-        requireDeliveryRoute: false,
-        timeoutMs: 60_000,
-      })).resolves.toMatchObject({ status: 'accepted', id: allowedApprovalId });
-      await allowedApprovalEvent;
+        command: 'Write-Output DESKY_APPROVAL_ALLOW_ONCE_PROBE',
+      });
       await host.resolveApproval({ requestId: allowedApprovalId, kind: 'exec', decision: 'allow-once' });
       await expect(requester.request('approval.get', { id: allowedApprovalId })).resolves.toMatchObject({
         approval: { id: allowedApprovalId, status: 'allowed', decision: 'allow-once' },
       });
       process.stdout.write('[desky-live] approval deny, allow-once, and duplicate acknowledgement passed\n');
 
-      const cancelledTerminal = waitForEvent(
+      const expiringApprovalId = `desky-live-${randomUUID()}`;
+      const expiredTerminal = waitForEvent(
+        host,
+        (event) => event.type === 'approval.resolved'
+          && event.payload.requestId === expiringApprovalId
+          && event.payload.status === 'expired',
+        10_000,
+      );
+      await requestExecApproval({
+        requester,
+        host,
+        sessionKey,
+        command: 'Write-Output DESKY_APPROVAL_EXPIRY_PROBE',
+        timeoutMs: 1_500,
+        id: expiringApprovalId,
+      });
+      await expiredTerminal;
+      await expect(requester.request('approval.get', { id: expiringApprovalId })).resolves.toMatchObject({
+        approval: { id: expiringApprovalId, status: 'expired' },
+      });
+
+      const contendedApprovalId = await requestExecApproval({
+        requester,
+        host,
+        sessionKey,
+        command: 'Write-Output DESKY_APPROVAL_CONTENTION_PROBE',
+      });
+      const contendedTerminal = waitForEvent(
+        host,
+        (event) => event.type === 'approval.resolved'
+          && event.payload.requestId === contendedApprovalId,
+        20_000,
+      );
+      const [, contenderResult] = await Promise.all([
+        host.resolveApproval({ requestId: contendedApprovalId, kind: 'exec', decision: 'allow-once' }),
+        requester.request<{
+          applied: boolean;
+          approval: { id: string; status: 'allowed' | 'denied'; decision: 'allow-once' | 'deny' };
+        }>('approval.resolve', { id: contendedApprovalId, kind: 'exec', decision: 'deny' }),
+      ]);
+      const canonicalContention = await requester.request<{
+        approval: { id: string; status: 'allowed' | 'denied'; decision: 'allow-once' | 'deny' };
+      }>('approval.get', { id: contendedApprovalId });
+      expect(canonicalContention.approval).toMatchObject({
+        id: contendedApprovalId,
+        status: contenderResult.applied ? 'denied' : 'allowed',
+        decision: contenderResult.applied ? 'deny' : 'allow-once',
+      });
+      await contendedTerminal;
+      expect(events.filter((event) => event.type === 'approval.resolved'
+        && event.payload.requestId === contendedApprovalId)).toHaveLength(1);
+      process.stdout.write('[desky-live] approval expiry and first-answer-wins contention passed\n');
+
+      const interruptedTurnStart = events.length;
+      const interruptedTerminal = waitForEvent(
         host,
         (event) => event.type === 'turn.completed' || event.type === 'turn.failed',
         30_000,
       );
-      await host.send('This live verification turn should be cancelled immediately.');
-      await host.cancel();
-      const cancelled = await cancelledTerminal;
-      expect(cancelled.type).toBe('turn.failed');
-      if (cancelled.type !== 'turn.failed') throw new Error('Expected cancelled turn to fail.');
-      expect(cancelled.payload.safeError.toLowerCase()).toContain('cancel');
-      process.stdout.write('[desky-live] cancellation passed\n');
-
+      await host.send('This live verification turn should reconnect, then be cancelled immediately.');
+      const interruptedRunId = host.getState().activeRunId;
+      expect(interruptedRunId).toBeTruthy();
       const automaticReconnect = waitForState(
         host,
         (state) => state.status === 'connected'
           && state.selectedSessionKey === sessionKey
+          && state.activeRunId === interruptedRunId
           && connectionStates.some((candidate) => candidate.status === 'reconnecting'),
         15_000,
       );
       relay.dropConnections();
       const reconnected = await automaticReconnect;
       expect(connectionStates.some((state) => state.status === 'reconnecting')).toBe(true);
-      expect(reconnected).toMatchObject({ status: 'connected', selectedSessionKey: sessionKey });
-      process.stdout.write('[desky-live] unexpected network loss, reconnect, and session resubscription passed\n');
+      expect(reconnected).toMatchObject({
+        status: 'connected',
+        selectedSessionKey: sessionKey,
+        activeRunId: interruptedRunId,
+      });
+      await host.cancel();
+      const cancelled = await interruptedTerminal;
+      expect(cancelled).toMatchObject({ type: 'turn.failed', turnId: interruptedRunId });
+      if (cancelled.type !== 'turn.failed') throw new Error('Expected cancelled turn to fail.');
+      expect(cancelled.payload.safeError.toLowerCase()).toContain('cancel');
+      expect(events.slice(interruptedTurnStart).filter((event) => event.turnId === interruptedRunId
+        && (event.type === 'turn.completed' || event.type === 'turn.failed'))).toHaveLength(1);
+      process.stdout.write('[desky-live] active-turn network loss, reconnect, cancellation, and terminal dedupe passed\n');
 
       const streamedTerminal = waitForEvent(
         host,
@@ -256,6 +323,7 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
       await host.send('Reply with exactly DESKY_LIVE_OK and no other text.');
       const streamed = await streamedTerminal;
       const terminalFailure = streamed.type === 'turn.failed' ? streamed.payload.safeError : undefined;
+      expect(host.getState().activeRunId).toBeUndefined();
       expect(streamed.type, `OpenClaw ${hello.server.version}: ${terminalFailure ?? 'unexpected terminal'}`).toBe('turn.completed');
       const streamedText = events
         .slice(streamStart)

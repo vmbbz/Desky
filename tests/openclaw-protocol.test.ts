@@ -88,4 +88,19 @@ describe('OpenClaw protocol v4 boundary', () => {
     });
     expect(JSON.stringify(event)).not.toContain('must-not-cross-ipc');
   });
+
+  it('normalizes only well-formed terminal approval states', () => {
+    expect(normalizeOpenClawEvent('connection-1', 'session.approval', {
+      sessionKey: 'session-1',
+      phase: 'terminal',
+      approval: { id: 'approval-1', status: 'expired', environment: { SECRET: 'hidden' } },
+    })[0]).toMatchObject({
+      type: 'approval.resolved',
+      sessionId: 'session-1',
+      payload: { requestId: 'approval-1', status: 'expired' },
+    });
+    expect(normalizeOpenClawEvent('connection-1', 'session.approval', {
+      sessionKey: 'session-1', phase: 'terminal', approval: { id: 'approval-1', status: 'unknown' },
+    })).toEqual([]);
+  });
 });

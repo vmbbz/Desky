@@ -40,6 +40,13 @@ export type AdapterEvent = EventContext & (
         allowedDecisions: Array<'allow-once' | 'allow-always' | 'deny'>;
       };
     }
+  | {
+      type: 'approval.resolved';
+      payload: {
+        requestId: string;
+        status: 'allowed' | 'denied' | 'expired' | 'cancelled';
+      };
+    }
   | { type: 'turn.completed'; payload: { summary: string } }
   | { type: 'turn.failed'; payload: { safeError: string } }
 );

@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny and allow-once, duplicate approval acknowledgement, cancellation, and recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured Codex account's subscription limit, so F2 is not complete.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. The opt-in live harness passes authentication, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, and active-turn recovery from unexpected transport loss against local OpenClaw 2026.8.1. A successful assistant stream remains blocked by the configured OpenAI provider's rate-limit cooldown, so F2 is not complete.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -33,6 +33,9 @@ It advertises session-scoped events, structured tool events, unified approvals, 
 - A reconnect refreshes sessions, re-subscribes the selected session with approval replay, and requests bounded history when supported.
 - An event sequence gap triggers the same bounded reconciliation path.
 - Desky deduplicates terminal events per run and never converts natural-language text into an approval.
+- A native terminal event clears the active run in one exclusive transition; it cannot be reclassified as fresh activity by the same event.
+- The structured `sessions.abort` acknowledgement is authoritative. If a terminal stream event was lost during reconnect, Desky emits one bounded terminal failure from the acknowledgement instead of leaving the turn active indefinitely.
+- Terminal approval events clear only their matching reviewer card. Late, duplicate, malformed, or unrelated terminal events cannot clear a newer request.
 
 ## Live F2 verification
 

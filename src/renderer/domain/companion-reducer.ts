@@ -84,6 +84,18 @@ export function reduceCompanionState(
         bubbleText: 'I need your approval before I continue.',
         pendingApproval: event.payload,
       };
+    case 'approval.resolved': {
+      if (state.pendingApproval?.requestId !== event.payload.requestId) return state;
+      const allowed = event.payload.status === 'allowed';
+      return {
+        ...state,
+        mode: allowed && state.activeTurnId ? 'thinking' : 'idle',
+        label: allowed ? 'Approval accepted' : 'Approval closed',
+        detail: `OpenClaw marked the request ${event.payload.status}.`,
+        bubbleText: allowed ? 'Continuing with the approved action.' : 'The approval request is closed.',
+        pendingApproval: undefined,
+      };
+    }
     case 'assistant.delta':
       return {
         ...state,

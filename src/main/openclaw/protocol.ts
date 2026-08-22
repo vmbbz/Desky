@@ -274,6 +274,15 @@ export function normalizeOpenClawEvent(
     }];
   }
 
+  if (nativeEvent === 'session.approval' && payload.phase === 'terminal' && isRecord(payload.approval)) {
+    const approval = payload.approval;
+    const terminalStatuses = ['allowed', 'denied', 'expired', 'cancelled'] as const;
+    const status = terminalStatuses.find((candidate) => candidate === approval.status);
+    const requestId = readString(approval.id);
+    if (!status || !requestId) return [];
+    return [{ ...context, type: 'approval.resolved', payload: { requestId, status } }];
+  }
+
   if (nativeEvent === 'exec.approval.requested') {
     const command = safeText(payload.command ?? (isRecord(payload.systemRunPlan) ? payload.systemRunPlan.commandText : undefined), 'Command hidden');
     return [{ ...context, type: 'approval.requested', payload: { requestId: readString(payload.id) ?? 'invalid-approval', kind: 'exec', action: 'Run command', safeTarget: command, allowedDecisions: ['allow-once', 'allow-always', 'deny'] } }];

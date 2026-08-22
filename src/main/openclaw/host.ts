@@ -35,6 +35,11 @@ interface ApprovalResolution {
   status: 'allowed' | 'denied' | 'expired' | 'cancelled';
 }
 
+interface AbortAcknowledgement {
+  status: 'aborted' | 'no-active-run';
+  abortedRunId: string | null;
+}
+
 const profileIndexKey = 'openclaw:active-profile';
 const identityKey = 'openclaw:device-identity';
 
@@ -85,6 +90,37 @@ function approvalResolution(value: unknown, requestId: string): ApprovalResoluti
   return { applied: result.applied, status };
 }
 
+function abortAcknowledgement(value: unknown, requestedRunId?: string): AbortAcknowledgement {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Gateway returned an invalid cancellation acknowledgement.');
+  }
+  const result = value as Record<string, unknown>;
+  const status = result.status === 'aborted' || result.status === 'no-active-run'
+    ? result.status
+    : undefined;
+  const abortedRunId = typeof result.abortedRunId === 'string'
+    ? result.abortedRunId
+    : result.abortedRunId === null
+      ? null
+      : undefined;
+  if (result.ok !== true || !status || abortedRunId === undefined
+    || (status === 'aborted' && (!abortedRunId || (requestedRunId && abortedRunId !== requestedRunId)))
+    || (status === 'no-active-run' && abortedRunId !== null)) {
+    throw new Error('Gateway returned an invalid cancellation acknowledgement.');
+  }
+  return { status, abortedRunId };
+}
+
+function rememberTerminal(values: Set<string>, id: string): boolean {
+  if (values.has(id)) return false;
+  values.add(id);
+  if (values.size > 1_000) {
+    const oldest = values.values().next().value;
+    if (oldest) values.delete(oldest);
+  }
+  return true;
+}
+
 export class OpenClawAdapterHost {
   private client?: GatewayClientPort;
   private profile?: StoredProfile;
@@ -96,6 +132,7 @@ export class OpenClawAdapterHost {
   private readonly stateListeners = new Set<(state: OpenClawConnectionState) => void>();
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
   private readonly terminalRuns = new Set<string>();
+  private readonly terminalApprovals = new Set<string>();
   private state: OpenClawConnectionState = {
     status: 'disconnected',
     gatewayUrl: 'ws://127.0.0.1:18789/',
@@ -243,12 +280,21 @@ export class OpenClawAdapterHost {
     const key = this.state.selectedSessionKey;
     const runId = this.state.activeRunId;
     if (!key && !runId) return;
-    await this.requireClient().request('sessions.abort', {
+    const result = abortAcknowledgement(await this.requireClient().request('sessions.abort', {
       ...(key ? { key } : {}),
       ...(runId ? { runId } : {}),
       clearQueued: true,
-    });
-    this.patchState({ activeRunId: undefined, message: 'Cancellation requested' });
+    }), runId);
+    if (runId) {
+      this.emitTurnFailed(
+        runId,
+        result.status === 'aborted'
+          ? 'Turn cancelled'
+          : 'Turn ended while Desky was reconnecting; refresh the transcript.',
+      );
+    } else {
+      this.patchState({ message: result.status === 'aborted' ? 'Session work cancelled' : 'No active work to cancel' });
+    }
   }
 
   async resolveApproval(input: OpenClawResolveApprovalInput): Promise<void> {
@@ -264,16 +310,7 @@ export class OpenClawAdapterHost {
         : 'Approval accepted by OpenClaw'
       : `Approval already ${result.status} in OpenClaw`;
     this.patchState({ message: outcome });
-    this.emitEvent({
-      protocolVersion: 1,
-      eventId: randomUUID(),
-      timestamp: new Date().toISOString(),
-      connectionId: this.client?.connectionId ?? 'openclaw',
-      sessionId: this.state.selectedSessionKey,
-      turnId: this.state.activeRunId,
-      type: 'agent.thinking',
-      payload: { status: outcome },
-    });
+    this.emitApprovalResolved(input.requestId, result.status);
   }
 
   private async connectCurrentProfile(reconnecting: boolean, generation: number): Promise<void> {
@@ -363,17 +400,20 @@ export class OpenClawAdapterHost {
     if (event === 'sessions.changed' || event === 'session.created' || event === 'session.updated') {
       void this.refreshSessions().catch(() => undefined);
     }
-    if (event === 'session.approval' && payload && typeof payload === 'object'
-      && (payload as Record<string, unknown>).phase === 'terminal') {
-      this.patchState({ message: 'Approval resolved by OpenClaw' });
-    }
     for (const normalized of normalizeOpenClawEvent(client.connectionId ?? 'openclaw', event, payload)) {
-      if ((normalized.type === 'turn.completed' || normalized.type === 'turn.failed') && normalized.turnId) {
-        if (this.terminalRuns.has(normalized.turnId)) continue;
-        this.terminalRuns.add(normalized.turnId);
-        this.patchState({ activeRunId: undefined });
+      if (normalized.type === 'approval.requested'
+        && this.terminalApprovals.has(normalized.payload.requestId)) continue;
+      if (normalized.type === 'approval.resolved') {
+        if (!rememberTerminal(this.terminalApprovals, normalized.payload.requestId)) continue;
+        this.patchState({ message: `Approval ${normalized.payload.status} by OpenClaw` });
       }
-      if (normalized.turnId && !this.state.activeRunId) this.patchState({ activeRunId: normalized.turnId });
+      const terminalTurn = normalized.type === 'turn.completed' || normalized.type === 'turn.failed';
+      if (terminalTurn && normalized.turnId) {
+        if (!rememberTerminal(this.terminalRuns, normalized.turnId)) continue;
+        this.patchState({ activeRunId: undefined });
+      } else if (normalized.turnId && !this.state.activeRunId) {
+        this.patchState({ activeRunId: normalized.turnId });
+      }
       this.emitEvent(normalized);
     }
   }
@@ -485,6 +525,38 @@ export class OpenClawAdapterHost {
 
   private emitEvent(event: AdapterEvent): void {
     for (const listener of this.eventListeners) listener(event);
+  }
+
+  private emitApprovalResolved(
+    requestId: string,
+    status: ApprovalResolution['status'],
+  ): void {
+    if (!rememberTerminal(this.terminalApprovals, requestId)) return;
+    this.emitEvent({
+      protocolVersion: 1,
+      eventId: randomUUID(),
+      timestamp: new Date().toISOString(),
+      connectionId: this.client?.connectionId ?? 'openclaw',
+      sessionId: this.state.selectedSessionKey,
+      turnId: this.state.activeRunId,
+      type: 'approval.resolved',
+      payload: { requestId, status },
+    });
+  }
+
+  private emitTurnFailed(turnId: string, safeError: string): void {
+    if (!rememberTerminal(this.terminalRuns, turnId)) return;
+    this.patchState({ activeRunId: undefined, message: safeError });
+    this.emitEvent({
+      protocolVersion: 1,
+      eventId: randomUUID(),
+      timestamp: new Date().toISOString(),
+      connectionId: this.client?.connectionId ?? 'openclaw',
+      sessionId: this.state.selectedSessionKey,
+      turnId,
+      type: 'turn.failed',
+      payload: { safeError },
+    });
   }
 
   private clearReconnectTimer(): void {

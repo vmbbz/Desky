@@ -47,6 +47,7 @@ Initial semantic events:
 | `tool.progress` | bounded, user-safe progress update |
 | `tool.completed` | tool returned successfully |
 | `approval.requested` | runtime is blocked on an explicit user decision |
+| `approval.resolved` | runtime recorded an allowed, denied, expired, or cancelled approval terminal state |
 | `turn.completed` | terminal success for a turn |
 | `turn.failed` | terminal failure with a safe error |
 
@@ -56,6 +57,7 @@ Initial semantic events:
 - `cancel` is idempotent. A runtime that cannot cancel must report that capability as false.
 - `resolveApproval` is idempotent by request ID and fails closed for unknown or expired requests.
 - No adapter interprets natural-language text as an approval.
+- Every terminal approval clears only the matching pending request; late or duplicate terminal events are idempotent.
 - Disconnect waits for safe teardown but has a bounded timeout.
 
 ## Normalization rules
