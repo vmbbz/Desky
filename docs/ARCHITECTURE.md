@@ -137,6 +137,8 @@ Runtime prompt-generated conversions are not release inputs. Conversion scripts 
 
 Animation admission is separate from conversion. `src/shared/animation-manifest.ts` rejects clips without validated source/output provenance, the pinned retargeting profile, deterministic sampling/root-motion parameters, and an approved rights review. No runtime clip loader may bypass this parser.
 
+The canonical clip stores rest-corrected rotations in VRM 1.0 normalized-humanoid coordinates and hips translation in source-rest-height units. `src/renderer/avatar/create-vrm-animation-clip.ts` scales hips to the selected avatar and performs the VRM 0.x axis conversion only while binding. This separates deterministic offline conversion from target-specific runtime mechanics. Operational detail is in `docs/ANIMATION-PIPELINE.md`.
+
 ## Persistence
 
 Initial persistence is split by sensitivity:

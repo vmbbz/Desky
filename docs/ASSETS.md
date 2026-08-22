@@ -75,7 +75,9 @@ Mixamo is a possible authoring input, not an automatic permission to redistribut
 - source and output SHA-256 provenance; and
 - an approved rights review with reviewer and timestamp.
 
-The manifest is an admission contract, not evidence that a converter exists. F3a must still implement the deterministic converter, verify its output checksum, and add reviewed source/output fixtures before any clip ships.
+The offline converter and canonical runtime format are implemented in `src/tools/animation/` and `src/shared/canonical-animation.ts`. It parses Mixamo FBX through Three.js, applies the upstream parent-rest-world quaternion formula, normalizes hips translation by source rest height, deterministically resamples/quantizes/sorts tracks, and binds the canonical result to each target VRM at runtime. See `docs/ANIMATION-PIPELINE.md`.
+
+The converter is not a licence oracle. It will not emit an admitted manifest without explicit review metadata, and no reviewed production clip is committed yet. The first legally redistributable source/output fixture remains an owner/reviewer gate.
 
 ## Store content rules
 

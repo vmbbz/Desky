@@ -123,13 +123,16 @@ Implemented and test-verified:
 - Strict animation conversion manifest with pinned retargeting formula, source/output checksums, and mandatory approved rights review.
 - Integration of those checks into the current remote-avatar load path before the model enters the scene.
 - Fresh packaged Windows smoke through `desky://` with the real default reaching `Milk · VRM 0.x · CC0 · 100Avatars R1`.
+- Bundled offline Mixamo/FBX parser and deterministic canonical converter with full official humanoid mapping, fixed sampling/quantization, quaternion continuity, explicit root-motion policy, and fail-closed input limits.
+- Versioned avatar-neutral canonical JSON plus runtime VRM 0.x/1.0 binding with target hips-height scaling.
+- Non-writing inspect mode and a rights-gated conversion CLI that produces atomic clip/manifest pairs and refuses implicit overwrites.
 
 Verified against the current remote Milk default without committing its binary: the registry declares project CC0; embedded VRM 0.x metadata declares everyone/commercial use/CC0; all core retarget bones are present; and the 1,338,344 downloaded bytes hash to `99e32f15d529eb47b3892aa44d5f053c07dabf55a0851aca7e7ab74f5f17e107`.
 
 Open before the F3a slice is complete:
 
-- Implement the deterministic offline FBX/Mixamo conversion tool and serialized clip format.
-- Add legally redistributable representative VRM 0.x/1.0 and animation fixtures with reviewed provenance; structural unit fixtures are not the binary compatibility suite.
+- Obtain explicit owner/reviewer approval for the first redistributable animation source, then commit its source/output provenance and repeatable checksum evidence. No external smoke asset is admitted.
+- Add legally redistributable representative VRM 0.x/1.0 fixtures with reviewed provenance; structural unit fixtures are not the binary compatibility suite.
 - Persist provenance atomically beside bounded cached assets and verify it on cache reads.
 - Test proportions, materials, spring bones, expressions, coordinates, foot contact, and hips scaling against the binary suite.
 - Complete the packaged state matrix and performance evidence on Windows, then repeat package, visual, and performance checks on macOS.
@@ -197,8 +200,8 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Begin F3 with the VRM compatibility and animation-retargeting pipeline; the successful-stream and actual-tool-interruption engineering gates are closed.
-   Use the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation.
+1. Approve and verify the first redistributable animation source, then begin the deterministic motion arbiter using the canonical runtime format. The successful-stream and actual-tool-interruption engineering gates are closed.
+   Use `docs/ANIMATION-PIPELINE.md` and the desktop-presence, motion-layer, accessibility, and acceptance contract in `docs/COMPANION-EXPERIENCE.md`; do not preserve the development card as the final ambient presentation.
 2. Complete response-stream interruption and secure remote `wss://` cases; network loss, tool cancellation/recovery, and approval expiry/contention are live-verified.
 3. Verify clean-device pairing, cross-device contention, and paired-token rotation.
 4. Establish reference Windows and macOS devices for performance, packaging, and Keychain verification.

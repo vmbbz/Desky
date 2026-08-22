@@ -12,6 +12,8 @@
   },
   "scripts": {
     "start": "electron-forge start",
+    "build:animation-converter": "webpack --config webpack.animation-converter.config.mjs",
+    "animation:converter": "npm run build:animation-converter --silent && node out/tools/desky-animation-converter.cjs",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "lint": "eslint .",
