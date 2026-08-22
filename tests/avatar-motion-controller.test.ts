@@ -160,4 +160,71 @@ describe('AvatarMotionController', () => {
     controller.dispose();
     expect(fixture.bones.get(VRMHumanBoneName.LeftUpperArm)!.quaternion.equals(baseline)).toBe(true);
   });
+
+  it('queues one conversational emphasis when speaking begins', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+
+    controller.setMode('speaking');
+    expect(controller.pendingMotionCueCount).toBe(1);
+    controller.update(0.016, 0.1);
+    expect(controller.activeMotionCue?.kind).toBe('emphasis');
+    controller.update(0.1, 1.3);
+    expect(controller.activeMotionCue).toBeUndefined();
+    expect(controller.currentPlan.mode).toBe('speaking');
+  });
+
+  it('runs a user action as the temporary body owner and lets approval interrupt it', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+
+    expect(controller.queueMotionCue('jump')).toBe(true);
+    controller.update(0.016, 0);
+    controller.update(0.1, 0.5);
+    expect(controller.activeMotionCue?.kind).toBe('jump');
+    expect(fixture.root.position.y).toBeGreaterThan(0);
+
+    controller.setMode('working');
+    expect(controller.activeMotionCue?.kind).toBe('jump');
+    controller.setMode('approval');
+    expect(controller.activeMotionCue).toBeUndefined();
+    expect(controller.pendingMotionCueCount).toBe(0);
+    expect(fixture.root.position.y).toBe(0);
+  });
+
+  it('acknowledges a queued action without travel under reduced motion', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    controller.setReducedMotion(true);
+    controller.queueMotionCue('jump');
+
+    controller.update(0.016, 0);
+    controller.update(0.1, 0.5);
+
+    expect(controller.activeMotionCue?.kind).toBe('jump');
+    expect(fixture.root.position.y).toBe(0);
+    expect(fixture.bones.get(VRMHumanBoneName.Spine)!.quaternion.equals(new Quaternion())).toBe(false);
+  });
+
+  it('rejects a new action while an authoritative state owns the body', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    controller.setMode('approval');
+
+    expect(controller.queueMotionCue('wave')).toBe(false);
+    expect(controller.pendingMotionCueCount).toBe(0);
+  });
+
+  it('restores the accepted state baseline after an action completes', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    controller.queueMotionCue('jump');
+
+    controller.update(0.016, 0);
+    controller.update(0.1, 1.3);
+
+    expect(controller.activeMotionCue).toBeUndefined();
+    expect(controller.currentPlan.mode).toBe('idle');
+    expect(fixture.root.position.y).toBe(0);
+  });
 });

@@ -152,11 +152,23 @@ Implemented and test-verified:
 Still open in F3b/F3d:
 
 - Admit the first owner-approved redistributable production clip through the rights/provenance manifest. The open-source avatar registry does not license unrelated animation files.
-- Add queued conversational gestures and explicit user-requested action choreography without permitting random idle motion to interrupt them.
-- Add capability-aware blink, look-at, expression, and optional viseme layers.
+- Extend the implemented bounded procedural cue queue with a normalized agent-action command and richer reviewed gesture selection; it currently supports speaking emphasis plus explicit ambient wave/jump requests.
+- Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
 - Add an in-product pause/reduced-motion override, occlusion suspension, WebGL recovery, and packaged Windows/macOS visual/performance evidence.
 
 The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
+
+### F3b.2 expressive-motion slice — 2026-08-22
+
+Implemented and package-verified on Windows:
+
+- Added a bounded deterministic priority/FIFO queue for conversational emphasis, nod, wave, and jump without introducing a second mixer or full-body owner.
+- Made higher normalized state priorities authoritative; approval, cancellation, disconnection, and error clear active and pending cues, while the accepted state plan resumes after a completed cue.
+- Added automatic one-shot emphasis on entry to speaking, an explicit focused Wave control, and deliberate character double-click Jump. No raw prompt, assistant text, or tool argument selects animation.
+- Removed root travel from queued actions under reduced motion while retaining a small static acknowledgement.
+- Added a capability-gated additive controller for deterministic blink, restrained look-at, and small available-preset state expressions, including baseline restoration and missing-capability no-op behavior.
+
+Evidence is recorded in `docs/verification/F3B2-EXPRESSIVE-MOTION-2026-08-22.md`.
 
 ### F3c.1 surface-separation status — 2026-08-22
 
@@ -199,7 +211,7 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
 
-The next product round returns to animation expressiveness: deterministic action and conversational gesture queues plus capability-aware procedural blink/look-at/speaking layers. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+The first asset-free animation-expression round is now implemented. The next animation gates are the normalized agent-action command, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 

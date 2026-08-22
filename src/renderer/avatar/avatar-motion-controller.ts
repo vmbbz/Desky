@@ -17,6 +17,13 @@ import {
   type MotionClipRegistration,
   type MotionPlan,
 } from './motion-arbiter';
+import {
+  createMotionCue,
+  MotionCueQueue,
+  type MotionCue,
+  type MotionCueKind,
+  type MotionCueSource,
+} from './motion-cue-queue';
 
 const controlledBones = [
   VRMHumanBoneName.Spine,
@@ -59,6 +66,12 @@ export class AvatarMotionController {
 
   private clipError?: string;
 
+  private readonly cueQueue = new MotionCueQueue();
+
+  private activeCueStartedAt?: number;
+
+  private cueSequence = 0;
+
   constructor(
     private readonly vrm: VRM,
     private readonly avatarRoot: Object3D,
@@ -83,14 +96,43 @@ export class AvatarMotionController {
     return this.clipError;
   }
 
+  get activeMotionCue(): MotionCue | undefined {
+    return this.cueQueue.active;
+  }
+
+  get pendingMotionCueCount(): number {
+    return this.cueQueue.pendingCount;
+  }
+
+  queueMotionCue(kind: MotionCueKind, source: MotionCueSource = 'user'): boolean {
+    this.cueSequence += 1;
+    const cue = createMotionCue(
+      `${source}-${kind}-${this.cueSequence}`,
+      kind,
+      source,
+    );
+    if (this.plan.priority > cue.priority) return false;
+    return this.cueQueue.enqueue(cue);
+  }
+
   setMode(mode: CompanionMode): void {
+    const previousMode = this.plan.mode;
     const next = resolveMotionPlan(mode, this.registrations, {
       reducedMotion: this.reducedMotion,
     });
     if (next.mode === this.plan.mode && next.reducedMotion === this.plan.reducedMotion) return;
+    const clearCues = mode === 'cancelled' || mode === 'approval' || mode === 'disconnected' || mode === 'error';
+    const interrupted = this.cueQueue.reconcileState(next.priority, clearCues);
+    if (interrupted) {
+      this.activeCueStartedAt = undefined;
+      this.restoreBaseline();
+    }
     this.plan = next;
     this.modeStartedAt = this.elapsedSeconds;
-    this.activatePlan(next);
+    if (!this.cueQueue.active) this.activatePlan(next);
+    if (previousMode !== 'speaking' && mode === 'speaking') {
+      this.queueMotionCue('emphasis', 'conversation');
+    }
   }
 
   setReducedMotion(reducedMotion: boolean): void {
@@ -98,7 +140,7 @@ export class AvatarMotionController {
     this.reducedMotion = reducedMotion;
     this.plan = resolveMotionPlan(this.plan.mode, this.registrations, { reducedMotion });
     this.modeStartedAt = this.elapsedSeconds;
-    this.activatePlan(this.plan);
+    if (!this.cueQueue.active) this.activatePlan(this.plan);
   }
 
   update(deltaSeconds: number, elapsedSeconds: number): void {
@@ -121,6 +163,25 @@ export class AvatarMotionController {
       this.modeStartedAt = Math.min(this.modeStartedAt, elapsedSeconds - 2);
       this.restoreBaseline();
     }
+    const cue = this.cueQueue.startNext(this.plan.priority);
+    if (cue && this.activeCueStartedAt === undefined) {
+      this.stopCurrentAction();
+      this.restoreBaseline();
+      this.activeCueStartedAt = elapsedSeconds;
+    }
+    if (cue && this.activeCueStartedAt !== undefined) {
+      const age = Math.max(0, elapsedSeconds - this.activeCueStartedAt);
+      if (age < cue.durationSeconds) {
+        this.applyMotionCue(cue, age);
+        return;
+      }
+      this.cueQueue.completeActive();
+      this.activeCueStartedAt = undefined;
+      this.modeStartedAt = elapsedSeconds;
+      this.restoreBaseline();
+      this.activatePlan(this.plan);
+      return;
+    }
     if (!this.currentAction) {
       this.applyProcedural(Math.max(0, elapsedSeconds - this.modeStartedAt), elapsedSeconds);
     }
@@ -133,6 +194,8 @@ export class AvatarMotionController {
     this.activeActions.clear();
     this.runtimeClips.clear();
     this.currentAction = undefined;
+    this.cueQueue.clear();
+    this.activeCueStartedAt = undefined;
     this.restoreBaseline();
   }
 
@@ -272,6 +335,44 @@ export class AvatarMotionController {
       case 'cancelled':
         this.applyBoneOffset(VRMHumanBoneName.Head, 0.035, 0, 0, weight);
         break;
+    }
+  }
+
+  private applyMotionCue(cue: MotionCue, age: number): void {
+    this.restoreBaseline();
+    const progress = Math.max(0, Math.min(age / cue.durationSeconds, 1));
+    const envelope = Math.sin(progress * Math.PI);
+    const motionTime = this.reducedMotion ? 0.5 : progress;
+    const weight = this.reducedMotion ? 0.18 : 1;
+
+    switch (cue.kind) {
+      case 'emphasis': {
+        const beat = Math.sin(motionTime * Math.PI * 2) * envelope;
+        this.applyBoneOffset(VRMHumanBoneName.Spine, -0.02 * envelope, 0.04 * beat, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0.035 * beat, -0.025 * beat, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, 0.04 * envelope, 0, -0.22 * envelope, weight);
+        break;
+      }
+      case 'nod': {
+        const nod = Math.sin(motionTime * Math.PI * 2) * envelope;
+        this.applyBoneOffset(VRMHumanBoneName.Neck, 0.13 * nod, 0, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0.09 * nod, 0, 0, weight);
+        break;
+      }
+      case 'wave': {
+        const wave = Math.sin(motionTime * Math.PI * 6) * envelope;
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, -0.14 * envelope, 0, -0.52 * envelope, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightLowerArm, 0, 0.16 * wave, -0.48 * envelope, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0, -0.07 * envelope, 0.025 * wave, weight);
+        break;
+      }
+      case 'jump': {
+        if (!this.reducedMotion) this.avatarRoot.position.y += envelope * 0.18;
+        this.applyBoneOffset(VRMHumanBoneName.Spine, -0.06 * envelope, 0, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.LeftUpperArm, 0, 0, -0.32 * envelope, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, 0, 0, 0.32 * envelope, weight);
+        break;
+      }
     }
   }
 }

@@ -4,6 +4,8 @@
 
 This record covers the deterministic full-body state arbiter, rights-gated clip admission, Three.js mixer lifecycle, procedural fallbacks, cancellation semantics, and system reduced-motion route. It does not claim that a production animation clip has been approved or that the later conversational, action, expression, look-at, blink, and viseme layers are complete.
 
+The later F3b.2 record documents the first asset-free cue, blink, look-at, and state-expression slice. Production clips, agent semantic actions, visemes, and the complete compatibility/performance matrix remain open.
+
 ## Implemented contract
 
 - The normalized companion domain now has ten explicit states, including `cancelled` as distinct from `error`.

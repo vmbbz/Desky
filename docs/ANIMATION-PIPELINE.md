@@ -144,7 +144,11 @@ Selection after admission is exact and deterministic. Registrations match a norm
 
 When no reviewed clip is registered, every state has a small procedural treatment derived from the avatar’s post-load baseline. Those movements are deterministic trigonometric offsets, not unbounded random behavior. The controller captures the relaxed avatar pose after model fitting, reapplies offsets without cumulative drift, and restores that baseline during cancellation and disposal.
 
-The renderer subscribes to `prefers-reduced-motion`. In reduced-motion mode it suppresses registered full-body clips, removes time-varying travel and bounce, and retains only a small static semantic pose plus the readable state label. This is an initial system-level route; the control-center override and pause-motion preference remain F3d work.
+The first expressive extension remains inside this ownership boundary. A bounded queue accepts only the code-defined conversational `emphasis`/`nod` and explicit-user `wave`/`jump` cues, selects higher priority then FIFO, and never runs two body motions together. Starting a cue stops the lower-priority state clip; completing it resumes the current normalized plan. Approval, cancellation, disconnection, error, or a higher-priority state rejects or clears cues. Speaking entry schedules exactly one emphasis; a focused Wave control and deliberate character double-click request actions. Prompt text, assistant output, and tool arguments are not selectors. These procedural motions contain no third-party animation asset.
+
+`avatar-expression-controller.ts` separately applies only capabilities reported by the admitted VRM. It uses a deterministic blink interval sequence, small mode-aware gaze, and restrained available-preset expressions. It restores previous expression/look-at values on disposal and is a no-op when the manager or preset is absent. This additive layer does not own humanoid body tracks, and it does not synthesize visemes without a truthful speech-timing source.
+
+The renderer subscribes to `prefers-reduced-motion`. In reduced-motion mode it suppresses registered full-body clips, removes time-varying travel and bounce (including Jump translation), neutralizes gaze, and retains only a small static semantic/action acknowledgement plus the readable state label. This is an initial system-level route; the control-center override and pause-motion preference remain F3d work.
 
 ## Release gate
 

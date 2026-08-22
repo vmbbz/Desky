@@ -15,6 +15,7 @@ import type {
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage } from './avatar/AvatarStage';
+import type { MotionCueKind } from './avatar/motion-cue-queue';
 
 const initialGateway: OpenClawConnectionState = {
   status: 'disconnected',
@@ -54,6 +55,8 @@ export function App() {
   const ambientPromptRef = useRef<HTMLInputElement>(null);
   const adapterModeRef = useRef(adapterMode);
   const pendingDraftTextRef = useRef<string | null>(null);
+  const motionCueSequenceRef = useRef(0);
+  const [motionCue, setMotionCue] = useState<{ id: string; kind: MotionCueKind }>();
 
   useEffect(() => {
     void window.desky.getRuntimeInfo().then((info) => {
@@ -227,6 +230,11 @@ export function App() {
     requestAnimationFrame(() => ambientPromptRef.current?.focus());
   };
 
+  const requestAvatarMotion = (kind: MotionCueKind) => {
+    motionCueSequenceRef.current += 1;
+    setMotionCue({ id: `ambient-${kind}-${motionCueSequenceRef.current}`, kind });
+  };
+
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
     const approval = state.pendingApproval;
     if (!approval) return Promise.resolve();
@@ -271,6 +279,7 @@ export function App() {
           <>
             <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Desky" aria-label="Drag Desky">•••</div>
             <div className="ambient-actions" data-desky-interactive="true">
+              <button type="button" aria-label="Wave hello" title="Wave hello" onClick={() => requestAvatarMotion('wave')}>✦</button>
               <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
               <button type="button" aria-label="Enable full click-through" title={`Click through everything; recover with the tray or ${recoveryShortcutLabel}`} onClick={() => window.desky.performWindowAction('toggle-full-click-through')}>⇥</button>
               <button type="button" aria-label="Hide Desky companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
@@ -310,14 +319,14 @@ export function App() {
         ) : null}
 
         <div className="ambient-avatar">
-          <AvatarStage mode={state.mode} onVisibleBounds={setAvatarBounds} />
+          <AvatarStage mode={state.mode} motionCue={motionCue} onVisibleBounds={setAvatarBounds} />
           {avatarBounds ? (
             <button
               type="button"
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
               aria-label="Focus the Desky composer"
-              title={connected && hasSession ? 'Ask Desky' : 'Set up Desky'}
+              title={connected && hasSession ? 'Ask Desky · double-click to jump' : 'Set up Desky'}
               style={{
                 left: avatarBounds.x,
                 top: avatarBounds.y,
@@ -325,6 +334,9 @@ export function App() {
                 height: avatarBounds.height,
               }}
               onClick={openComposer}
+              onDoubleClick={() => {
+                if (connected && hasSession) requestAvatarMotion('jump');
+              }}
             />
           ) : null}
         </div>

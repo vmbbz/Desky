@@ -26,7 +26,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
 import type { DesktopRectangle } from '../../shared/runtime';
+import { AvatarExpressionController } from './avatar-expression-controller';
 import { AvatarMotionController } from './avatar-motion-controller';
+import type { MotionCueKind } from './motion-cue-queue';
 import { fetchFeaturedCc0Avatar } from './catalog';
 import {
   assertCoreHumanoid,
@@ -39,6 +41,7 @@ const maxModelBytes = 100 * 1024 * 1024;
 
 interface AvatarStageProps {
   mode: CompanionMode;
+  motionCue?: { id: string; kind: MotionCueKind };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
 }
 
@@ -80,11 +83,14 @@ function applyRelaxedPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
+export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
   const onVisibleBoundsRef = useRef(onVisibleBounds);
   const motionControllerRef = useRef<AvatarMotionController>(undefined);
+  const expressionControllerRef = useRef<AvatarExpressionController>(undefined);
+  const motionCueRef = useRef(motionCue);
+  const admittedMotionCueIdRef = useRef<string>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
     message: 'Finding a licensed CC0 avatar…',
@@ -93,11 +99,19 @@ export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
   useEffect(() => {
     modeRef.current = mode;
     motionControllerRef.current?.setMode(mode);
+    expressionControllerRef.current?.setMode(mode);
   }, [mode]);
 
   useEffect(() => {
     onVisibleBoundsRef.current = onVisibleBounds;
   }, [onVisibleBounds]);
+
+  useEffect(() => {
+    motionCueRef.current = motionCue;
+    if (!motionCue || admittedMotionCueIdRef.current === motionCue.id) return;
+    if (!motionControllerRef.current?.queueMotionCue(motionCue.kind, 'user')) return;
+    admittedMotionCueIdRef.current = motionCue.id;
+  }, [motionCue]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -111,6 +125,7 @@ export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const updateReducedMotion = () => {
       motionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
+      expressionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
     };
     reducedMotionQuery.addEventListener('change', updateReducedMotion);
 
@@ -194,6 +209,7 @@ export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
       const delta = Math.min(clock.getDelta(), 0.1);
       const elapsed = clock.elapsedTime;
       motionControllerRef.current?.update(delta, elapsed);
+      expressionControllerRef.current?.update(delta, elapsed);
       currentVrm?.update(delta);
 
       renderer.render(scene, camera);
@@ -253,9 +269,17 @@ export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
         avatarRoot.position.z -= center.z;
         scene.add(avatarRoot);
         const motionController = new AvatarMotionController(vrm, avatarRoot);
+        const expressionController = new AvatarExpressionController(vrm, capabilities);
         motionControllerRef.current = motionController;
+        expressionControllerRef.current = expressionController;
         motionController.setReducedMotion(reducedMotionQuery.matches);
+        expressionController.setReducedMotion(reducedMotionQuery.matches);
         motionController.setMode(modeRef.current);
+        expressionController.setMode(modeRef.current);
+        const pendingMotionCue = motionCueRef.current;
+        if (pendingMotionCue && motionController.queueMotionCue(pendingMotionCue.kind, 'user')) {
+          admittedMotionCueIdRef.current = pendingMotionCue.id;
+        }
         reportVisibleBounds();
 
         setLoadState({
@@ -278,6 +302,9 @@ export function AvatarStage({ mode, onVisibleBounds }: AvatarStageProps) {
       reducedMotionQuery.removeEventListener('change', updateReducedMotion);
       motionControllerRef.current?.dispose();
       motionControllerRef.current = undefined;
+      expressionControllerRef.current?.dispose();
+      expressionControllerRef.current = undefined;
+      admittedMotionCueIdRef.current = undefined;
       if (avatarRoot) disposeObject(avatarRoot);
       renderer.dispose();
       onVisibleBoundsRef.current?.(undefined);

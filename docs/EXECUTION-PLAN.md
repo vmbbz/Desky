@@ -68,13 +68,17 @@ The ambient default is now avatar-first: permanent status chrome is gone, the bu
 
 ### Next animation round — expressive motion layers
 
-Status: next implementation round, subject to the existing provenance gate for external clips.
+Status: first procedural slice implemented; admitted production clips, representative binary avatars, and the semantic agent-action route remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink, restrained look-at, and speaking emphasis that work without external animation files and obey reduced-motion/cancellation priority.
 - Select the first candidate production clip only after its modification and commercial/store redistribution rights, source checksum, conversion inputs, and reviewer approval are recorded.
 - Exercise the animation matrix against the current Milk VRM and the representative VRM 0.x/1.0 suite as licensed fixtures become available.
 - Keep every state readable and controllable when a clip or avatar capability is absent.
+
+The controller now owns a bounded deterministic queue for `emphasis`, `nod`, `wave`, and `jump`. Higher-priority normalized states interrupt or reject lower-priority cues, an explicit action temporarily replaces any registered state clip as the sole procedural body owner, and the current state plan resumes afterward. Entering `speaking` schedules one restrained emphasis. The focused ambient surface exposes an explicit Wave control and a deliberate character double-click requests Jump; raw prompt or model text is never parsed as an animation selector. Reduced motion retains a small acknowledgement but removes Jump travel.
+
+A separate additive controller uses the avatar capability inventory before driving deterministic bilateral/single blink, restrained look-at, and small success/error/approval/listening/speaking expressions. Missing managers, presets, or look-at support remain no-ops, and baseline values are restored on disposal. Speech visemes, agent-originated semantic action commands, licensed external clips, and broader binary-avatar evidence remain later work.
 
 ### F3d — resilience, accessibility, and performance
 

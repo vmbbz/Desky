@@ -58,7 +58,7 @@ The schema and strict runtime parser live in `src/shared/asset-provenance.ts`. T
 - Maintain a compatibility suite covering representative skeleton proportions, spring bones, expressions, materials, and coordinate systems.
 - Preserve avatar-authored usage metadata where present and reject models whose terms cannot be satisfied.
 
-`src/renderer/avatar/vrm-capabilities.ts` implements the version/capability and embedded-usage review boundary. The current tests use representative structural fixtures for both versions; real redistributable binary fixtures are still required before the F3 compatibility exit gate can pass.
+`src/renderer/avatar/vrm-capabilities.ts` implements the version/capability and embedded-usage review boundary. The runtime now consumes the advertised blink, look-at, and preset-expression subset through a separate additive controller and no-ops when a feature is absent. Speech visemes remain disabled until a truthful timing source is implemented. The current tests use representative structural fixtures for both versions; real redistributable binary fixtures are still required before the F3 compatibility exit gate can pass.
 
 ## Animation sourcing
 

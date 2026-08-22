@@ -102,6 +102,14 @@ async function captureVisualTest(
       }
     })()`);
   }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'jump') {
+    await window.webContents.executeJavaScript(`(async () => {
+      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+      const avatar = document.querySelector('.ambient-avatar-hitbox');
+      avatar?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+      await wait(500);
+    })()`);
+  }
   const diagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
