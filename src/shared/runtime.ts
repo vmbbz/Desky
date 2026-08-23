@@ -47,6 +47,7 @@ export type HorizontalPlacement = (typeof horizontalPlacements)[number];
 
 export interface AmbientSurfaceState {
   alwaysOnTop: boolean;
+  avatarYawDegrees: number;
   bounds: DesktopRectangle;
   bubblePlacement: BubblePlacement;
   displayKey: string;
@@ -58,6 +59,16 @@ export interface AmbientSurfaceState {
   trayAvailable: boolean;
   visible: boolean;
   workArea: DesktopRectangle;
+}
+
+export const ambientDragPhases = ['start', 'move', 'end'] as const;
+
+export type AmbientDragPhase = (typeof ambientDragPhases)[number];
+
+export interface AmbientDragCommand {
+  phase: AmbientDragPhase;
+  pointerX: number;
+  pointerY: number;
 }
 
 export const windowActions = [

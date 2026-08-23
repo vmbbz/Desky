@@ -9,6 +9,7 @@ export interface StoredAmbientPlacement {
 
 export interface DesktopState {
   alwaysOnTop: boolean;
+  avatarYawDegrees: number;
   placements: Record<string, StoredAmbientPlacement>;
   version: 1;
 }
@@ -17,12 +18,19 @@ const maximumPlacements = 16;
 
 export const defaultDesktopState: DesktopState = {
   alwaysOnTop: true,
+  avatarYawDegrees: 0,
   placements: {},
   version: 1,
 };
 
 function isFiniteCoordinate(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 100_000;
+}
+
+function normalizeAvatarYaw(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return defaultDesktopState.avatarYawDegrees;
+  const normalized = ((value + 180) % 360 + 360) % 360 - 180;
+  return Math.round(normalized * 10) / 10;
 }
 
 export function parseDesktopState(value: unknown): DesktopState {
@@ -58,6 +66,7 @@ export function parseDesktopState(value: unknown): DesktopState {
     alwaysOnTop: typeof source.alwaysOnTop === 'boolean'
       ? source.alwaysOnTop
       : defaultDesktopState.alwaysOnTop,
+    avatarYawDegrees: normalizeAvatarYaw(source.avatarYawDegrees),
     placements,
   };
 }

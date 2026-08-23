@@ -44,6 +44,8 @@ This is the default daily surface:
 - Transparent pixels do not consume desktop clicks. Deliberate character, bubble, and composer hit regions remain interactive.
 - The character can be repositioned without making ordinary clicks feel like accidental drags.
 - Position is saved per display arrangement and clamped into the current work area after monitor, scale, or resolution changes.
+- The visible character is itself a deliberate native-window drag target. A five-pixel threshold preserves normal click/double-click behavior, movement uses absolute screen coordinates, and every update remains clamped to a current display work area.
+- Shift-drag or Alt-drag rotates the avatar around its vertical axis without moving the window. Mouse-wheel and Left/Right arrow rotation are equivalent, Home resets the view, and the normalized angle is persisted with desktop state.
 - It avoids the Windows taskbar, macOS menu bar and Dock, notches, and reserved screen edges.
 
 ### 2. Focused companion
@@ -251,6 +253,8 @@ F3c.2 implements geometry-keyed position persistence, 12-pixel work-area clampin
 The Windows ambient surface is also non-minimizable, non-maximizable, and non-fullscreenable. If the shell nevertheless delivers a minimize transition, Desky restores it with `showInactive()` while preserving the foreground application's focus. Intentional **Hide companion** remains available through the control center and native menus.
 
 F3c.3 makes the resting ambient surface avatar-first. Status, drag, settings, click-through, and hide chrome appear only during explicit focused interaction; otherwise a small launcher is the only permanent control. Meaningful states reveal a compact light speech bubble, long text gains **Open conversation**, and Stop remains visible even while the composer is collapsed. The main process owns one revisioned companion snapshot and session-only draft for all windows. This lets a late-opening control center recover the current streamed response or approval and lets `Escape` collapse/re-open preserve a draft without storing conversation text on disk. The packaged Windows fixture confirms the idle, focused-draft, and completed-response compositions without stealing document focus.
+
+F3c.4 makes the avatar directly manipulable without exposing Electron primitives to the renderer. A validated typed IPC command moves only the ambient surface, the main process owns starting bounds and work-area clamping, and position persistence still uses the display-arrangement store. View rotation stays a renderer motion transform but its bounded angle is persisted by main. Pointer capture and click suppression separate intentional movement from composer focus, while Shift/Alt, wheel, and keyboard affordances keep 3D rotation discoverable and accessible. Decorative autonomous motion remains lower priority than every meaningful companion state.
 
 Manual pointer pass-through at every required display scale, equivalent macOS behavior, full-screen policy, assistive-technology validation, and sleep/wake/display-reconnect evidence remain F3/F3d gates.
 

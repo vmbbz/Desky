@@ -35,10 +35,26 @@ describe('desktop state store', () => {
     })).toEqual({
       version: 1,
       alwaysOnTop: false,
+      avatarYawDegrees: 0,
       placements: {
         valid: { x: 10, y: -21, updatedAt: '2026-08-22T12:00:00.000Z' },
       },
     });
+  });
+
+  it('normalizes persisted avatar rotation without accepting malformed values', () => {
+    expect(parseDesktopState({
+      version: 1,
+      alwaysOnTop: true,
+      avatarYawDegrees: 540.04,
+      placements: {},
+    }).avatarYawDegrees).toBe(-180);
+    expect(parseDesktopState({
+      version: 1,
+      alwaysOnTop: true,
+      avatarYawDegrees: 'sideways',
+      placements: {},
+    }).avatarYawDegrees).toBe(0);
   });
 
   it('retains only the sixteen most recently updated display arrangements', () => {

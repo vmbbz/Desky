@@ -1,5 +1,5 @@
 import { VRMHumanBoneName, type VRM } from '@pixiv/three-vrm';
-import { AnimationClip, Group, Quaternion, QuaternionKeyframeTrack } from 'three';
+import { AnimationClip, Euler, Group, Quaternion, QuaternionKeyframeTrack } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { AvatarMotionController } from '../src/renderer/avatar/avatar-motion-controller';
@@ -159,6 +159,38 @@ describe('AvatarMotionController', () => {
     controller.update(0.016, 1);
     controller.dispose();
     expect(fixture.bones.get(VRMHumanBoneName.LeftUpperArm)!.quaternion.equals(baseline)).toBe(true);
+  });
+
+  it('preserves an explicit view rotation across procedural baseline restores', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    const expected = new Quaternion().setFromEuler(new Euler(0, Math.PI / 2, 0));
+
+    controller.setViewYawDegrees(90);
+    controller.update(0.016, 1);
+    expect(fixture.root.quaternion.angleTo(expected)).toBeLessThan(0.05);
+
+    controller.queueMotionCue('jump');
+    controller.update(0.016, 2);
+    controller.update(0.1, 3.3);
+    expect(fixture.root.quaternion.angleTo(expected)).toBeLessThan(0.05);
+  });
+
+  it('adds autonomous idle variety and lets attentive state interrupt it', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
+      autonomousMotionSeed: 42,
+    });
+    controller.update(0.016, 0);
+    for (let second = 1; second <= 11 && !controller.activeMotionCue; second += 1) {
+      controller.update(0.1, second);
+    }
+
+    expect(controller.activeMotionCue?.source).toBe('ambient');
+    controller.setMode('listening');
+    expect(controller.activeMotionCue).toBeUndefined();
+    expect(controller.pendingMotionCueCount).toBe(0);
+    expect(controller.currentPlan.mode).toBe('listening');
   });
 
   it('queues one conversational emphasis when speaking begins', () => {

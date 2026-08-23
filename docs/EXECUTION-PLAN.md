@@ -66,6 +66,18 @@ Status: implemented and package-verified on Windows; assistive-technology and ma
 
 The ambient default is now avatar-first: permanent status chrome is gone, the bubble exists only for meaningful activity, and a small **Ask Desky** or connection pill is the resting control. Character or launcher activation explicitly reveals the composer; `Escape` collapses it without clearing its session-only draft. Main owns one revisioned normalized companion snapshot and draft, so a control center opened after streaming or approval begins receives the authoritative current response and decision state. Long responses retain a bounded full live view in the control center and use a concise ambient preview with **Open conversation**. Draft text is never added to the settings or credential stores.
 
+### F3c.4 — autonomous life and direct manipulation
+
+Status: implemented and package-verified on Windows; the multi-scale/multi-monitor manual matrix and macOS evidence remain broader F3/F3d gates.
+
+- Keep the companion continuously alive with neutral motion and bounded autonomous variety.
+- Route decorative motion through the existing priority owner so it cannot compete with provider truth, approvals, explicit actions, previews, or reduced motion.
+- Make the measured character a direct native-window drag target without breaking click-to-compose or double-click Jump.
+- Add persisted 3D yaw independently of humanoid animation tracks.
+- Keep work-area clamping, transparent pass-through, focus rules, and recovery surfaces intact.
+
+The packaged surface now supports direct character drag after a five-pixel threshold and persists clamped position per display arrangement. Shift/Alt drag, wheel, Left/Right arrows, and Home manipulate a normalized persisted view yaw. Continuous neutral breathing is supplemented by non-repeating look-around, weight-shift, stretch, and ambient-wave gestures selected after a seeded 4.5-to-10-second quiet interval. Those gestures have priority 20: idle is 10 and every meaningful normalized state is 40 or higher. A packaged isolated-state harness drove the measured hit target through real pointer handlers and proved position delta, Shift-drag rotation, texture load, and unfocused presentation; the same package then completed an exact-response live turn through the newly authenticated OpenClaw profile.
+
 ### Next animation round — expressive motion layers
 
 Status: procedural motion, additive expression, and the first semantic agent-action route are implemented; admitted production clips and representative binary avatars remain open.
@@ -76,7 +88,7 @@ Status: procedural motion, additive expression, and the first semantic agent-act
 - Exercise the animation matrix against the current Milk VRM and the representative VRM 0.x/1.0 suite as licensed fixtures become available.
 - Keep every state readable and controllable when a clip or avatar capability is absent.
 
-The controller now owns a bounded deterministic queue for `emphasis`, `nod`, `wave`, and `jump`. Higher-priority normalized states interrupt or reject lower-priority cues, an explicit action temporarily replaces any registered state clip as the sole procedural body owner, and the current state plan resumes afterward. Entering `speaking` schedules one restrained emphasis. The focused ambient surface exposes an explicit Wave control and a deliberate character double-click requests Jump; raw prompt or model text is never parsed as an animation selector. Reduced motion retains a small acknowledgement but removes Jump travel.
+The controller now owns a bounded queue for `emphasis`, `nod`, low-priority autonomous idle gestures, and explicit `wave`/`jump` actions. Higher-priority normalized states interrupt or reject lower-priority cues, an explicit action temporarily replaces any registered state clip as the sole procedural body owner, and the current state plan resumes afterward. Entering `speaking` schedules one restrained emphasis. The focused ambient surface exposes an explicit Wave control and a deliberate character double-click requests Jump; raw prompt or model text is never parsed as an animation selector. Reduced motion retains a small acknowledgement but removes Jump travel and autonomous motion.
 
 The next rights-safe slice is also implemented: the control center can select and replay a local `.vrma` as session-only content. Main validates a self-contained bounded VRM Animation, keeps it only in memory, and never exposes its path; the ambient surface loads it with `@pixiv/three-vrm-animation` and runs it through the existing mixer. Packaged Windows has passed real playback/replay/completion, reduced-motion rejection, malformed-humanoid rejection, clear, and restart-reset evidence on Milk. Active-playback interruption and macOS remain manual gates.
 

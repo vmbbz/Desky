@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from 'react';
 
 import {
   initialCompanionDraftSnapshot,
@@ -39,12 +47,17 @@ function errorMessage(error: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': Error: /, '').slice(0, 240);
 }
 
+function normalizeAvatarYaw(degrees: number): number {
+  return ((degrees + 180) % 360 + 360) % 360 - 180;
+}
+
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
   const [draft, setDraft] = useState<CompanionDraftSnapshot>(initialCompanionDraftSnapshot);
   const [runtimeInfo, setRuntimeInfo] = useState<RuntimeInfo>();
   const [ambientState, setAmbientState] = useState<AmbientSurfaceState>();
+  const [avatarYawDegrees, setAvatarYawDegrees] = useState(0);
   const [avatarBounds, setAvatarBounds] = useState<DesktopRectangle>();
   const [adapterMode, setAdapterMode] = useState<'openclaw' | 'simulation'>(
     visualTestState ? 'simulation' : 'openclaw',
@@ -67,6 +80,17 @@ export function App() {
   const adapterModeRef = useRef(adapterMode);
   const pendingDraftTextRef = useRef<string | null>(null);
   const motionCueSequenceRef = useRef(0);
+  const ambientManipulationActiveRef = useRef(false);
+  const suppressAvatarClickUntilRef = useRef(0);
+  const avatarManipulationRef = useRef<{
+    moved: boolean;
+    mode: 'move' | 'rotate';
+    pointerId: number;
+    startPointerX: number;
+    startPointerY: number;
+    currentYawDegrees: number;
+    startYawDegrees: number;
+  } | undefined>(undefined);
   const [motionCue, setMotionCue] = useState<{
     id: string;
     kind: MotionCueKind;
@@ -135,6 +159,12 @@ export function App() {
   }, [adapterMode]);
 
   useEffect(() => {
+    if (ambientState && !ambientManipulationActiveRef.current) {
+      setAvatarYawDegrees(ambientState.avatarYawDegrees);
+    }
+  }, [ambientState]);
+
+  useEffect(() => {
     if (runtimeInfo?.surface !== 'ambient' || ambientState?.fullClickThrough) return undefined;
     let lastRegion: 'interactive' | 'transparent' | undefined;
     const reportRegion = (region: 'interactive' | 'transparent') => {
@@ -143,6 +173,10 @@ export function App() {
       window.desky.setAmbientPointerRegion(region);
     };
     const handleMouseMove = (event: MouseEvent) => {
+      if (ambientManipulationActiveRef.current) {
+        reportRegion('interactive');
+        return;
+      }
       const interactive = document.elementsFromPoint(event.clientX, event.clientY)
         .some((element) => element.closest('[data-desky-interactive="true"]'));
       reportRegion(interactive ? 'interactive' : 'transparent');
@@ -286,6 +320,91 @@ export function App() {
     });
   };
 
+  const persistAvatarYaw = (degrees: number) => {
+    const normalized = normalizeAvatarYaw(degrees);
+    setAvatarYawDegrees(normalized);
+    window.desky.setAmbientAvatarYaw(normalized);
+  };
+
+  const beginAvatarManipulation = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    const mode = event.shiftKey || event.altKey ? 'rotate' : 'move';
+    avatarManipulationRef.current = {
+      moved: false,
+      mode,
+      pointerId: event.pointerId,
+      startPointerX: event.screenX,
+      startPointerY: event.screenY,
+      currentYawDegrees: avatarYawDegrees,
+      startYawDegrees: avatarYawDegrees,
+    };
+    ambientManipulationActiveRef.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (mode === 'move') {
+      window.desky.dragAmbient({
+        phase: 'start',
+        pointerX: event.screenX,
+        pointerY: event.screenY,
+      });
+    }
+  };
+
+  const continueAvatarManipulation = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const manipulation = avatarManipulationRef.current;
+    if (!manipulation || manipulation.pointerId !== event.pointerId) return;
+    const deltaX = event.screenX - manipulation.startPointerX;
+    const deltaY = event.screenY - manipulation.startPointerY;
+    if (!manipulation.moved && Math.hypot(deltaX, deltaY) < 5) return;
+    manipulation.moved = true;
+    if (manipulation.mode === 'move') {
+      window.desky.dragAmbient({
+        phase: 'move',
+        pointerX: event.screenX,
+        pointerY: event.screenY,
+      });
+      return;
+    }
+    manipulation.currentYawDegrees = normalizeAvatarYaw(manipulation.startYawDegrees + deltaX * 0.65);
+    setAvatarYawDegrees(manipulation.currentYawDegrees);
+  };
+
+  const endAvatarManipulation = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    const manipulation = avatarManipulationRef.current;
+    if (!manipulation || manipulation.pointerId !== event.pointerId) return;
+    if (manipulation.mode === 'move') {
+      window.desky.dragAmbient({
+        phase: 'end',
+        pointerX: event.screenX,
+        pointerY: event.screenY,
+      });
+    } else if (manipulation.moved) {
+      persistAvatarYaw(manipulation.currentYawDegrees);
+    }
+    if (manipulation.moved) suppressAvatarClickUntilRef.current = performance.now() + 350;
+    avatarManipulationRef.current = undefined;
+    ambientManipulationActiveRef.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  const rotateAvatarFromWheel = (event: ReactWheelEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const direction = Math.sign(event.deltaY || event.deltaX);
+    if (direction !== 0) persistAvatarYaw(avatarYawDegrees + direction * 12);
+  };
+
+  const rotateAvatarFromKeyboard = (event: ReactKeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'Home') {
+      event.preventDefault();
+      persistAvatarYaw(0);
+      return;
+    }
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    persistAvatarYaw(avatarYawDegrees + (event.key === 'ArrowLeft' ? -15 : 15));
+  };
+
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
     const approval = state.pendingApproval;
     if (!approval) return Promise.resolve();
@@ -321,6 +440,7 @@ export function App() {
       <main
         className={`ambient-companion companion--${state.mode}`}
         data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
+        data-avatar-yaw-degrees={avatarYawDegrees}
         data-bubble-visible={showAmbientBubble}
         data-composer-expanded={composerExpanded}
         data-horizontal-placement={ambientState?.horizontalPlacement ?? 'center'}
@@ -370,22 +490,32 @@ export function App() {
         ) : null}
 
         <div className="ambient-avatar">
-          <AvatarStage mode={state.mode} motionPreference={motionPreference} motionCue={motionCue} onVisibleBounds={setAvatarBounds} />
+          <AvatarStage mode={state.mode} motionPreference={motionPreference} motionCue={motionCue} onVisibleBounds={setAvatarBounds} viewYawDegrees={avatarYawDegrees} />
           {avatarBounds ? (
             <button
               type="button"
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
-              aria-label="Focus the Desky composer"
-              title={connected && hasSession ? 'Ask Desky · double-click to jump' : 'Set up Desky'}
+              aria-label="Move or rotate the Desky companion"
+              title={connected && hasSession ? 'Drag to move · Shift-drag or scroll to rotate · double-click to jump' : 'Drag to move · Shift-drag or scroll to rotate'}
               style={{
                 left: avatarBounds.x,
                 top: avatarBounds.y,
                 width: avatarBounds.width,
                 height: avatarBounds.height,
               }}
-              onClick={openComposer}
+              onPointerDown={beginAvatarManipulation}
+              onPointerMove={continueAvatarManipulation}
+              onPointerUp={endAvatarManipulation}
+              onPointerCancel={endAvatarManipulation}
+              onWheel={rotateAvatarFromWheel}
+              onKeyDown={rotateAvatarFromKeyboard}
+              onClick={() => {
+                if (performance.now() < suppressAvatarClickUntilRef.current) return;
+                openComposer();
+              }}
               onDoubleClick={() => {
+                if (performance.now() < suppressAvatarClickUntilRef.current) return;
                 if (connected && hasSession) requestAvatarMotion('jump');
               }}
             />
@@ -462,7 +592,7 @@ export function App() {
         <div>
           <strong>Desktop presence</strong>
           <span>
-            Transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
+            Drag the character to move it; Shift-drag, Alt-drag, scroll, or arrow keys rotate it. Transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
           </span>
         </div>
         <div className="desktop-presence-card__actions">

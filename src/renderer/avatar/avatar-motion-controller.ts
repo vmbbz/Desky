@@ -11,6 +11,7 @@ import {
 } from 'three';
 
 import type { CompanionMode } from '../../shared/adapter-events';
+import { AutonomousMotionScheduler } from './autonomous-motion-scheduler';
 import { createVrmAnimationClip } from './create-vrm-animation-clip';
 import {
   resolveMotionPlan,
@@ -64,6 +65,10 @@ export class AvatarMotionController {
 
   private readonly rootQuaternion;
 
+  private readonly viewYawQuaternion = new Quaternion();
+
+  private readonly rootYawOffset = new Quaternion();
+
   private readonly boneBaselines = new Map<string, BoneBaseline>();
 
   private readonly runtimeClips = new Map<string, AnimationClip>();
@@ -84,6 +89,8 @@ export class AvatarMotionController {
 
   private readonly cueQueue = new MotionCueQueue();
 
+  private readonly autonomousMotion: AutonomousMotionScheduler;
+
   private activeCueStartedAt?: number;
 
   private cueSequence = 0;
@@ -98,10 +105,12 @@ export class AvatarMotionController {
     private readonly vrm: VRM,
     private readonly avatarRoot: Object3D,
     private readonly registrations: readonly MotionClipRegistration[] = [],
+    options: { autonomousMotionSeed?: number } = {},
   ) {
     this.mixer = new AnimationMixer(vrm.scene);
     this.rootPosition = avatarRoot.position.clone();
     this.rootQuaternion = avatarRoot.quaternion.clone();
+    this.autonomousMotion = new AutonomousMotionScheduler(options.autonomousMotionSeed);
     for (const bone of controlledBones) {
       const node = vrm.humanoid.getNormalizedBoneNode(bone);
       if (node) this.boneBaselines.set(bone, { node, quaternion: node.quaternion.clone() });
@@ -136,6 +145,13 @@ export class AvatarMotionController {
     );
     if (this.plan.priority > cue.priority) return false;
     return this.cueQueue.enqueue(cue);
+  }
+
+  setViewYawDegrees(degrees: number): void {
+    if (!Number.isFinite(degrees)) return;
+    const radians = ((degrees + 180) % 360 + 360) % 360 - 180;
+    this.viewYawQuaternion.setFromEuler(new Euler(0, radians * Math.PI / 180, 0));
+    this.restoreBaseline();
   }
 
   setMode(mode: CompanionMode): void {
@@ -218,10 +234,19 @@ export class AvatarMotionController {
       }
     }
     if (this.preview) {
+      this.autonomousMotion.update(elapsedSeconds, false);
       if (this.preview.action.isRunning()) return;
       this.endPreview('completed', true);
       return;
     }
+    const autonomousKind = this.autonomousMotion.update(
+      elapsedSeconds,
+      this.plan.mode === 'idle'
+        && !this.reducedMotion
+        && !this.cueQueue.active
+        && this.cueQueue.pendingCount === 0,
+    );
+    if (autonomousKind) this.queueMotionCue(autonomousKind, 'ambient');
     if (
       this.currentAction &&
       this.plan.playback === 'once' &&
@@ -339,10 +364,15 @@ export class AvatarMotionController {
 
   private restoreBaseline(): void {
     this.avatarRoot.position.copy(this.rootPosition);
-    this.avatarRoot.quaternion.copy(this.rootQuaternion);
+    this.avatarRoot.quaternion.copy(this.rootQuaternion).multiply(this.viewYawQuaternion);
     for (const baseline of this.boneBaselines.values()) {
       baseline.node.quaternion.copy(baseline.quaternion);
     }
+  }
+
+  private applyRootYaw(radians: number): void {
+    this.rootYawOffset.setFromEuler(new Euler(0, radians, 0));
+    this.avatarRoot.quaternion.multiply(this.rootYawOffset);
   }
 
   private applyBoneOffset(
@@ -374,7 +404,7 @@ export class AvatarMotionController {
         break;
       case 'neutral':
         this.avatarRoot.position.y += Math.sin(time * 1.6) * 0.008 * weight;
-        this.avatarRoot.rotation.y += Math.sin(time * 0.55) * 0.035 * weight;
+        this.applyRootYaw(Math.sin(time * 0.55) * 0.035 * weight);
         this.applyBoneOffset(VRMHumanBoneName.Head, 0, Math.sin(time * 0.55) * 0.025, 0, weight);
         break;
       case 'attentive':
@@ -444,6 +474,38 @@ export class AvatarMotionController {
         const nod = Math.sin(motionTime * Math.PI * 2) * envelope;
         this.applyBoneOffset(VRMHumanBoneName.Neck, 0.13 * nod, 0, 0, weight);
         this.applyBoneOffset(VRMHumanBoneName.Head, 0.09 * nod, 0, 0, weight);
+        break;
+      }
+      case 'look-around': {
+        const turn = Math.sin(progress * Math.PI * 2) * envelope;
+        this.applyRootYaw(turn * 0.24 * weight);
+        this.applyBoneOffset(VRMHumanBoneName.Spine, 0, turn * 0.06, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0, turn * 0.22, 0.025 * envelope, weight);
+        break;
+      }
+      case 'weight-shift': {
+        const shift = Math.sin(progress * Math.PI * 2) * envelope;
+        if (!this.reducedMotion) this.avatarRoot.position.x += shift * 0.045;
+        this.applyBoneOffset(VRMHumanBoneName.Spine, 0, shift * 0.055, shift * 0.075, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0, -shift * 0.045, -shift * 0.035, weight);
+        this.applyBoneOffset(VRMHumanBoneName.LeftUpperArm, 0, 0, -shift * 0.055, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, 0, 0, -shift * 0.055, weight);
+        break;
+      }
+      case 'stretch': {
+        const reach = Math.sin(progress * Math.PI) * envelope;
+        if (!this.reducedMotion) this.avatarRoot.position.y += reach * 0.035;
+        this.applyBoneOffset(VRMHumanBoneName.Spine, -reach * 0.055, 0, 0, weight);
+        this.applyBoneOffset(VRMHumanBoneName.LeftUpperArm, -reach * 0.12, 0, -reach * 0.42, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, -reach * 0.12, 0, reach * 0.42, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, -reach * 0.04, 0, 0, weight);
+        break;
+      }
+      case 'ambient-wave': {
+        const wave = Math.sin(motionTime * Math.PI * 4) * envelope;
+        this.applyBoneOffset(VRMHumanBoneName.RightUpperArm, -0.1 * envelope, 0, -0.38 * envelope, weight);
+        this.applyBoneOffset(VRMHumanBoneName.RightLowerArm, 0, 0.12 * wave, -0.34 * envelope, weight);
+        this.applyBoneOffset(VRMHumanBoneName.Head, 0, -0.05 * envelope, 0.02 * wave, weight);
         break;
       }
       case 'wave': {

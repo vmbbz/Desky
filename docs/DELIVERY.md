@@ -99,6 +99,8 @@ Deliverables:
 - Provenance-bearing idle/thinking/working/speaking/success/error clips plus action one-shots.
 - Deterministic layered motion arbiter for baseline, state, conversational, action, look-at, blink, expression, and optional speech-viseme behavior.
 - Desktop-presence companion composition: transparent ambient avatar, anchored streamed bubble, contextual composer/Stop, safe-area flipping, deliberate drag, and transparent-region click-through.
+- Direct character manipulation: native companion dragging with saved safe-area clamping, persistent 3D yaw rotation, and click/double-click preservation.
+- Autonomous idle life: continuous neutral motion plus bounded pseudo-random gestures that immediately yield to provider, approval, action, preview, and reduced-motion ownership.
 - Window focus, always-on-top, full-screen, position-restoration, and click-through escape behavior that remains under user control.
 - GPU/CPU budgets, occlusion pause, reduced motion, and WebGL recovery.
 
@@ -224,7 +226,20 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
 
-The asset-free expression round, normalized Wave/Jump agent-action boundary, and rights-safe local VRMA preview are implemented. Packaged Windows has now completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, and restart-reset evidence. The next animation gates are live interruption by a newly entered authoritative state, live OpenClaw plugin evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+### F3c.4 autonomous companion and direct manipulation status — 2026-08-23
+
+Implemented and package-verified on Windows:
+
+- Added continuous neutral idle motion plus a seeded bounded scheduler for look-around, weight-shift, stretch, and restrained ambient-wave gestures. Immediate repeats are excluded and meaningful provider, approval, preview, user/agent action, and reduced-motion owners preempt the decorative lane.
+- Made the measured character hit target a direct companion drag surface with a five-pixel click threshold, typed pointer-command IPC, main-owned start bounds, per-update work-area clamping, and existing display-arrangement persistence.
+- Added persistent 3D yaw through Shift/Alt drag, wheel, and keyboard controls without mixing camera/view intent into authored humanoid animation tracks.
+- Preserved click-to-compose, double-click Jump, transparent-region pass-through, focus policy, OS-safe credential isolation, and the existing motion arbiter.
+- Package-proved the actual measured-hit-target pointer path with a 48-by-32 logical move, a persisted 72.8-degree Shift-drag view, loaded Milk texture, and unfocused ambient surface in isolated application data.
+- Reconnected the packaged app to the newly authenticated non-dev OpenClaw profile and received the exact streamed response `DESKY_RUNNER_LIVE_OK` from the selected Desky session through `openai/gpt-5.6-sol`.
+
+Evidence is recorded in `docs/verification/F3C4-AUTONOMOUS-MANIPULATION-2026-08-23.md`.
+
+The asset-free expression round, autonomous idle layer, direct manipulation, normalized Wave/Jump agent-action boundary, and rights-safe local VRMA preview are implemented. Packaged Windows has now completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, and a live assistant-stream evidence run. The next animation gates are local-preview interruption by a newly entered authoritative state, live OpenClaw plugin-action evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 

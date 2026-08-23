@@ -3,9 +3,11 @@ import { readFile } from 'node:fs/promises';
 import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 
 import {
+  ambientDragPhases,
   ambientPointerRegions,
   motionPreferences,
   windowActions,
+  type AmbientDragCommand,
   type AmbientPointerRegion,
   type MotionPreference,
   type WindowAction,
@@ -27,6 +29,8 @@ import {
   validateLocalAnimationAsset,
 } from './local-animation-preview';
 import {
+  ambientAvatarYawChannel,
+  ambientDragChannel,
   ambientPointerRegionChannel,
   ambientStateChannel,
   type DeskyWindowManager,
@@ -80,6 +84,23 @@ function isWindowAction(value: unknown): value is WindowAction {
 function isAmbientPointerRegion(value: unknown): value is AmbientPointerRegion {
   return typeof value === 'string'
     && ambientPointerRegions.includes(value as AmbientPointerRegion);
+}
+
+function readAmbientDragCommand(value: unknown): AmbientDragCommand | undefined {
+  if (!isRecord(value)
+    || typeof value.phase !== 'string'
+    || !ambientDragPhases.includes(value.phase as never)
+    || typeof value.pointerX !== 'number'
+    || typeof value.pointerY !== 'number'
+    || !Number.isFinite(value.pointerX)
+    || !Number.isFinite(value.pointerY)
+    || Math.abs(value.pointerX) > 1_000_000
+    || Math.abs(value.pointerY) > 1_000_000) return undefined;
+  return {
+    phase: value.phase as AmbientDragCommand['phase'],
+    pointerX: value.pointerX,
+    pointerY: value.pointerY,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -256,6 +277,15 @@ export function registerIpc(
     if (!isAmbientPointerRegion(region)) return;
     windows.setPointerRegion(event.sender, region);
   });
+  ipcMain.on(ambientDragChannel, (event, value: unknown) => {
+    const command = readAmbientDragCommand(value);
+    if (!command) return;
+    windows.dragAmbient(event.sender, command);
+  });
+  ipcMain.on(ambientAvatarYawChannel, (event, value: unknown) => {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return;
+    windows.setAvatarYaw(event.sender, value);
+  });
 
   ipcMain.handle(companionChannels.getState, () => companion.getSnapshot());
   ipcMain.handle(companionChannels.getDraft, () => companion.getDraft());
@@ -319,6 +349,8 @@ export const ipcChannels = {
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,
   ambientPointerRegion: ambientPointerRegionChannel,
+  ambientDrag: ambientDragChannel,
+  ambientAvatarYaw: ambientAvatarYawChannel,
   companion: companionChannels,
   animation: animationChannels,
   motionPreference: motionPreferenceChannels,

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 import type {
+  AmbientDragCommand,
   AmbientPointerRegion,
   AmbientSurfaceState,
   MotionPreference,
@@ -153,6 +154,12 @@ const api = Object.freeze({
   },
   setAmbientPointerRegion: (region: AmbientPointerRegion): void => {
     ipcRenderer.send('desky:ambient-pointer-region', region);
+  },
+  dragAmbient: (command: AmbientDragCommand): void => {
+    ipcRenderer.send('desky:ambient-drag', command);
+  },
+  setAmbientAvatarYaw: (degrees: number): void => {
+    ipcRenderer.send('desky:ambient-avatar-yaw', degrees);
   },
   companion,
   avatar,

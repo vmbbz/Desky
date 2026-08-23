@@ -1,8 +1,17 @@
-export const motionCueKinds = ['emphasis', 'nod', 'wave', 'jump'] as const;
+export const motionCueKinds = [
+  'emphasis',
+  'nod',
+  'look-around',
+  'weight-shift',
+  'stretch',
+  'ambient-wave',
+  'wave',
+  'jump',
+] as const;
 
 export type MotionCueKind = (typeof motionCueKinds)[number];
 export type MotionCueLayer = 'gesture' | 'action';
-export type MotionCueSource = 'agent' | 'conversation' | 'user';
+export type MotionCueSource = 'agent' | 'ambient' | 'conversation' | 'user';
 
 export interface MotionCue {
   id: string;
@@ -16,6 +25,10 @@ export interface MotionCue {
 const definitions: Record<MotionCueKind, Pick<MotionCue, 'layer' | 'durationSeconds' | 'priority'>> = {
   emphasis: { layer: 'gesture', durationSeconds: 1.1, priority: 55 },
   nod: { layer: 'gesture', durationSeconds: 0.75, priority: 55 },
+  'look-around': { layer: 'gesture', durationSeconds: 2.6, priority: 20 },
+  'weight-shift': { layer: 'gesture', durationSeconds: 2.8, priority: 20 },
+  stretch: { layer: 'gesture', durationSeconds: 2.3, priority: 20 },
+  'ambient-wave': { layer: 'gesture', durationSeconds: 2.1, priority: 20 },
   wave: { layer: 'action', durationSeconds: 1.6, priority: 65 },
   jump: { layer: 'action', durationSeconds: 1.15, priority: 65 },
 };

@@ -47,6 +47,7 @@ interface AvatarStageProps {
   motionPreference: MotionPreference;
   motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
+  viewYawDegrees?: number;
 }
 
 type LoadState =
@@ -77,7 +78,7 @@ function applyRelaxedPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds }: AvatarStageProps) {
+export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds, viewYawDegrees = 0 }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
   const onVisibleBoundsRef = useRef(onVisibleBounds);
@@ -85,6 +86,7 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
   const expressionControllerRef = useRef<AvatarExpressionController>(undefined);
   const motionCueRef = useRef(motionCue);
   const motionPreferenceRef = useRef(motionPreference);
+  const viewYawDegreesRef = useRef(viewYawDegrees);
   const admittedMotionCueIdRef = useRef<string>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
@@ -100,6 +102,10 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
   useEffect(() => {
     onVisibleBoundsRef.current = onVisibleBounds;
   }, [onVisibleBounds]);
+
+  useEffect(() => {
+    viewYawDegreesRef.current = viewYawDegrees;
+  }, [viewYawDegrees]);
 
   useEffect(() => {
     motionCueRef.current = motionCue;
@@ -128,6 +134,7 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
     let avatarRoot: Object3D | undefined;
     let activePreviewRequestId: string | undefined;
     let queuedAnimationCommand: LocalAnimationPreviewCommand | undefined;
+    let appliedViewYawDegrees: number | undefined;
     let lastBoundsSignature = '';
     const reportPreview = (
       requestId: string,
@@ -283,6 +290,12 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
       expressionControllerRef.current?.update(delta, elapsed);
       currentVrm?.update(delta);
 
+      if (motionControllerRef.current && appliedViewYawDegrees !== viewYawDegreesRef.current) {
+        appliedViewYawDegrees = viewYawDegreesRef.current;
+        motionControllerRef.current.setViewYawDegrees(appliedViewYawDegrees);
+        reportVisibleBounds();
+      }
+
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
@@ -346,7 +359,10 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
         avatarRoot.position.y -= center.y;
         avatarRoot.position.z -= center.z;
         scene.add(avatarRoot);
-        const motionController = new AvatarMotionController(vrm, avatarRoot);
+        const seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
+        const motionController = new AvatarMotionController(vrm, avatarRoot, [], {
+          autonomousMotionSeed: seed,
+        });
         const expressionController = new AvatarExpressionController(vrm, capabilities);
         motionControllerRef.current = motionController;
         expressionControllerRef.current = expressionController;

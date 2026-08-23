@@ -470,7 +470,12 @@ body[data-desky-surface="control-center"] {
   border-radius: 45%;
   background: transparent;
   color: transparent;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
+
+.ambient-avatar-hitbox:active { cursor: grabbing; }
 
 .ambient-avatar-hitbox:focus-visible {
   outline: 2px solid var(--accent);

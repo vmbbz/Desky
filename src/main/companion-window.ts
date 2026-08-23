@@ -12,6 +12,7 @@ import {
 } from 'electron';
 
 import type {
+  AmbientDragCommand,
   AmbientPointerRegion,
   AmbientSurfaceState,
   DesktopRectangle,
@@ -38,6 +39,8 @@ const applicationScheme = 'desky';
 const ambientSize = { width: 420, height: 580 };
 export const ambientStateChannel = 'desky:ambient-state';
 export const ambientPointerRegionChannel = 'desky:ambient-pointer-region';
+export const ambientDragChannel = 'desky:ambient-drag';
+export const ambientAvatarYawChannel = 'desky:ambient-avatar-yaw';
 
 export function registerApplicationScheme(): void {
   protocol.registerSchemesAsPrivileged([{
@@ -83,6 +86,7 @@ async function captureVisualTest(
   surface: SurfaceKind,
   outputPath: string,
 ): Promise<void> {
+  const initialWindowBounds = window.getBounds();
   await new Promise((resolve) => setTimeout(resolve, 8_000));
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'draft') {
     await window.webContents.executeJavaScript(`(async () => {
@@ -110,7 +114,34 @@ async function captureVisualTest(
       await wait(500);
     })()`);
   }
-  const diagnostic = await window.webContents.executeJavaScript(`({
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'manipulation') {
+    await window.webContents.executeJavaScript(`(async () => {
+      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+      const avatar = document.querySelector('.ambient-avatar-hitbox');
+      if (!(avatar instanceof HTMLButtonElement)) throw new Error('Avatar hit target is unavailable');
+      avatar.setPointerCapture = () => undefined;
+      avatar.hasPointerCapture = () => false;
+      const dispatch = (type, screenX, screenY, shiftKey = false) => {
+        avatar.dispatchEvent(new PointerEvent(type, {
+          bubbles: true,
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          pointerId: 7,
+          screenX,
+          screenY,
+          shiftKey,
+        }));
+      };
+      dispatch('pointerdown', 100, 100);
+      dispatch('pointermove', 148, 132);
+      dispatch('pointerup', 148, 132);
+      dispatch('pointerdown', 200, 200, true);
+      dispatch('pointermove', 312, 200, true);
+      dispatch('pointerup', 312, 200, true);
+      await wait(180);
+    })()`);
+  }
+  const rendererDiagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
     readyState: document.readyState,
@@ -127,8 +158,14 @@ async function captureVisualTest(
     draftValue: document.querySelector('#ambient-prompt')?.value ?? null,
     launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null,
     avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
-    avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null
-  })`) as unknown;
+    avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null,
+    avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null
+  })`) as Record<string, unknown>;
+  const diagnostic = {
+    ...rendererDiagnostic,
+    initialWindowBounds,
+    nativeWindowBounds: window.getBounds(),
+  };
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());
   await writeFile(`${outputPath}.json`, `${JSON.stringify(diagnostic, null, 2)}\n`, 'utf8');
@@ -160,6 +197,13 @@ export class DeskyWindowManager {
   private pointerRegion: AmbientPointerRegion = 'transparent';
 
   private moveSaveTimer?: NodeJS.Timeout;
+
+  private ambientDrag?: {
+    contentsId: number;
+    pointerX: number;
+    pointerY: number;
+    startBounds: DesktopRectangle;
+  };
 
   private activeDisplayArrangement?: string;
 
@@ -217,6 +261,7 @@ export class DeskyWindowManager {
     const window = this.createWindow('ambient');
     this.ambient = window;
     window.on('closed', () => {
+      this.ambientDrag = undefined;
       if (this.ambient === window) this.ambient = undefined;
       this.publishAmbientState();
     });
@@ -251,6 +296,7 @@ export class DeskyWindowManager {
     const edgeLayout = deriveAmbientEdgeLayout(clamped.bounds, clamped.display.workArea);
     return {
       alwaysOnTop: this.desktopState.alwaysOnTop,
+      avatarYawDegrees: this.desktopState.avatarYawDegrees,
       bounds: clamped.bounds,
       bubblePlacement: edgeLayout.bubblePlacement,
       displayKey: arrangement,
@@ -271,8 +317,51 @@ export class DeskyWindowManager {
 
   setPointerRegion(contents: WebContents, region: AmbientPointerRegion): void {
     if (this.surfaceFor(contents) !== 'ambient') return;
+    if (this.ambientDrag?.contentsId === contents.id) return;
     this.pointerRegion = region;
     this.applyPointerPolicy();
+  }
+
+  dragAmbient(contents: WebContents, command: AmbientDragCommand): void {
+    if (this.surfaceFor(contents) !== 'ambient'
+      || !this.ambient
+      || this.ambient.isDestroyed()) return;
+    if (command.phase === 'start') {
+      this.ambientDrag = {
+        contentsId: contents.id,
+        pointerX: command.pointerX,
+        pointerY: command.pointerY,
+        startBounds: this.ambient.getBounds(),
+      };
+      this.pointerRegion = 'interactive';
+      this.applyPointerPolicy();
+      return;
+    }
+    const drag = this.ambientDrag;
+    if (!drag || drag.contentsId !== contents.id) return;
+    const candidate = {
+      ...drag.startBounds,
+      x: drag.startBounds.x + Math.round(command.pointerX - drag.pointerX),
+      y: drag.startBounds.y + Math.round(command.pointerY - drag.pointerY),
+    };
+    const clamped = clampBoundsToDisplays(candidate, this.displayGeometries()).bounds;
+    this.ambient.setBounds(clamped, false);
+    if (command.phase === 'end') {
+      this.ambientDrag = undefined;
+      this.persistAmbientPlacement();
+      this.publishAmbientState();
+    }
+  }
+
+  setAvatarYaw(contents: WebContents, value: number): void {
+    if (this.surfaceFor(contents) !== 'ambient' || !Number.isFinite(value)) return;
+    const normalized = ((value + 180) % 360 + 360) % 360 - 180;
+    this.desktopState = {
+      ...this.desktopState,
+      avatarYawDegrees: Math.round(normalized * 10) / 10,
+    };
+    this.stateStore.save(this.desktopState);
+    this.publishAmbientState();
   }
 
   performAction(contents: WebContents, action: WindowAction): void {
@@ -312,6 +401,7 @@ export class DeskyWindowManager {
 
   dispose(): void {
     if (this.moveSaveTimer) clearTimeout(this.moveSaveTimer);
+    this.ambientDrag = undefined;
     this.persistAmbientPlacement();
     screen.removeListener('display-added', this.handleDisplayChange);
     screen.removeListener('display-removed', this.handleDisplayChange);
