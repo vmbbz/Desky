@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Desky converts authoring-time Mixamo-style FBX animation into a small, deterministic, avatar-neutral JSON clip. Runtime code binds that canonical clip to the selected VRM's normalized humanoid. Source FBX files and prompt-generated conversions are never runtime or release inputs by accident.
+Desky converts authoring-time Mixamo-style or explicitly reviewed universal-humanoid FBX animation into a small, deterministic, avatar-neutral JSON clip. Runtime code binds that canonical clip to the selected VRM's normalized humanoid. Source FBX files and prompt-generated conversions are never runtime or release inputs by accident.
 
 The converter is an offline developer/release tool. It is not exposed to the sandboxed renderer and it does not execute agent-provided files.
 
@@ -14,6 +14,8 @@ The pipeline has four independent boundaries:
 2. `convert-mixamo.ts` resamples and retargets the source into the canonical coordinate system.
 3. `canonical-animation.ts` validates and serializes the versioned runtime format.
 4. `animation-manifest.ts` admits only provenance-bearing output with an explicit approved rights review.
+
+The converter currently recognizes the original `mixamo` rig profile and the reviewed `quaternius-uam-v1` profile. A source profile selects only a bone-name map; both emit the same canonical VRM 1.0 normalized-humanoid contract. For Z-up sources, hips positions are rotated through their rest parent into Y-up before height normalization. The exact profile and animation name are recorded in every manifest.
 
 The bundled command-line entry point is built from `src/tools/animation/cli.ts`. Generated tooling and output stay under ignored `out/` paths unless a separately reviewed asset is deliberately added later.
 
@@ -82,6 +84,15 @@ npm run build:animation-converter
 npm run animation:converter -- inspect -- --input C:\path\animation.fbx
 ```
 
+Multi-clip sources are explicit rather than guessed:
+
+```powershell
+npm run animation:converter -- list -- --input C:\path\library.fbx
+npm run animation:converter -- inspect -- --input C:\path\library.fbx `
+  --source-profile quaternius-uam-v1 `
+  --source-clip "Armature|Idle_Loop"
+```
+
 Inspect mode parses and converts entirely in memory. It prints source size/hash, duration, hips height, mapped bones, supported/ignored counts, canonical track count, and canonical SHA-256. It writes no clip or manifest and makes no licensing claim.
 
 Optional inspection arguments:
@@ -112,6 +123,23 @@ npm run animation:converter -- convert -- `
   --rights-reviewer release-owner `
   --reviewed-at 2026-08-22T12:15:00.000Z
 ```
+
+Use `--source-profile` and `--source-clip` for a reviewed multi-clip FBX. The exact name must exist; ambiguous multi-clip files still fail closed.
+
+## Rebuild the built-in library
+
+The committed plan is `assets/animation-library.plan.json`. It pins the authoritative pages, archive and FBX hashes, expected source clip counts, exclusions, source selections, semantic state bindings, autonomous weights/cooldowns, action programs, sequence steps, rights reviewer, and deterministic timestamps. Raw ZIP/FBX downloads remain ignored developer inputs.
+
+After obtaining the exact reviewed Standard archives:
+
+```powershell
+npm run animation:converter -- build-library -- `
+  --plan assets/animation-library.plan.json `
+  --output src/assets/animations/quaternius-uam-standard-v1.library.json `
+  --workspace-root .
+```
+
+The command parses each source FBX once, verifies its SHA-256 and clip count, excludes authoring T-poses, converts every other source clip, emits per-clip provenance, and writes one atomic runtime catalogue. Repeating the build from the pinned sources must reproduce the exact output hash.
 
 The command writes `<clip-id>.json` and `<clip-id>.manifest.json` through same-directory temporary files. Existing output is refused unless the caller explicitly passes `--force`. The output manifest includes both source and canonical SHA-256 values, converter version, retargeting contract, root-motion policy, and review identity.
 
@@ -146,7 +174,9 @@ When no reviewed clip is registered, every state has a small procedural treatmen
 
 The first expressive extension remains inside this ownership boundary. A bounded queue accepts only code-defined cues, selects higher priority then FIFO, and never runs two body motions together. Conversational `emphasis`/`nod`, explicit user or agent `wave`/`jump`, and low-priority autonomous `look-around`/`weight-shift`/`stretch`/`ambient-wave` all enter this same queue. Starting a cue stops the lower-priority state clip; completing it resumes the current normalized plan. Approval, cancellation, disconnection, error, or a higher-priority state rejects or clears cues. Speaking entry schedules exactly one emphasis; a focused Wave control and deliberate character double-click request actions. Prompt text, assistant output, and tool arguments are not selectors. These procedural motions contain no third-party animation asset.
 
-The idle scheduler is deliberately bounded rather than an endless action loop. Neutral breathing remains continuous, while one autonomous cue is selected on a seeded pseudo-random interval of 4.5 to 10 seconds with immediate repeats excluded. The scheduler runs only in full-motion idle state with an empty cue lane. Entering listening, thinking, work, speech, approval, a terminal state, local preview, reduced motion, or an explicit action resets the quiet interval. This gives the desktop companion a persistent sense of life without allowing decorative motion to compete with agent truth or accessibility policy.
+The autonomous scheduler is deliberately bounded rather than an endless action loop. State clips remain continuous where their file contract says `loop`; one reviewed program is then selected from the admitted catalogue using its file-defined eligible modes, weight, quiet interval, and cooldown. Immediate repeats are excluded. Multi-step programs such as sit/idle/talk/stand and magic enter/idle/cast/exit run through the same mixer and single body owner. Entering listening, thinking, work, speech, approval, a terminal state, local preview, reduced motion, or an explicit action resets the quiet interval. Code contains priority, validation, interruption, and accessibility policy—not animation filenames.
+
+The first catalogue is generated from the free Standard editions of Quaternius Universal Animation Library 1 and 2. Their two FBX files expose 43 animations each; both authoring T-poses are excluded, leaving 84 exact canonical clips. Twelve programs are ambient-eligible. Combat, weapon, injury, death, swimming, driving, farming, climbing, carrying, and incomplete sleep-transition clips stay catalogued but cannot fire randomly. Jump resolves to a reviewed two-clip program. Wave retains its deterministic procedural fallback because the acquired Standard inventories contain no Wave clip.
 
 The live Open Source Avatars gallery's eleven FBX previews are not Desky defaults. Desky reuses the audited runtime-retargeting technique, but the deployed FBX files have no per-file provenance or redistribution record in the public repository. Once a clip passes the release gate below, it can replace a procedural semantic slot without changing scheduling or priority. Until then, hotlinking or silently caching the gallery's files would weaken offline reliability, storefront review, and the asset contract.
 
@@ -169,14 +199,19 @@ Replay state is reported back to the control center with a monotonic request ide
 
 The live Open Source Avatars gallery currently uses runtime-retargeted FBX rather than VRMA. See `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md` for the implementation and rights audit.
 
-## Release gate
+## Admission and Store release gates
 
-No production animation is admitted until all of these are true:
+Rights/hash admission into development and beta builds requires:
 
 1. The owner or qualified reviewer confirms commercial/store redistribution and modification rights.
 2. Source and output hashes match the manifest.
 3. Conversion is repeated and produces identical canonical bytes.
-4. The clip passes foot-contact, hips-scale, coordinate, reduced-motion, and representative VRM 0.x/1.0 playback checks.
-5. Attribution and third-party notices are present where required.
+4. Attribution and third-party notices are present where required.
+
+Store release additionally requires:
+
+1. Every enabled state/action/ambient program passes foot-contact, hips-scale, coordinate, interruption, and reduced-motion checks.
+2. Representative rights-cleared VRM 0.x and 1.0 binary fixtures pass playback across materially different proportions.
+3. Context-sensitive catalog entries remain unreachable until their product trigger and recovery sequence are reviewed.
 
 Synthetic tests and uncommitted smoke files prove engineering behavior only. They never satisfy the rights gate.

@@ -9,6 +9,8 @@ const halfSqrt = Math.SQRT1_2;
 
 function sourceFixture(): MixamoAnimationSource {
   return {
+    sourceClipName: 'mixamo.com',
+    sourceRigProfile: 'mixamo',
     durationSeconds: 1,
     sourceHipsHeight: 2,
     ignoredTrackCount: 0,

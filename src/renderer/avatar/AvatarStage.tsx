@@ -23,6 +23,7 @@ import {
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
+import builtInAnimationLibrary from '../../assets/animations/quaternius-uam-standard-v1.library.json';
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
 import type { LocalAnimationPreviewCommand } from '../../shared/local-animation';
@@ -32,6 +33,10 @@ import {
   type MotionPreference,
 } from '../../shared/runtime';
 import { AvatarExpressionController } from './avatar-expression-controller';
+import {
+  admitAnimationLibrary,
+  type AdmittedAnimationLibrary,
+} from './animation-library-runtime';
 import { AvatarMotionController } from './avatar-motion-controller';
 import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
@@ -302,6 +307,15 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
 
     const load = async () => {
       try {
+        let animationLibrary: AdmittedAnimationLibrary | undefined;
+        let animationLibraryWarning: string | undefined;
+        try {
+          animationLibrary = await admitAnimationLibrary(builtInAnimationLibrary);
+        } catch (error) {
+          animationLibraryWarning = error instanceof Error
+            ? error.message
+            : 'The built-in animation library failed admission.';
+        }
         const { avatar, bytes: buffer } = await window.desky.avatar.getFeatured();
         if (disposed) return;
         setLoadState({ kind: 'loading', message: `Loading ${avatar.name}…` });
@@ -360,9 +374,15 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
         avatarRoot.position.z -= center.z;
         scene.add(avatarRoot);
         const seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
-        const motionController = new AvatarMotionController(vrm, avatarRoot, [], {
+        const motionController = new AvatarMotionController(
+          vrm,
+          avatarRoot,
+          animationLibrary?.stateRegistrations ?? [],
+          {
           autonomousMotionSeed: seed,
-        });
+            animationLibrary,
+          },
+        );
         const expressionController = new AvatarExpressionController(vrm, capabilities);
         motionControllerRef.current = motionController;
         expressionControllerRef.current = expressionController;
@@ -386,7 +406,9 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
 
         setLoadState({
           kind: 'ready',
-          message: `${avatar.name} · ${capabilities.specLabel} · ${avatar.license} · ${avatar.projectName}`,
+          message: animationLibraryWarning
+            ? `${avatar.name} · motion fallback (${animationLibraryWarning})`
+            : `${avatar.name} · ${animationLibrary?.clipCount ?? 0} CC0 motions · ${capabilities.specLabel} · ${avatar.license}`,
           textureCount,
         });
       } catch (error) {

@@ -1,0 +1,402 @@
+{
+  "schemaVersion": 1,
+  "libraryId": "quaternius-uam-standard-v1",
+  "label": "Quaternius Universal Animation Libraries Standard",
+  "creator": "Quaternius",
+  "licenseId": "CC0-1.0",
+  "sourceUrl": "https://quaternius.com/packs/universalanimationlibrary.html",
+  "generatedAt": "2026-08-23T05:48:08.423Z",
+  "convertedAt": "2026-08-23T05:48:08.423Z",
+  "rightsReviewer": "project-owner",
+  "reviewedAt": "2026-08-23T05:48:08.423Z",
+  "sampleRate": 30,
+  "sources": [
+    {
+      "sourceId": "uam1",
+      "label": "Universal Animation Library Standard v3",
+      "inputPath": "out/upstream/quaternius-uam/extracted/Universal Animation Library[Standard]/Unity/UAL1_Standard.fbx",
+      "sourceUrl": "https://quaternius.itch.io/universal-animation-library",
+      "archiveSha256": "cc73fc4e495b82958207316596317a3f40b9fa38065bde1027937452da537724",
+      "animationSourceSha256": "21b32d912da3cb93426d974fb945e86f5b2e86970acd2ce89905e0fbf9f1dcc2",
+      "fetchedAt": "2026-08-23T05:43:25.000Z",
+      "expectedClipCount": 43,
+      "sourceRigProfile": "quaternius-uam-v1",
+      "excludedClips": ["Armature|A_TPose"]
+    },
+    {
+      "sourceId": "uam2",
+      "label": "Universal Animation Library 2 Standard v2.1",
+      "inputPath": "out/upstream/quaternius-uam2/extracted/Universal Animation Library 2[Standard]/Unity/UAL2_Standard.fbx",
+      "sourceUrl": "https://quaternius.itch.io/universal-animation-library-2",
+      "archiveSha256": "4008ea208a604773a2b2177d965f0f5d3195498b5bf838c3f5785d68e95f2a68",
+      "animationSourceSha256": "d26d0e9f4a202d473194c056045143095a605a53ba1d823ef24055be4b86851d",
+      "fetchedAt": "2026-08-23T05:45:00.000Z",
+      "expectedClipCount": 43,
+      "sourceRigProfile": "quaternius-uam-v1",
+      "excludedClips": ["Armature|A_TPose"]
+    }
+  ],
+  "clipOverrides": [
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Idle_Loop",
+      "intent": "idle",
+      "layer": "state",
+      "playback": "loop",
+      "tags": ["baseline", "neutral"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Idle_Talking_Loop",
+      "intent": "speaking",
+      "layer": "state",
+      "playback": "loop",
+      "tags": ["conversation", "speaking"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Fixing_Kneeling",
+      "intent": "working",
+      "layer": "state",
+      "playback": "one-shot",
+      "tags": ["work", "repair"]
+    },
+    {
+      "sourceId": "uam2",
+      "sourceClip": "Armature|Idle_No_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "idle-variation"]
+    },
+    {
+      "sourceId": "uam2",
+      "sourceClip": "Armature|Idle_FoldArms_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "bored"]
+    },
+    {
+      "sourceId": "uam2",
+      "sourceClip": "Armature|Idle_TalkingPhone_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "phone", "texting-adjacent"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Dance_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "dance"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Walk_Formal_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "locomotion", "walk"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Jog_Fwd_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "locomotion", "run"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Sprint_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "locomotion", "run"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Sitting_Enter",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "sit", "transition"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Sitting_Idle_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "sit", "rest"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Sitting_Talking_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "sit", "conversation"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Sitting_Exit",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "sit", "transition"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Spell_Simple_Enter",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "magic", "transition"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Spell_Simple_Idle_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "magic", "idle"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Spell_Simple_Shoot",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "magic", "attack"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Spell_Simple_Exit",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "magic", "transition"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Crouch_Idle_Loop",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "crouch", "search"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Interact",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "interact", "search"]
+    },
+    {
+      "sourceId": "uam2",
+      "sourceClip": "Armature|Yes",
+      "intent": "action",
+      "layer": "gesture",
+      "playback": "one-shot",
+      "tags": ["ambient", "affirmation", "nod"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Jump_Start",
+      "intent": "action",
+      "layer": "action",
+      "playback": "one-shot",
+      "tags": ["jump", "transition"]
+    },
+    {
+      "sourceId": "uam1",
+      "sourceClip": "Armature|Jump_Land",
+      "intent": "action",
+      "layer": "action",
+      "playback": "one-shot",
+      "tags": ["jump", "transition"]
+    }
+  ],
+  "states": [
+    {
+      "mode": "idle",
+      "clip": { "sourceId": "uam1", "sourceClip": "Armature|Idle_Loop" },
+      "order": 0,
+      "crossFadeMs": 220
+    },
+    {
+      "mode": "speaking",
+      "clip": { "sourceId": "uam1", "sourceClip": "Armature|Idle_Talking_Loop" },
+      "order": 0,
+      "crossFadeMs": 180
+    },
+    {
+      "mode": "working",
+      "clip": { "sourceId": "uam1", "sourceClip": "Armature|Fixing_Kneeling" },
+      "order": 0,
+      "crossFadeMs": 180
+    }
+  ],
+  "programs": [
+    {
+      "programId": "idle-variation",
+      "label": "Idle variation",
+      "tags": ["ambient", "idle"],
+      "fallbackCue": "weight-shift",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 5, "minimumQuietSeconds": 7, "maximumQuietSeconds": 14, "cooldownSeconds": 18 },
+      "steps": [
+        { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "bored-fold-arms",
+      "label": "Bored fold arms",
+      "tags": ["ambient", "bored", "osa-match"],
+      "fallbackCue": "weight-shift",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 3, "minimumQuietSeconds": 9, "maximumQuietSeconds": 18, "cooldownSeconds": 45 },
+      "steps": [
+        { "sourceId": "uam2", "sourceClip": "Armature|Idle_FoldArms_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "phone-check",
+      "label": "Phone check",
+      "tags": ["ambient", "phone", "texting-adjacent", "osa-near-match"],
+      "fallbackCue": "look-around",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 1.8, "minimumQuietSeconds": 12, "maximumQuietSeconds": 24, "cooldownSeconds": 60 },
+      "steps": [
+        { "sourceId": "uam2", "sourceClip": "Armature|Idle_TalkingPhone_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "affirmative-nod",
+      "label": "Affirmative nod",
+      "tags": ["ambient", "affirmation", "conversation"],
+      "fallbackCue": "nod",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 3, "minimumQuietSeconds": 8, "maximumQuietSeconds": 16, "cooldownSeconds": 30 },
+      "steps": [
+        { "sourceId": "uam2", "sourceClip": "Armature|Yes", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "dance-break",
+      "label": "Dance break",
+      "tags": ["ambient", "dance", "celebration"],
+      "fallbackCue": "stretch",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.5, "minimumQuietSeconds": 20, "maximumQuietSeconds": 45, "cooldownSeconds": 180 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Dance_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "formal-walk",
+      "label": "Formal walk",
+      "tags": ["ambient", "locomotion", "walk"],
+      "fallbackCue": "weight-shift",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 1.2, "minimumQuietSeconds": 14, "maximumQuietSeconds": 28, "cooldownSeconds": 75 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Walk_Formal_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "quick-jog",
+      "label": "Quick jog",
+      "tags": ["ambient", "locomotion", "run"],
+      "fallbackCue": "weight-shift",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.4, "minimumQuietSeconds": 20, "maximumQuietSeconds": 40, "cooldownSeconds": 150 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Jog_Fwd_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "sprint-burst",
+      "label": "Sprint burst",
+      "tags": ["ambient", "locomotion", "run", "rare"],
+      "fallbackCue": "stretch",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.15, "minimumQuietSeconds": 30, "maximumQuietSeconds": 60, "cooldownSeconds": 300 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Sprint_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "sit-and-chat",
+      "label": "Sit and chat",
+      "tags": ["ambient", "sit", "rest", "sequence"],
+      "fallbackCue": "weight-shift",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.7, "minimumQuietSeconds": 24, "maximumQuietSeconds": 50, "cooldownSeconds": 240 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Enter", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Idle_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Talking_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Exit", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "magic-trick",
+      "label": "Magic trick",
+      "tags": ["ambient", "magic", "attack", "sequence", "osa-near-match"],
+      "fallbackCue": "ambient-wave",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.25, "minimumQuietSeconds": 30, "maximumQuietSeconds": 60, "cooldownSeconds": 300 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Enter", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Idle_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Shoot", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Exit", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "crouch-search",
+      "label": "Crouch and search",
+      "tags": ["ambient", "crouch", "search"],
+      "fallbackCue": "look-around",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.5, "minimumQuietSeconds": 20, "maximumQuietSeconds": 45, "cooldownSeconds": 180 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Crouch_Idle_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "search-high",
+      "label": "Search and interact",
+      "tags": ["ambient", "search", "interact", "osa-near-match"],
+      "fallbackCue": "look-around",
+      "trigger": { "kind": "ambient", "modes": ["idle"], "weight": 0.8, "minimumQuietSeconds": 14, "maximumQuietSeconds": 30, "cooldownSeconds": 90 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Interact", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "jump",
+      "label": "Jump",
+      "tags": ["action", "jump", "sequence", "osa-near-match"],
+      "fallbackCue": "jump",
+      "trigger": { "kind": "action", "action": "jump", "order": 0 },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Jump_Start", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
+        { "sourceId": "uam1", "sourceClip": "Armature|Jump_Land", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "fight-idle-candidate",
+      "label": "Fight idle candidate",
+      "tags": ["catalog", "combat", "fight-idle", "osa-near-match"],
+      "trigger": { "kind": "catalog" },
+      "steps": [
+        { "sourceId": "uam1", "sourceClip": "Armature|Sword_Idle", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    },
+    {
+      "programId": "sleep-transition-candidate",
+      "label": "Sleep transition candidate",
+      "tags": ["catalog", "sleep", "rest", "visual-review-required"],
+      "trigger": { "kind": "catalog" },
+      "steps": [
+        { "sourceId": "uam2", "sourceClip": "Armature|LayToIdle", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+      ]
+    }
+  ]
+}

@@ -80,7 +80,7 @@ The packaged surface now supports direct character drag after a five-pixel thres
 
 ### Next animation round — expressive motion layers
 
-Status: procedural motion, additive expression, and the first semantic agent-action route are implemented; admitted production clips and representative binary avatars remain open.
+Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented; representative binary avatars and the full packaged visual matrix remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink, restrained look-at, and speaking emphasis that work without external animation files and obey reduced-motion/cancellation priority.
@@ -92,7 +92,7 @@ The controller now owns a bounded queue for `emphasis`, `nod`, low-priority auto
 
 The next rights-safe slice is also implemented: the control center can select and replay a local `.vrma` as session-only content. Main validates a self-contained bounded VRM Animation, keeps it only in memory, and never exposes its path; the ambient surface loads it with `@pixiv/three-vrm-animation` and runs it through the existing mixer. Packaged Windows has passed real playback/replay/completion, reduced-motion rejection, malformed-humanoid rejection, clear, and restart-reset evidence on Milk. Active-playback interruption and macOS remain manual gates.
 
-The Open Source Avatars live gallery was audited separately. Toothpaste has no embedded animation, and the gallery's eleven visible actions are runtime-retargeted Mixamo FBX inputs. They are technically compatible with Desky's converter but remain excluded from release assets until their per-file modification and commercial/store redistribution rights are documented.
+The Open Source Avatars live gallery was audited separately. Toothpaste has no embedded animation, and the gallery's eleven visible actions are runtime-retargeted Mixamo FBX inputs. They remain excluded until their per-file rights are documented. The approved replacement lane uses both free Quaternius Standard libraries: 86 source records, 84 generated clips after excluding T-poses, three state bindings, and fifteen file-defined programs. Twelve restrained programs are autonomous only in idle; context-sensitive combat, death, prop, locomotion, and incomplete sleep candidates cannot fire randomly. The exact OSA semantic matches and gaps are documented in `docs/research/QUATERNIUS-ANIMATION-ADMISSION-2026-08-23.md`.
 
 A separate additive controller uses the avatar capability inventory before driving deterministic bilateral/single blink, restrained look-at, and small success/error/approval/listening/speaking expressions. Missing managers, presets, or look-at support remain no-ops, and baseline values are restored on disposal. A provider-neutral ephemeral `avatar.perform` lane now admits only typed Wave/Jump commands for the selected live session; OpenClaw supplies them through the reviewed `desky_avatar_action` tool plugin, never model-text parsing. Speech visemes, licensed external clips, broader binary-avatar evidence, and live plugin evidence remain later work.
 
@@ -110,7 +110,7 @@ Status: queued; system reduced-motion detection already exists.
 
 ### Asset completion
 
-- Approve and admit the first animation whose modification and commercial/store redistribution rights are documented.
+- Complete packaged visual admission for the rights-approved 84-clip Quaternius candidate library, disabling or tuning any program that fails the representative avatar matrix.
 - Add reviewed binary VRM 0.x and 1.0 fixtures across representative proportions.
 - Persist exact-byte provenance beside bounded cached assets and verify it on every read.
 - Add action, conversational gesture, blink, look-at, expression, and optional viseme layers only through the established motion ownership rules.

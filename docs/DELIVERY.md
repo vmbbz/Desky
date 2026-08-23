@@ -133,7 +133,7 @@ Verified against the current remote Milk default without committing its binary: 
 
 Open before the F3a slice is complete:
 
-- Obtain explicit owner/reviewer approval for the first redistributable animation source, then commit its source/output provenance and repeatable checksum evidence. No external smoke asset is admitted.
+- Complete packaged visual admission for the approved Quaternius candidate library. Rights, exact source/output provenance, deterministic conversion, 84 canonical clips, and third-party notice are committed; representative VRM 0.x/1.0 playback remains required before Store release.
 - Add legally redistributable representative VRM 0.x/1.0 fixtures with reviewed provenance; structural unit fixtures are not the binary compatibility suite.
 - Persist provenance atomically beside bounded cached assets and verify it on cache reads.
 - Test proportions, materials, spring bones, expressions, coordinates, foot contact, and hips scaling against the binary suite.
@@ -153,7 +153,7 @@ Implemented and test-verified:
 
 Still open in F3b/F3d:
 
-- Admit the first owner-approved redistributable production clip through the rights/provenance manifest. The open-source avatar registry does not license unrelated animation files.
+- Run the approved 84-clip Quaternius candidate library through the full packaged VRM 0.x/1.0 visual, interruption, transition, reduced-motion, and performance matrix; keep context-sensitive catalogue candidates disabled until reviewed.
 - Live-verify the implemented normalized agent-action command through the installed OpenClaw plugin, then extend richer reviewed gesture selection. The queue currently supports speaking emphasis plus explicit user and typed agent Wave/Jump requests.
 - Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
 - Add an in-product pause/reduced-motion override, occlusion suspension, WebGL recovery, and packaged Windows/macOS visual/performance evidence.
@@ -183,6 +183,20 @@ Implemented and test-verified:
 - Audited Toothpaste and the live Open Source Avatars gallery. Toothpaste contains no embedded animation; the gallery currently retargets eleven separate Mixamo-style FBX files. All eleven pass Desky's non-writing technical inspection, but none is admitted because the public repository/deployed responses do not provide per-file redistribution provenance.
 
 Evidence is recorded in `docs/verification/F3B4-LOCAL-VRMA-PREVIEW-2026-08-23.md` and `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md`.
+
+### F3b.5 rights-approved file-driven animation library — 2026-08-23
+
+Implemented and test-verified:
+
+- Acquired the free Standard editions of Quaternius Universal Animation Libraries 1 and 2 under their included CC0-1.0 dedication; recorded both archive hashes, both exact FBX hashes, source pages, timestamps, and project-owner review.
+- Extended the deterministic converter with exact multi-clip selection, inventory mode, the reviewed `quaternius-uam-v1` bone map, Z-up hips conversion, source profile/name provenance, and an atomic library builder.
+- Generated 84 canonical clips from 86 source records after excluding both authoring T-poses. Paid Pro/Source files were not acquired and Desky does not claim their 120+/130+ counts.
+- Added a validated, cryptographically admitted library schema with three state bindings and fifteen file-defined programs. Runtime TypeScript contains selection/interruption policy but no animation filename list.
+- Replaced the hard-coded four-item autonomous list with weighted, cooldown-aware planning from admitted file metadata. Multi-step sit/chat/stand and magic sequences use the existing single mixer/body owner.
+- Routed explicit Jump through reviewed `Jump_Start` and `Jump_Land` files while retaining procedural Wave because the acquired inventories contain no Wave clip.
+- Kept combat, weapons, death, injury, swimming, driving, farming, prop-dependent, and incomplete sleep-transition behaviors catalog-only rather than allowing random playback.
+
+Rights, hashes, OSA semantic coverage, automated/package evidence, and remaining visual gates are recorded in `docs/research/QUATERNIUS-ANIMATION-ADMISSION-2026-08-23.md`, `docs/verification/F3B5-FILE-DRIVEN-CC0-ANIMATIONS-2026-08-23.md`, and `THIRD_PARTY_NOTICES.md`.
 
 ### F3c.1 surface-separation status — 2026-08-22
 
@@ -239,7 +253,7 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C4-AUTONOMOUS-MANIPULATION-2026-08-23.md`.
 
-The asset-free expression round, autonomous idle layer, direct manipulation, normalized Wave/Jump agent-action boundary, and rights-safe local VRMA preview are implemented. Packaged Windows has now completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, and a live assistant-stream evidence run. The next animation gates are local-preview interruption by a newly entered authoritative state, live OpenClaw plugin-action evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+The expression round, file-driven autonomous layer, direct manipulation, normalized Wave/Jump agent-action boundary, rights-safe local VRMA preview, and first CC0 candidate animation library are implemented. Packaged Windows has completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, and a live assistant-stream evidence run. The next animation gates are packaged Quaternius program playback/interruption review, local-preview interruption by a newly entered authoritative state, live OpenClaw plugin-action evidence, and representative binary-avatar evidence. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 
@@ -309,7 +323,7 @@ These decisions are deliberately not guessed:
 1. Complete the remaining local-VRMA matrix by interrupting active playback with a newly entered authoritative companion state and repeat the packaged lane on macOS.
 2. Repair the current OpenClaw OAuth/model configuration and live-verify the normalized `desky_avatar_action` tool through the installed plugin.
 3. Start F5a generic adapter-host extraction before a second production adapter or final F4 connection management; OpenClaw must remain the first conformance implementation.
-4. In parallel, approve the first redistributable animation, build the binary VRM 0.x/1.0 suite, and persist provenance-bearing cache records.
+4. In parallel, finish visual admission of the approved Quaternius library, build the binary VRM 0.x/1.0 suite, and persist provenance-bearing cache records.
 4. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
 5. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
 

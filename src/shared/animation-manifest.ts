@@ -41,6 +41,8 @@ export interface AnimationAssetManifest {
     translationScale: 'hips-height-ratio';
     sampleRate: number;
     includeRootMotion: boolean;
+    sourceRigProfile: 'mixamo' | 'quaternius-uam-v1';
+    sourceClip?: string;
   };
   rightsReview: {
     status: 'approved';
@@ -119,6 +121,17 @@ export function parseAnimationAssetManifest(value: unknown): AnimationAssetManif
   if (typeof conversion.includeRootMotion !== 'boolean') {
     throw new Error('Invalid animation root-motion policy');
   }
+  const sourceRigProfile = conversion.sourceRigProfile ?? 'mixamo';
+  if (sourceRigProfile !== 'mixamo' && sourceRigProfile !== 'quaternius-uam-v1') {
+    throw new Error('Unsupported animation source rig profile');
+  }
+  const sourceClip = conversion.sourceClip;
+  if (
+    sourceClip !== undefined &&
+    (!isNonEmptyString(sourceClip, 160) || /[\u0000-\u001f]/.test(sourceClip))
+  ) {
+    throw new Error('Invalid animation source clip');
+  }
 
   const rightsReview = value.rightsReview;
   if (
@@ -156,6 +169,8 @@ export function parseAnimationAssetManifest(value: unknown): AnimationAssetManif
       translationScale: 'hips-height-ratio',
       sampleRate: Number(conversion.sampleRate),
       includeRootMotion: conversion.includeRootMotion,
+      sourceRigProfile,
+      sourceClip,
     },
     rightsReview: {
       status: 'approved',

@@ -20,6 +20,7 @@ export interface MotionCue {
   source: MotionCueSource;
   durationSeconds: number;
   priority: number;
+  programId?: string;
 }
 
 const definitions: Record<MotionCueKind, Pick<MotionCue, 'layer' | 'durationSeconds' | 'priority'>> = {
@@ -39,9 +40,27 @@ export function createMotionCue(
   id: string,
   kind: MotionCueKind,
   source: MotionCueSource,
+  animation?: { programId: string; durationSeconds: number },
 ): MotionCue {
   if (!id || id.length > 128) throw new Error('Motion cue id is invalid');
-  return Object.freeze({ id, kind, source, ...definitions[kind] });
+  if (
+    animation &&
+    (!animation.programId || animation.programId.length > 80 ||
+      !Number.isFinite(animation.durationSeconds) || animation.durationSeconds <= 0 ||
+      animation.durationSeconds > 300)
+  ) {
+    throw new Error('Motion cue animation program is invalid');
+  }
+  return Object.freeze({
+    id,
+    kind,
+    source,
+    ...definitions[kind],
+    ...(animation ? {
+      programId: animation.programId,
+      durationSeconds: animation.durationSeconds,
+    } : {}),
+  });
 }
 
 export class MotionCueQueue {

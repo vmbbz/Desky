@@ -4,7 +4,10 @@ import { describe, expect, it } from 'vitest';
 
 import { AvatarMotionController } from '../src/renderer/avatar/avatar-motion-controller';
 import type { CanonicalAnimationClip } from '../src/shared/canonical-animation';
-import { admittedMotionFixture } from './fixtures/animation';
+import {
+  admittedAnimationLibraryFixture,
+  admittedMotionFixture,
+} from './fixtures/animation';
 
 interface VrmFixture {
   vrm: VRM;
@@ -176,17 +179,22 @@ describe('AvatarMotionController', () => {
     expect(fixture.root.quaternion.angleTo(expected)).toBeLessThan(0.05);
   });
 
-  it('adds autonomous idle variety and lets attentive state interrupt it', () => {
+  it('plans autonomous motion from admitted files and lets attentive state interrupt it', async () => {
     const fixture = createVrmFixture();
+    const animationLibrary = await admittedAnimationLibraryFixture();
     const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
       autonomousMotionSeed: 42,
+      animationLibrary,
     });
     controller.update(0.016, 0);
     for (let second = 1; second <= 11 && !controller.activeMotionCue; second += 1) {
       controller.update(0.1, second);
     }
 
-    expect(controller.activeMotionCue?.source).toBe('ambient');
+    expect(controller.activeMotionCue).toMatchObject({
+      source: 'ambient',
+      programId: 'fixture-ambient',
+    });
     controller.setMode('listening');
     expect(controller.activeMotionCue).toBeUndefined();
     expect(controller.pendingMotionCueCount).toBe(0);
@@ -222,6 +230,29 @@ describe('AvatarMotionController', () => {
     expect(controller.activeMotionCue).toBeUndefined();
     expect(controller.pendingMotionCueCount).toBe(0);
     expect(fixture.root.position.y).toBe(0);
+  });
+
+  it('resolves an explicit action through the admitted file program before using its fallback', async () => {
+    const fixture = createVrmFixture();
+    const animationLibrary = await admittedAnimationLibraryFixture({ trigger: 'jump' });
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
+      animationLibrary,
+    });
+    const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+    const baseline = head.quaternion.clone();
+
+    expect(controller.queueMotionCue('jump')).toBe(true);
+    controller.update(0.016, 0);
+    controller.update(0.25, 0.25);
+
+    expect(controller.activeMotionCue?.programId).toBe('fixture-jump');
+    expect(controller.lastClipError).toBeUndefined();
+    expect(head.quaternion.equals(baseline)).toBe(false);
+    expect(fixture.root.position.y).toBe(0);
+
+    controller.setMode('approval');
+    expect(controller.activeMotionCue).toBeUndefined();
+    expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
   });
 
   it('acknowledges a queued action without travel under reduced motion', () => {

@@ -93,6 +93,20 @@ describe('animation asset manifest', () => {
     );
   });
 
+  it('records an exact multi-clip source selection and reviewed rig profile', () => {
+    const manifest = validManifest();
+    manifest.conversion = {
+      ...(manifest.conversion as Record<string, unknown>),
+      sourceRigProfile: 'quaternius-uam-v1',
+      sourceClip: 'Armature|Idle_Loop',
+    };
+
+    expect(parseAnimationAssetManifest(manifest).conversion).toMatchObject({
+      sourceRigProfile: 'quaternius-uam-v1',
+      sourceClip: 'Armature|Idle_Loop',
+    });
+  });
+
   it('supports state intents added by the motion arbiter but excludes cancellation clips', () => {
     const approval = validManifest();
     approval.intent = 'approval';

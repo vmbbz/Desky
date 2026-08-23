@@ -17,9 +17,14 @@ import {
 } from '../../shared/asset-provenance';
 import { serializeCanonicalAnimationClip } from '../../shared/canonical-animation';
 import { convertMixamoAnimation } from './convert-mixamo';
-import { parseMixamoFbx } from './mixamo-source';
+import { buildAnimationLibrary } from './build-library';
+import { listFbxAnimationClips, parseMixamoFbx } from './mixamo-source';
+import {
+  sourceRigProfiles,
+  type SourceRigProfile,
+} from './mixamo-rig';
 
-const converterVersion = '1.0.0';
+const converterVersion = '1.1.0';
 
 interface Arguments {
   command?: string;
@@ -27,7 +32,10 @@ interface Arguments {
   flags: Set<string>;
 }
 
-const inspectOptions = new Set(['input', 'sample-rate', 'clip-id']);
+const sourceSelectionOptions = ['source-profile', 'source-clip'] as const;
+const inspectOptions = new Set(['input', 'sample-rate', 'clip-id', ...sourceSelectionOptions]);
+const listOptions = new Set(['input']);
+const buildLibraryOptions = new Set(['plan', 'output', 'workspace-root']);
 const convertOptions = new Set([
   'input',
   'output-dir',
@@ -47,6 +55,7 @@ const convertOptions = new Set([
   'rights-reviewer',
   'reviewed-at',
   'reduced-motion-alternative',
+  ...sourceSelectionOptions,
 ]);
 
 function usage(): string {
@@ -54,6 +63,14 @@ function usage(): string {
 
 Inspect an FBX without writing output:
   npm run animation:converter -- inspect -- --input <animation.fbx>
+    [--source-profile <mixamo|quaternius-uam-v1>] [--source-clip <exact-name>]
+
+List every animation in a multi-clip FBX:
+  npm run animation:converter -- list -- --input <animation.fbx>
+
+Build the reviewed built-in catalogue from an exact plan:
+  npm run animation:converter -- build-library -- --plan <plan.json>
+    --output <library.json> [--workspace-root <repo-root>]
 
 Convert an approved source:
   npm run animation:converter -- convert -- --input <animation.fbx> --output-dir <dir>
@@ -63,6 +80,7 @@ Convert an approved source:
     --source-fetched-at <ISO-UTC> --converted-at <ISO-UTC>
     --rights-reviewer <name> --reviewed-at <ISO-UTC>
     [--source-project <name>] [--source-attribution <text>]
+    [--source-profile <mixamo|quaternius-uam-v1>] [--source-clip <exact-name>]
     [--reduced-motion-alternative <clip-id>] [--include-root-motion] [--force]
 
 Conversion refuses to emit an admitted manifest without an explicit approved-rights
@@ -134,6 +152,20 @@ function exactArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
+function sourceSelection(args: Arguments): {
+  sourceRigProfile: SourceRigProfile;
+  sourceClip?: string;
+} {
+  const sourceRigProfile = args.values.get('source-profile') ?? 'mixamo';
+  if (!sourceRigProfiles.includes(sourceRigProfile as SourceRigProfile)) {
+    throw new Error(`--source-profile must be one of: ${sourceRigProfiles.join(', ')}`);
+  }
+  return {
+    sourceRigProfile: sourceRigProfile as SourceRigProfile,
+    sourceClip: args.values.get('source-clip'),
+  };
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await access(path, constants.F_OK);
@@ -188,7 +220,7 @@ async function inspect(args: Arguments): Promise<void> {
   rejectUnknownOptions(args, inspectOptions, new Set(['include-root-motion']));
   const inputPath = resolve(required(args, 'input'));
   const input = await readFile(inputPath);
-  const source = parseMixamoFbx(exactArrayBuffer(input));
+  const source = parseMixamoFbx(exactArrayBuffer(input), sourceSelection(args));
   const sampleRateValue = Number(args.values.get('sample-rate') ?? '30');
   if (!Number.isSafeInteger(sampleRateValue) || sampleRateValue < 1 || sampleRateValue > 120) {
     throw new Error('--sample-rate must be an integer from 1 to 120');
@@ -203,6 +235,8 @@ async function inspect(args: Arguments): Promise<void> {
     inputPath,
     bytes: input.byteLength,
     sha256: await sha256Hex(exactArrayBuffer(input)),
+    sourceClip: source.sourceClipName,
+    sourceRigProfile: source.sourceRigProfile,
     durationSeconds: source.durationSeconds,
     sourceHipsHeight: source.sourceHipsHeight,
     supportedTracks: source.tracks.length,
@@ -213,6 +247,31 @@ async function inspect(args: Arguments): Promise<void> {
     bones: [...new Set(source.tracks.map((track) => track.bone))].sort(),
   };
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+}
+
+async function list(args: Arguments): Promise<void> {
+  rejectUnknownOptions(args, listOptions, new Set());
+  const inputPath = resolve(required(args, 'input'));
+  const input = await readFile(inputPath);
+  const clips = listFbxAnimationClips(exactArrayBuffer(input));
+  process.stdout.write(`${JSON.stringify({
+    inputPath,
+    bytes: input.byteLength,
+    sha256: await sha256Hex(exactArrayBuffer(input)),
+    clipCount: clips.length,
+    clips,
+  }, null, 2)}\n`);
+}
+
+async function buildLibrary(args: Arguments): Promise<void> {
+  rejectUnknownOptions(args, buildLibraryOptions, new Set());
+  const result = await buildAnimationLibrary({
+    planPath: required(args, 'plan'),
+    outputPath: required(args, 'output'),
+    workspaceRoot: args.values.get('workspace-root') ?? process.cwd(),
+    converterVersion,
+  });
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
 
 async function convert(args: Arguments): Promise<void> {
@@ -231,7 +290,7 @@ async function convert(args: Arguments): Promise<void> {
   const licenseId = required(args, 'source-license');
   const sourceCreator = required(args, 'source-creator');
 
-  const source = parseMixamoFbx(inputBuffer);
+  const source = parseMixamoFbx(inputBuffer, sourceSelection(args));
   const canonical = convertMixamoAnimation(source, {
     clipId,
     sampleRate,
@@ -278,6 +337,8 @@ async function convert(args: Arguments): Promise<void> {
       translationScale: 'hips-height-ratio',
       sampleRate,
       includeRootMotion: args.flags.has('include-root-motion'),
+      sourceRigProfile: source.sourceRigProfile,
+      sourceClip: source.sourceClipName,
     },
     rightsReview: {
       status: 'approved',
@@ -309,6 +370,8 @@ async function main(): Promise<void> {
     return;
   }
   if (args.command === 'inspect') await inspect(args);
+  else if (args.command === 'list') await list(args);
+  else if (args.command === 'build-library') await buildLibrary(args);
   else if (args.command === 'convert') await convert(args);
   else throw new Error(`Unknown command ${args.command}`);
 }

@@ -16,6 +16,7 @@ import {
 import {
   normalizeMixamoNodeName,
   resolveMixamoBone,
+  resolveSourceBone,
 } from '../src/tools/animation/mixamo-rig';
 
 function syntheticAsset(): Group {
@@ -59,6 +60,8 @@ describe('Mixamo FBX extraction', () => {
       durationSeconds: 1,
       sourceHipsHeight: 100,
       ignoredTrackCount: 0,
+      sourceClipName: 'mixamo.com',
+      sourceRigProfile: 'mixamo',
     });
     expect(source.tracks.map((track) => `${track.bone}.${track.property}`)).toEqual([
       'hips.position',
@@ -66,6 +69,54 @@ describe('Mixamo FBX extraction', () => {
     ]);
     expect(source.tracks[1].parentRestWorldRotation).toHaveLength(4);
     expect(source.tracks[1].boneRestWorldRotation).toHaveLength(4);
+  });
+
+  it('selects one named clip and converts a Z-up universal-rig hips track to Y-up', () => {
+    const asset = new Group();
+    asset.rotation.x = -Math.PI / 2;
+    const root = new Bone();
+    root.name = 'root';
+    const hips = new Bone();
+    hips.name = 'pelvis';
+    hips.position.z = 1;
+    const head = new Bone();
+    head.name = 'Head';
+    head.position.z = 0.6;
+    asset.add(root);
+    root.add(hips);
+    hips.add(head);
+    asset.animations = [
+      new AnimationClip('Armature|Idle_Loop', 1, [
+        new VectorKeyframeTrack('pelvis.position', [0, 1], [0, 0, 1, 0, 0, 1.1]),
+        new QuaternionKeyframeTrack('Head.quaternion', [0, 1], [0, 0, 0, 1, 0, 0, 0, 1]),
+      ]),
+      new AnimationClip('Armature|Jump_Start', 1, [
+        new VectorKeyframeTrack('pelvis.position', [0, 1], [0, 0, 1, 0, 0, 1.4]),
+      ]),
+    ];
+
+    const source = extractMixamoAnimationSource(asset, {
+      sourceClip: 'Armature|Jump_Start',
+      sourceRigProfile: 'quaternius-uam-v1',
+    });
+
+    expect(resolveSourceBone('spine_03', 'quaternius-uam-v1')).toBe(
+      VRMHumanBoneName.UpperChest,
+    );
+    expect(source.sourceClipName).toBe('Armature|Jump_Start');
+    expect(source.sourceHipsHeight).toBeCloseTo(1, 6);
+    expect(source.tracks[0].values[0]).toBeCloseTo(0, 8);
+    expect(source.tracks[0].values[1]).toBeCloseTo(1, 8);
+    expect(source.tracks[0].values[2]).toBeCloseTo(0, 8);
+    expect(source.tracks[0].values[3]).toBeCloseTo(0, 8);
+    expect(source.tracks[0].values[4]).toBeCloseTo(1.4, 6);
+    expect(source.tracks[0].values[5]).toBeCloseTo(0, 8);
+  });
+
+  it('fails closed when a requested clip is absent', () => {
+    expect(() => extractMixamoAnimationSource(syntheticAsset(), {
+      sourceClip: 'Armature|Missing',
+    })).toThrow(/requested animation clip/i);
   });
 
   it('fails closed when the source hips height is unusable', () => {
