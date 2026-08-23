@@ -52,6 +52,17 @@ describe('motion arbiter', () => {
     expect(Object.isFrozen(registrations[0].canonical.tracks[0].values)).toBe(true);
   });
 
+  it('keeps the admitted animated idle body while connectivity is offline', async () => {
+    const idle = await admittedMotionFixture({ mode: 'idle', clipId: 'animated-idle' });
+
+    const plan = resolveMotionPlan('disconnected', [idle]);
+
+    expect(plan.mode).toBe('disconnected');
+    expect(plan.priority).toBeGreaterThan(resolveMotionPlan('idle', [idle]).priority);
+    expect(plan.clip?.canonical.clipId).toBe('animated-idle');
+    expect(plan.playback).toBe('loop');
+  });
+
   it('suppresses full animation clips under reduced-motion preference', async () => {
     const plan = resolveMotionPlan(
       'working',

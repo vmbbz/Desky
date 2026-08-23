@@ -167,25 +167,32 @@ async function captureVisualTest(
     })()`);
   }
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'idle-cycle') {
-    await window.webContents.executeJavaScript(`(async () => {
-      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
-      const observed = [];
-      let previous = '';
-      const deadline = performance.now() + 50_000;
-      while (performance.now() < deadline) {
-        const stage = document.querySelector('.avatar-stage');
-        const canvas = stage?.querySelector('canvas');
-        const program = canvas?.dataset.motionActiveProgram ?? '';
-        if (program && !previous) observed.push(program);
-        previous = program;
-        if (stage instanceof HTMLElement) stage.dataset.observedPrograms = observed.join(',');
-        if (observed.length >= 3 && observed.at(-1) === 'celebration-fist-pump') {
-          await wait(1_000);
-          break;
+    const observed: string[] = [];
+    let previous = '';
+    const deadline = Date.now() + 50_000;
+    while (Date.now() < deadline) {
+      const program = await window.webContents.executeJavaScript(
+        "document.querySelector('.avatar-stage canvas')?.dataset.motionActiveProgram ?? ''",
+      ) as string;
+      if (program && !previous) {
+        observed.push(program);
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        const safeProgram = program.replace(/[^a-z0-9-]/g, '');
+        if (safeProgram) {
+          const frame = await window.webContents.capturePage();
+          await writeFile(`${outputPath}.${safeProgram}.png`, frame.toPNG());
         }
-        await wait(50);
       }
-    })()`);
+      previous = program;
+      await window.webContents.executeJavaScript(`(() => {
+        const stage = document.querySelector('.avatar-stage');
+        if (stage instanceof HTMLElement) {
+          stage.dataset.observedPrograms = ${JSON.stringify(observed.join(','))};
+        }
+      })()`);
+      if (observed.length >= 3) break;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
   }
   const rendererDiagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,

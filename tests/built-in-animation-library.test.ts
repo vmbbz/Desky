@@ -38,6 +38,8 @@ describe('built-in CC0 animation library', () => {
     expect(library.clips).toHaveLength(84);
     expect(library.clips.some((clip) => clip.label === 'A TPose')).toBe(false);
     expect(library.states.map((state) => state.mode)).toEqual(['idle', 'speaking', 'working']);
+    expect(library.states.find((state) => state.mode === 'idle')?.clipId)
+      .toBe('uam2-idle-fold-arms-loop-v1');
     expect(library.programs).toHaveLength(15);
   });
 
@@ -62,19 +64,23 @@ describe('built-in CC0 animation library', () => {
     }
 
     const ambient = library.programs.filter((program) => program.trigger.kind === 'ambient');
-    expect(ambient).toHaveLength(2);
+    expect(ambient).toHaveLength(3);
     expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
       program.trigger.modes.includes('idle') &&
       program.trigger.modes.includes('disconnected'))).toBe(true);
     expect(ambient.map((program) => program.programId)).toEqual([
-      'long-look-around',
-      'celebration-fist-pump',
+      'dance-break',
+      'formal-walk',
+      'search-high',
     ]);
-    expect(ambient.map((program) => program.trigger.kind === 'ambient' && program.trigger.cycle)).toEqual([
-      { id: 'primary-idle', length: 3, slots: [0, 1] },
-      { id: 'primary-idle', length: 3, slots: [2] },
-    ]);
-    expect(ambient[0].steps[0].repetitions).toBe(3);
+    expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
+      program.trigger.cycle === undefined)).toBe(true);
+    expect(library.programs.find((program) => program.programId === 'long-look-around')?.trigger.kind)
+      .toBe('catalog');
+    expect(library.programs.find((program) => program.programId === 'celebration-fist-pump')?.trigger.kind)
+      .toBe('catalog');
+    expect(library.programs.find((program) => program.programId === 'crouch-search')?.trigger.kind)
+      .toBe('catalog');
     const sitAndChat = library.programs.find((program) => program.programId === 'sit-and-chat');
     expect(sitAndChat?.steps).toHaveLength(4);
     expect(sitAndChat?.trigger.kind).toBe('catalog');
@@ -86,10 +92,8 @@ describe('built-in CC0 animation library', () => {
       programs: Array<{ programId: string; trigger: Record<string, unknown> }>;
     };
     const incomplete = structuredClone(builtInAnimationLibrary) as unknown as MutableLibrary;
-    const celebration = incomplete.programs.find(
-      (program) => program.programId === 'celebration-fist-pump',
-    )!;
-    celebration.trigger.cycle = { id: 'primary-idle', length: 3, slots: [] };
+    const dance = incomplete.programs.find((program) => program.programId === 'dance-break')!;
+    dance.trigger.cycle = { id: 'primary-idle', length: 3, slots: [] };
     expect(() => parseAnimationLibrary(incomplete)).toThrow('ambient cycle slots');
 
     const mixed = structuredClone(builtInAnimationLibrary) as unknown as MutableLibrary;
@@ -101,6 +105,7 @@ describe('built-in CC0 animation library', () => {
       minimumQuietSeconds: 4,
       maximumQuietSeconds: 7,
       cooldownSeconds: 0,
+      cycle: { id: 'primary-idle', length: 3, slots: [0, 1, 2] },
     };
     expect(() => parseAnimationLibrary(mixed)).toThrow('mixes cycled and weighted programs');
   });

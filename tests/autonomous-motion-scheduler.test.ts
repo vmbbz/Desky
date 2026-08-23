@@ -60,6 +60,23 @@ describe('AutonomousMotionScheduler', () => {
     expect(second?.programId).not.toBe(first?.programId);
   });
 
+  it('shows every admitted ambient program before reusing a weighted favourite', () => {
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('favourite', { weight: 100, minimum: 1, maximum: 1, cooldown: 0 }),
+      ambientProgram('secondary', { weight: 1, minimum: 1, maximum: 1, cooldown: 0 }),
+      ambientProgram('rare', { weight: 1, minimum: 1, maximum: 1, cooldown: 0 }),
+    ], 42);
+
+    const selected: string[] = [];
+    for (let second = 0; second <= 6; second += 1) {
+      const program = scheduler.update(second, 'idle');
+      if (program) selected.push(program.programId);
+    }
+
+    expect(selected).toHaveLength(3);
+    expect(new Set(selected).size).toBe(3);
+  });
+
   it('restarts the quiet interval when autonomous motion is disabled', () => {
     const scheduler = new AutonomousMotionScheduler([
       ambientProgram('idle-break'),

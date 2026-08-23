@@ -97,6 +97,13 @@ export class AutonomousMotionScheduler {
     }
     if (candidates.length === 0) candidates = [...eligible];
 
+    // Treat the ambient pool as a shuffled bag before weights are allowed to
+    // repeat favourites. This preserves personality weighting over time while
+    // guaranteeing that a high-weight gesture cannot hide the rest of the
+    // admitted repertoire from the user.
+    const unplayed = candidates.filter((program) => !this.lastPlayedAt.has(program.programId));
+    if (unplayed.length > 0) candidates = unplayed;
+
     const totalWeight = candidates.reduce(
       (sum, program) => sum + (program.trigger.kind === 'ambient' ? program.trigger.weight : 0),
       0,

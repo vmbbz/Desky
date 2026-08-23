@@ -5,10 +5,10 @@
   "creator": "Quaternius",
   "licenseId": "CC0-1.0",
   "sourceUrl": "https://quaternius.com/packs/universalanimationlibrary.html",
-  "generatedAt": "2026-08-23T05:48:08.423Z",
-  "convertedAt": "2026-08-23T05:48:08.423Z",
+  "generatedAt": "2026-08-23T14:24:45.712Z",
+  "convertedAt": "2026-08-23T14:24:45.712Z",
   "rightsReviewer": "project-owner",
-  "reviewedAt": "2026-08-23T05:48:08.423Z",
+  "reviewedAt": "2026-08-23T14:24:45.712Z",
   "sampleRate": 30,
   "sources": [
     {
@@ -72,10 +72,10 @@
     {
       "sourceId": "uam2",
       "sourceClip": "Armature|Idle_FoldArms_Loop",
-      "intent": "action",
-      "layer": "gesture",
-      "playback": "one-shot",
-      "tags": ["ambient", "bored"]
+      "intent": "idle",
+      "layer": "state",
+      "playback": "loop",
+      "tags": ["baseline", "animated-idle", "folded-arms"]
     },
     {
       "sourceId": "uam2",
@@ -225,7 +225,7 @@
   "states": [
     {
       "mode": "idle",
-      "clip": { "sourceId": "uam1", "sourceClip": "Armature|Idle_Loop" },
+      "clip": { "sourceId": "uam2", "sourceClip": "Armature|Idle_FoldArms_Loop" },
       "order": 0,
       "crossFadeMs": 220
     },
@@ -246,9 +246,9 @@
     {
       "programId": "long-look-around",
       "label": "Long look around",
-      "tags": ["ambient", "idle", "look-around", "reference-sequence"],
+      "tags": ["catalog", "idle", "look-around"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1, "minimumQuietSeconds": 4, "maximumQuietSeconds": 7, "cooldownSeconds": 0, "cycle": { "id": "primary-idle", "length": 3, "slots": [0, 1] } },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 3, "reverse": false, "holdSeconds": 0 }
       ]
@@ -276,9 +276,9 @@
     {
       "programId": "celebration-fist-pump",
       "label": "Celebration fist pump",
-      "tags": ["ambient", "affirmation", "celebration", "reference-sequence"],
+      "tags": ["catalog", "affirmation", "celebration"],
       "fallbackCue": "nod",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1, "minimumQuietSeconds": 5, "maximumQuietSeconds": 8, "cooldownSeconds": 0, "cycle": { "id": "primary-idle", "length": 3, "slots": [2] } },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Yes", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -288,7 +288,7 @@
       "label": "Dance break",
       "tags": ["ambient", "dance", "celebration"],
       "fallbackCue": "stretch",
-      "trigger": { "kind": "catalog" },
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1, "minimumQuietSeconds": 10, "maximumQuietSeconds": 16, "cooldownSeconds": 75 },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Dance_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
       ]
@@ -298,7 +298,7 @@
       "label": "Formal walk",
       "tags": ["ambient", "locomotion", "walk"],
       "fallbackCue": "weight-shift",
-      "trigger": { "kind": "catalog" },
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 2, "minimumQuietSeconds": 5, "maximumQuietSeconds": 9, "cooldownSeconds": 28 },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Walk_Formal_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -352,7 +352,7 @@
     {
       "programId": "crouch-search",
       "label": "Crouch and search",
-      "tags": ["ambient", "crouch", "search"],
+      "tags": ["catalog", "crouch", "search", "visual-review-rejected"],
       "fallbackCue": "look-around",
       "trigger": { "kind": "catalog" },
       "steps": [
@@ -364,7 +364,7 @@
       "label": "Search and interact",
       "tags": ["ambient", "search", "interact", "osa-near-match"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "catalog" },
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 5, "minimumQuietSeconds": 3, "maximumQuietSeconds": 6, "cooldownSeconds": 16 },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Interact", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]

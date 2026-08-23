@@ -254,8 +254,9 @@ Implemented and package-verified on Windows:
 - Preserved click-to-compose, double-click Jump, transparent-region pass-through, focus policy, OS-safe credential isolation, and the existing motion arbiter.
 - Package-proved the actual measured-hit-target pointer path with a 48-by-32 logical move, a persisted 72.8-degree Shift-drag view, loaded Milk texture, and unfocused ambient surface in isolated application data.
 - Reconnected the packaged app to the newly authenticated non-dev OpenClaw profile and received the exact streamed response `DESKY_RUNNER_LIVE_OK` from the selected Desky session through `openai/gpt-5.6-sol`.
+- Replaced the imported/restored arms-sideways posture with an authored folded-arm idle in both connected idle and disconnected rest. Removed repetitive head-motion/thumbs-up from autonomy, rejected the distorted crouch on Milk, and package-proved a shuffled-bag sequence of Search/Interact, Formal Walk, and Dance Break with no clip error.
 
-Evidence is recorded in `docs/verification/F3C4-AUTONOMOUS-MANIPULATION-2026-08-23.md`.
+Evidence is recorded in `docs/verification/F3C4-AUTONOMOUS-MANIPULATION-2026-08-23.md` and `docs/verification/F3B8-ANIMATED-IDLE-REPAIR-2026-08-23.md`.
 
 The expression round, file-driven autonomous layer, direct manipulation, normalized Wave/Jump agent-action boundary, rights-safe local VRMA preview, and first CC0 candidate animation library are implemented. Packaged Windows has completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, and a live assistant-stream evidence run. The next animation gates are packaged Quaternius program playback/interruption review, local-preview interruption by a newly entered authoritative state, live OpenClaw plugin-action evidence, and representative binary-avatar evidence. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 

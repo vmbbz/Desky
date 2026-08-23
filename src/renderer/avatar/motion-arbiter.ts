@@ -145,8 +145,16 @@ function selectClip(
   mode: CompanionMode,
   registrations: readonly MotionClipRegistration[],
 ): MotionClipRegistration | undefined {
-  return registrations
-    .filter((registration) => registration.mode === mode)
+  const exact = registrations.filter((registration) => registration.mode === mode);
+  // Connectivity changes the semantic/status priority, but it must not turn the
+  // companion back into its imported bind pose. An admitted idle loop is the
+  // safe body fallback when disconnected has no purpose-authored state clip.
+  const candidates = exact.length > 0
+    ? exact
+    : mode === 'disconnected'
+      ? registrations.filter((registration) => registration.mode === 'idle')
+      : [];
+  return candidates
     .sort((left, right) =>
       (left.order ?? 0) - (right.order ?? 0) ||
       left.canonical.clipId.localeCompare(right.canonical.clipId),
