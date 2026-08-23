@@ -37,6 +37,7 @@ import {
   admitAnimationLibrary,
   type AdmittedAnimationLibrary,
 } from './animation-library-runtime';
+import { resolveAvatarFramingScale } from './avatar-framing';
 import { AvatarMotionController } from './avatar-motion-controller';
 import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
@@ -375,9 +376,13 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
 
         const bounds = new Box3().setFromObject(avatarRoot);
         const size = bounds.getSize(new Vector3());
-        const scaleByHeight = size.y > 0 ? 2.5 / size.y : 1;
-        const scaleByWidth = size.x > 0 ? 2.35 / size.x : 1;
-        const scale = Math.min(scaleByHeight, scaleByWidth);
+        const scale = resolveAvatarFramingScale({
+          avatarWidth: size.x,
+          avatarHeight: size.y,
+          cameraDistance: Math.abs(camera.position.z),
+          verticalFovDegrees: camera.fov,
+          aspectRatio: camera.aspect,
+        });
         avatarRoot.scale.setScalar(scale);
 
         const fittedBounds = new Box3().setFromObject(avatarRoot);

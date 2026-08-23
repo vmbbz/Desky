@@ -117,16 +117,23 @@ export async function admittedAnimationLibraryFixture(input: {
   trigger?: 'ambient' | 'jump';
   clipId?: string;
   durationSeconds?: number;
+  stepCount?: number;
 } = {}): Promise<AdmittedAnimationLibrary> {
-  const clipId = input.clipId ?? 'library-motion-fixture';
-  const canonical = canonicalAnimationFixture(clipId);
-  canonical.durationSeconds = input.durationSeconds ?? 1;
-  canonical.tracks[0].times = [0, canonical.durationSeconds];
-  canonical.tracks[0].values = [0, 0, 0, 1, 0, Math.sin(0.2), 0, Math.cos(0.2)];
-  const manifest = await animationManifestFixture({ mode: 'idle', canonical });
-  manifest.intent = 'action';
-  manifest.layer = input.trigger === 'jump' ? 'action' : 'gesture';
-  manifest.playback = 'one-shot';
+  const baseClipId = input.clipId ?? 'library-motion-fixture';
+  const stepCount = Math.max(1, input.stepCount ?? 1);
+  const definitions = await Promise.all(Array.from({ length: stepCount }, async (_, index) => {
+    const clipId = stepCount === 1 ? baseClipId : `${baseClipId}-step-${index + 1}`;
+    const canonical = canonicalAnimationFixture(clipId);
+    canonical.durationSeconds = input.durationSeconds ?? 1;
+    canonical.tracks[0].times = [0, canonical.durationSeconds];
+    const halfAngle = 0.2 * (index + 1);
+    canonical.tracks[0].values = [0, 0, 0, 1, 0, Math.sin(halfAngle), 0, Math.cos(halfAngle)];
+    const manifest = await animationManifestFixture({ mode: 'idle', canonical });
+    manifest.intent = 'action';
+    manifest.layer = input.trigger === 'jump' ? 'action' : 'gesture';
+    manifest.playback = 'one-shot';
+    return { clipId, canonical, manifest };
+  }));
   return admitAnimationLibrary({
     schemaVersion: 1,
     libraryId: 'fixture-library',
@@ -141,15 +148,15 @@ export async function admittedAnimationLibraryFixture(input: {
       sourceUrl: 'https://example.com/fixture-library',
       archiveSha256: 'b'.repeat(64),
       animationSourceSha256: 'a'.repeat(64),
-      clipCount: 1,
+      clipCount: stepCount,
     }],
-    clips: [{
+    clips: definitions.map(({ clipId, canonical, manifest }) => ({
       clipId,
       label: 'Fixture clip',
       tags: ['fixture'],
       canonical,
       manifest,
-    }],
+    })),
     states: [],
     programs: [{
       programId: input.trigger === 'jump' ? 'fixture-jump' : 'fixture-ambient',
@@ -166,7 +173,12 @@ export async function admittedAnimationLibraryFixture(input: {
             maximumQuietSeconds: 1,
             cooldownSeconds: 1,
           },
-      steps: [{ clipId, repetitions: 1, reverse: false, holdSeconds: 0 }],
+      steps: definitions.map(({ clipId }) => ({
+        clipId,
+        repetitions: 1,
+        reverse: false,
+        holdSeconds: 0,
+      })),
     }],
   });
 }

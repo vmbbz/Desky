@@ -56,6 +56,9 @@ const previewInterruptingModes: ReadonlySet<CompanionMode> = new Set([
   'error',
 ]);
 
+const programCrossFadeSeconds = 0.22;
+const programExitFadeSeconds = 0.32;
+
 export interface MotionPreviewObserver {
   onStarted(): void;
   onEnded(result: 'completed' | 'interrupted'): void;
@@ -109,6 +112,11 @@ export class AvatarMotionController {
     stepIndex: number;
     action: AnimationAction;
     holdUntil?: number;
+  };
+
+  private settlingAction?: {
+    action: AnimationAction;
+    completeAt: number;
   };
 
   private cueSequence = 0;
@@ -222,7 +230,7 @@ export class AvatarMotionController {
     }
     const interrupted = this.cueQueue.reconcileState(next.priority, clearCues);
     if (interrupted) {
-      this.stopActiveProgram();
+      this.stopCurrentAction();
       this.activeCueStartedAt = undefined;
       this.restoreBaseline();
     }
@@ -238,7 +246,7 @@ export class AvatarMotionController {
     if (this.reducedMotion === reducedMotion) return;
     this.reducedMotion = reducedMotion;
     if (reducedMotion && this.preview) this.endPreview('interrupted', false);
-    if (reducedMotion && this.activeProgram) this.stopActiveProgram();
+    if (reducedMotion && (this.activeProgram || this.settlingAction)) this.stopCurrentAction();
     this.plan = resolveMotionPlan(this.plan.mode, this.registrations, { reducedMotion });
     this.modeStartedAt = this.elapsedSeconds;
     if (!this.cueQueue.active && !this.preview) this.activatePlan(this.plan);
@@ -297,6 +305,11 @@ export class AvatarMotionController {
       this.endPreview('completed', true);
       return;
     }
+    if (this.settlingAction) {
+      this.autonomousMotion.update(elapsedSeconds, undefined);
+      if (elapsedSeconds < this.settlingAction.completeAt) return;
+      this.finishSettlingAction(elapsedSeconds);
+    }
     const autonomousProgram = this.autonomousMotion.update(
       elapsedSeconds,
       !this.reducedMotion
@@ -308,10 +321,13 @@ export class AvatarMotionController {
     if (autonomousProgram) this.queueAnimationProgram(autonomousProgram, 'ambient');
     const cue = this.cueQueue.startNext(this.plan.priority);
     if (cue && this.activeCueStartedAt === undefined) {
-      this.stopCurrentAction();
-      this.restoreBaseline();
       this.activeCueStartedAt = elapsedSeconds;
-      if (cue.programId && !this.reducedMotion) this.startAnimationProgram(cue.programId);
+      if (cue.programId && !this.reducedMotion) {
+        this.startAnimationProgram(cue.programId);
+      } else {
+        this.stopCurrentAction();
+        this.restoreBaseline();
+      }
     }
     if (cue && this.activeCueStartedAt !== undefined) {
       if (this.activeProgram) {
@@ -353,6 +369,7 @@ export class AvatarMotionController {
     this.currentAction = undefined;
     this.cueQueue.clear();
     this.activeProgram = undefined;
+    this.settlingAction = undefined;
     this.activeCueStartedAt = undefined;
     this.restoreBaseline();
   }
@@ -398,18 +415,21 @@ export class AvatarMotionController {
     const program = this.animationPrograms.get(programId);
     if (!program) return;
     try {
-      const action = this.startAnimationProgramStep(program, 0);
+      const outgoingAction = this.currentAction;
+      if (!outgoingAction) this.restoreBaseline();
+      const action = this.startAnimationProgramStep(program, 0, outgoingAction);
       this.activeProgram = { program, stepIndex: 0, action };
       this.clipError = undefined;
     } catch (error) {
       this.clipError = error instanceof Error ? error.message : 'Animation program could not be bound';
-      this.stopActiveProgram();
+      this.stopCurrentAction();
     }
   }
 
   private startAnimationProgramStep(
     program: AdmittedAnimationProgram,
     stepIndex: number,
+    outgoingAction?: AnimationAction,
   ): AnimationAction {
     const step = program.steps[stepIndex];
     if (!step) throw new Error(`Animation program ${program.programId} has no playable step`);
@@ -424,6 +444,11 @@ export class AvatarMotionController {
     if (step.reverse) action.time = clip.duration;
     action.play();
     this.activeActions.add(action);
+    if (outgoingAction && outgoingAction !== action) {
+      outgoingAction.crossFadeTo(action, programCrossFadeSeconds, false);
+    } else {
+      action.fadeIn(programCrossFadeSeconds);
+    }
     this.currentAction = action;
     return action;
   }
@@ -438,17 +463,17 @@ export class AvatarMotionController {
       active.holdUntil ??= elapsedSeconds + step.holdSeconds;
       if (elapsedSeconds < active.holdUntil) return true;
     }
-    active.action.stop();
-    this.activeActions.delete(active.action);
-    if (this.currentAction === active.action) this.currentAction = undefined;
-
     const nextStepIndex = active.stepIndex + 1;
     if (nextStepIndex >= active.program.steps.length) {
       this.activeProgram = undefined;
       return false;
     }
     try {
-      const action = this.startAnimationProgramStep(active.program, nextStepIndex);
+      const action = this.startAnimationProgramStep(
+        active.program,
+        nextStepIndex,
+        active.action,
+      );
       this.activeProgram = {
         program: active.program,
         stepIndex: nextStepIndex,
@@ -457,7 +482,7 @@ export class AvatarMotionController {
       return true;
     } catch (error) {
       this.clipError = error instanceof Error ? error.message : 'Animation program step failed';
-      this.stopActiveProgram();
+      this.stopCurrentAction();
       return false;
     }
   }
@@ -472,10 +497,23 @@ export class AvatarMotionController {
   }
 
   private completeActiveCue(elapsedSeconds: number): void {
-    this.stopActiveProgram();
+    const outgoingAction = this.currentAction;
+    this.activeProgram = undefined;
     this.cueQueue.completeActive();
     this.activeCueStartedAt = undefined;
     this.modeStartedAt = elapsedSeconds;
+    if (this.plan.clip) {
+      this.activatePlan(this.plan);
+      return;
+    }
+    if (outgoingAction) {
+      outgoingAction.fadeOut(programExitFadeSeconds);
+      this.settlingAction = {
+        action: outgoingAction,
+        completeAt: elapsedSeconds + programExitFadeSeconds,
+      };
+      return;
+    }
     this.restoreBaseline();
     this.activatePlan(this.plan);
   }
@@ -531,6 +569,18 @@ export class AvatarMotionController {
     this.mixer.stopAllAction();
     this.activeActions.clear();
     this.currentAction = undefined;
+    this.settlingAction = undefined;
+  }
+
+  private finishSettlingAction(elapsedSeconds: number): void {
+    const settling = this.settlingAction;
+    if (!settling) return;
+    settling.action.stop();
+    this.activeActions.delete(settling.action);
+    if (this.currentAction === settling.action) this.currentAction = undefined;
+    this.settlingAction = undefined;
+    this.modeStartedAt = elapsedSeconds;
+    this.restoreBaseline();
   }
 
   private endPreview(result: 'completed' | 'interrupted', reactivatePlan: boolean): void {

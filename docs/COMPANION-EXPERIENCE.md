@@ -101,7 +101,8 @@ Target values are design tokens, not scattered component constants:
 | Character safe inset | at least 12 CSS px from the usable work area |
 | Composer reveal | 120–180 ms when full motion is enabled |
 | State acknowledgement | visible within 150 ms of a normalized event |
-| Full-body cross-fade | normally 120–250 ms |
+| Full-body cross-fade | normally 120–320 ms |
+| Character camera fill | balanced 98% vertically and 90% horizontally in the relaxed pose |
 
 The implementation may tune the ranges after device testing, but a change must preserve readability, responsiveness, and reduced-motion behavior.
 
@@ -239,7 +240,9 @@ The implemented F3b foundation covers the first two bullets, the full-body state
 
 `avatar-expression-controller.ts` is the separate capability-aware additive layer. It drives a deterministic bounded blink schedule, restrained look-at, and small available-preset expressions, restores authored values on disposal, neutralizes gaze for reduced motion, and becomes a no-op when an avatar lacks the relevant feature. The implemented ephemeral agent-action lane admits typed Wave/Jump requests into the same body queue without replaying them or parsing text.
 
-The first rights-approved candidate library now supplies 84 canonical Quaternius Standard clips. State bindings, action/ambient programs, exact steps, tags, weights, quiet windows, and cooldowns live in the generated asset file. The scheduler contains no animation filename list. Twelve restrained programs can run only in the file-defined idle or disconnected modes; contextual edge cases remain catalog-only. Jump uses a two-file sequence; Wave stays procedural until a reviewed Wave asset exists. Full packaged visual admission, speech visemes, and representative binary VRM evidence remain open and must preserve the same ownership boundary.
+The first rights-approved candidate library now supplies 84 canonical Quaternius Standard clips. State bindings, action/ambient programs, exact steps, tags, weights, quiet windows, and cooldowns live in the generated asset file. The scheduler contains no animation filename list. Twelve restrained programs can run only in the file-defined idle or disconnected modes; contextual edge cases remain catalog-only. Authored steps play for their full canonical duration, adjacent steps crossfade without passing through the bind pose, and the final pose blends into the accepted state rather than snapping. Jump uses a two-file sequence; Wave stays procedural until a reviewed Wave asset exists. Full packaged visual admission, speech visemes, and representative binary VRM evidence remain open and must preserve the same ownership boundary.
+
+Avatar fitting uses the real perspective-camera frustum rather than fixed world-space target dimensions. The balanced presentation target occupies 98% of the vertical view and 90% of the horizontal view in the relaxed pose: the measured midpoint between the original oversized presentation and the first conservative fit. The window and camera remain stable during motion; animations never resize the native surface or steal focus.
 
 ### F3c — desktop-presence composition
 

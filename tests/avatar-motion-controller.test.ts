@@ -255,6 +255,67 @@ describe('AvatarMotionController', () => {
     expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
   });
 
+  it('plays the full authored duration and eases back without a final-pose snap', async () => {
+    const fixture = createVrmFixture();
+    const animationLibrary = await admittedAnimationLibraryFixture({
+      trigger: 'jump',
+      durationSeconds: 1,
+    });
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
+      animationLibrary,
+    });
+    const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+    const baseline = head.quaternion.clone();
+
+    expect(controller.queueMotionCue('jump')).toBe(true);
+    controller.update(0.016, 0);
+    for (let frame = 1; frame <= 9; frame += 1) {
+      controller.update(0.1, frame / 10);
+    }
+
+    expect(controller.activeMotionCue?.programId).toBe('fixture-jump');
+    expect(head.quaternion.angleTo(baseline)).toBeGreaterThan(0.05);
+
+    controller.update(0.1, 1);
+    controller.update(0.1, 1.1);
+    expect(controller.activeMotionCue).toBeUndefined();
+    const settlingAngle = head.quaternion.angleTo(baseline);
+    expect(settlingAngle).toBeGreaterThan(0.01);
+
+    controller.update(0.1, 1.2);
+    controller.update(0.1, 1.3);
+    controller.update(0.1, 1.4);
+    controller.update(0.1, 1.5);
+    expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
+  });
+
+  it('crossfades adjacent authored steps instead of cutting through the bind pose', async () => {
+    const fixture = createVrmFixture();
+    const animationLibrary = await admittedAnimationLibraryFixture({
+      trigger: 'jump',
+      durationSeconds: 0.5,
+      stepCount: 2,
+    });
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
+      animationLibrary,
+    });
+    const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+    const baseline = head.quaternion.clone();
+
+    expect(controller.queueMotionCue('jump')).toBe(true);
+    controller.update(0.016, 0);
+    for (let frame = 1; frame <= 4; frame += 1) {
+      controller.update(0.1, frame / 10);
+    }
+    controller.update(0.1, 0.5);
+
+    expect(controller.activeMotionCue?.programId).toBe('fixture-jump');
+    expect(head.quaternion.angleTo(baseline)).toBeGreaterThan(0.15);
+
+    controller.update(0.05, 0.55);
+    expect(head.quaternion.angleTo(baseline)).toBeGreaterThan(0.1);
+  });
+
   it('keeps local Jump available before a gateway session is selected', async () => {
     const fixture = createVrmFixture();
     const animationLibrary = await admittedAnimationLibraryFixture({ trigger: 'jump' });

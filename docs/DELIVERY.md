@@ -196,6 +196,7 @@ Implemented and test-verified:
 - Routed explicit Jump through reviewed `Jump_Start` and `Jump_Land` files while retaining procedural Wave because the acquired inventories contain no Wave clip.
 - Kept combat, weapons, death, injury, swimming, driving, farming, prop-dependent, and incomplete sleep-transition behaviors catalog-only rather than allowing random playback.
 - Extended the file-defined autonomous lane to `disconnected`, so the companion remains alive before a gateway session is selected; local double-click Jump no longer requires a session. Packaged diagnostics also record frame-loop, motion-mode, reduced-motion, active-program, and clip-error state so a static accessibility fallback is distinguishable from a mixer failure.
+- Removed authored-program hard cuts: complete canonical step durations are retained, adjacent steps crossfade over 220 ms, and the terminal pose blends back to the state/procedural owner over up to 320 ms. Replaced fixed avatar world dimensions with camera-frustum fitting and motion-safe vertical/horizontal margins so broad Milk poses remain inside the ambient surface.
 
 Rights, hashes, OSA semantic coverage, automated/package evidence, and remaining visual gates are recorded in `docs/research/QUATERNIUS-ANIMATION-ADMISSION-2026-08-23.md`, `docs/verification/F3B5-FILE-DRIVEN-CC0-ANIMATIONS-2026-08-23.md`, and `THIRD_PARTY_NOTICES.md`.
 
