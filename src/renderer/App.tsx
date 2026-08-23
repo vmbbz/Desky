@@ -75,6 +75,9 @@ export function App() {
     initialLocalAnimationPreviewState,
   );
   const [motionPreference, setMotionPreference] = useState<MotionPreference>('system');
+  const [systemReducedMotion, setSystemReducedMotion] = useState(
+    () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
   const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
   const adapterModeRef = useRef(adapterMode);
@@ -203,6 +206,14 @@ export function App() {
   }, [adapterMode, simulation]);
 
   useEffect(() => {
+    const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setSystemReducedMotion(query.matches);
+    update();
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
     if (visualTestState !== 'response' || adapterMode !== 'simulation') return;
     let active = true;
     const timer = window.setTimeout(() => {
@@ -288,6 +299,8 @@ export function App() {
 
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
   const hasSession = adapterMode === 'simulation' || Boolean(gateway.selectedSessionKey);
+  const effectiveReducedMotion = motionPreference === 'reduced'
+    || (motionPreference === 'system' && systemReducedMotion);
   const runtimeLabel = adapterMode === 'simulation' ? 'Simulation' : 'OpenClaw';
   const connectionStatus = adapterMode === 'simulation' ? 'simulation' : gateway.status;
   const statusDetail = adapterMode === 'openclaw' && gateway.status !== 'connected'
@@ -497,7 +510,7 @@ export function App() {
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
               aria-label="Move or rotate the Desky companion"
-              title={connected && hasSession ? 'Drag to move · Shift-drag or scroll to rotate · double-click to jump' : 'Drag to move · Shift-drag or scroll to rotate'}
+              title="Drag to move · Shift-drag or scroll to rotate · double-click to jump"
               style={{
                 left: avatarBounds.x,
                 top: avatarBounds.y,
@@ -516,11 +529,23 @@ export function App() {
               }}
               onDoubleClick={() => {
                 if (performance.now() < suppressAvatarClickUntilRef.current) return;
-                if (connected && hasSession) requestAvatarMotion('jump');
+                requestAvatarMotion('jump');
               }}
             />
           ) : null}
         </div>
+
+        {effectiveReducedMotion ? (
+          <button
+            type="button"
+            className="ambient-motion-status"
+            data-desky-interactive="true"
+            onClick={() => window.desky.performWindowAction('open-control-center')}
+            title="Motion is reduced. Choose Full in the control center to enable avatar animation."
+          >
+            Motion paused · Open settings
+          </button>
+        ) : null}
 
         {composerExpanded && connected && hasSession ? (
           <form

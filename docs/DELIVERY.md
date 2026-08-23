@@ -195,6 +195,7 @@ Implemented and test-verified:
 - Replaced the hard-coded four-item autonomous list with weighted, cooldown-aware planning from admitted file metadata. Multi-step sit/chat/stand and magic sequences use the existing single mixer/body owner.
 - Routed explicit Jump through reviewed `Jump_Start` and `Jump_Land` files while retaining procedural Wave because the acquired inventories contain no Wave clip.
 - Kept combat, weapons, death, injury, swimming, driving, farming, prop-dependent, and incomplete sleep-transition behaviors catalog-only rather than allowing random playback.
+- Extended the file-defined autonomous lane to `disconnected`, so the companion remains alive before a gateway session is selected; local double-click Jump no longer requires a session. Packaged diagnostics also record frame-loop, motion-mode, reduced-motion, active-program, and clip-error state so a static accessibility fallback is distinguishable from a mixer failure.
 
 Rights, hashes, OSA semantic coverage, automated/package evidence, and remaining visual gates are recorded in `docs/research/QUATERNIUS-ANIMATION-ADMISSION-2026-08-23.md`, `docs/verification/F3B5-FILE-DRIVEN-CC0-ANIMATIONS-2026-08-23.md`, and `THIRD_PARTY_NOTICES.md`.
 

@@ -15,7 +15,7 @@ The free downloads do **not** contain the advertised full Pro inventories. Each 
 
 Both FBXs use the Quaternius universal humanoid rig and a Z-up authoring coordinate system. Converter profile `quaternius-uam-v1` maps 52 normalized humanoid rotation bones plus hips position, rotates position through the rest parent into Y-up, and records the exact source clip name. `Idle_Loop` produces 53 canonical tracks at 30 Hz and a source rest hips height of `0.916700005531311`.
 
-The deterministic generated catalogue initially hashes to `d882d5cd3525a1f2ad2c4bd4c9756db4b81768bcd7afce15ccd2d7014b9db1a5` and contains 84 clips, three state bindings, and fifteen programs. Rebuild verification must reproduce that hash unless the reviewed plan or converter changes deliberately.
+The deterministic generated catalogue currently hashes to `d0df05af9c762c34591a43d9b4b4a5f39648c0bd347763ebbf82708d5bba3277` and contains 84 clips, three state bindings, and fifteen programs. Rebuild verification must reproduce that hash unless the reviewed plan or converter changes deliberately.
 
 ## Coverage of the eleven OSA gallery previews
 
@@ -41,7 +41,7 @@ If ToxSam later supplies clear redistribution terms for the exact OSA clips, the
 
 The complete generated clip catalogue includes idle, talking, walking, formal walking, jogging, sprinting, crouching, sitting transitions/loops, swimming, jumping, rolling, pushing, driving, carrying, climbing, sliding, dancing, phone use, interaction, repair, farming, magic, melee, sword, shield, pistol, injury, zombie, consume, death, and other edge-case motions.
 
-Only twelve programs are ambient-eligible, all only in normalized `idle`, and each has file-defined weights, quiet windows, and cooldowns. State, approval, cancellation, user/agent action, preview, and reduced-motion ownership remain higher priority. Combat, weapons, injury, death, props, swimming, driving, farming, and incomplete transition programs cannot be selected autonomously.
+Only twelve programs are ambient-eligible, in file-defined normalized `idle` and `disconnected` modes, and each has file-defined weights, quiet windows, and cooldowns. State, approval, cancellation, user/agent action, preview, and reduced-motion ownership remain higher priority. Combat, weapons, injury, death, props, swimming, driving, farming, and incomplete transition programs cannot be selected autonomously.
 
 `LayToIdle` is retained as `sleep-transition-candidate`, catalog-only. Its name does not prove a complete sleep loop or reversible recovery, so Desky will not advertise or autonomously trigger sleeping until packaged visual review identifies a safe enter/hold/exit sequence.
 

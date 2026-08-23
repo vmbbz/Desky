@@ -197,7 +197,12 @@ export function registerIpc(
   ipcMain.handle(featuredAvatarChannel, () => loadFeaturedAvatarAsset());
   ipcMain.handle(motionPreferenceChannels.get, () => motionPreference);
   ipcMain.handle(motionPreferenceChannels.set, (event, value: unknown) => {
-    if (windows.surfaceFor(event.sender) !== 'control-center') {
+    const visualTestOverride = process.env.DESKY_VISUAL_TEST_PATH !== undefined
+      && process.env.DESKY_VISUAL_TEST_MOTION_PREFERENCE !== undefined;
+    // The packaged visual harness must be able to exercise Full/Reduced from
+    // the ambient surface; normal users can only change this from Control
+    // Center, preserving the production surface boundary.
+    if (windows.surfaceFor(event.sender) !== 'control-center' && !visualTestOverride) {
       throw new Error('Motion preference can only be changed from the control center.');
     }
     if (typeof value !== 'string' || !motionPreferences.includes(value as MotionPreference)) {

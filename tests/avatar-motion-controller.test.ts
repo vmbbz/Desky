@@ -255,6 +255,20 @@ describe('AvatarMotionController', () => {
     expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
   });
 
+  it('keeps local Jump available before a gateway session is selected', async () => {
+    const fixture = createVrmFixture();
+    const animationLibrary = await admittedAnimationLibraryFixture({ trigger: 'jump' });
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [], {
+      animationLibrary,
+    });
+
+    controller.setMode('disconnected');
+    expect(controller.queueMotionCue('jump', 'user')).toBe(true);
+    controller.update(0.016, 0);
+    expect(controller.activeMotionCue?.programId).toBe('fixture-jump');
+    expect(controller.lastClipError).toBeUndefined();
+  });
+
   it('acknowledges a queued action without travel under reduced motion', () => {
     const fixture = createVrmFixture();
     const controller = new AvatarMotionController(fixture.vrm, fixture.root);

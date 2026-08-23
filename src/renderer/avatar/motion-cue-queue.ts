@@ -40,14 +40,19 @@ export function createMotionCue(
   id: string,
   kind: MotionCueKind,
   source: MotionCueSource,
-  animation?: { programId: string; durationSeconds: number },
+  animation?: { programId: string; durationSeconds: number; priority?: number },
+  priorityOverride?: number,
 ): MotionCue {
   if (!id || id.length > 128) throw new Error('Motion cue id is invalid');
   if (
     animation &&
     (!animation.programId || animation.programId.length > 80 ||
       !Number.isFinite(animation.durationSeconds) || animation.durationSeconds <= 0 ||
-      animation.durationSeconds > 300)
+      animation.durationSeconds > 300 ||
+      (animation.priority !== undefined &&
+        (!Number.isSafeInteger(animation.priority) || animation.priority < 0 || animation.priority > 100)) ||
+      (priorityOverride !== undefined &&
+        (!Number.isSafeInteger(priorityOverride) || priorityOverride < 0 || priorityOverride > 100)))
   ) {
     throw new Error('Motion cue animation program is invalid');
   }
@@ -59,7 +64,9 @@ export function createMotionCue(
     ...(animation ? {
       programId: animation.programId,
       durationSeconds: animation.durationSeconds,
+      ...(animation.priority === undefined ? {} : { priority: animation.priority }),
     } : {}),
+    ...(priorityOverride === undefined ? {} : { priority: priorityOverride }),
   });
 }
 

@@ -5,7 +5,7 @@ import { AutonomousMotionScheduler } from '../src/renderer/avatar/autonomous-mot
 
 function ambientProgram(
   programId: string,
-  options: { weight?: number; minimum?: number; maximum?: number; cooldown?: number } = {},
+  options: { modes?: ('idle' | 'disconnected')[]; weight?: number; minimum?: number; maximum?: number; cooldown?: number } = {},
 ): AdmittedAnimationProgram {
   return {
     programId,
@@ -14,7 +14,7 @@ function ambientProgram(
     fallbackCue: 'weight-shift',
     trigger: {
       kind: 'ambient',
-      modes: ['idle'],
+      modes: options.modes ?? ['idle'],
       weight: options.weight ?? 1,
       minimumQuietSeconds: options.minimum ?? 4.5,
       maximumQuietSeconds: options.maximum ?? 10,
@@ -68,5 +68,13 @@ describe('AutonomousMotionScheduler', () => {
     ], 9);
     expect(scheduler.update(0, 'working')).toBeUndefined();
     expect(scheduler.update(30, 'working')).toBeUndefined();
+  });
+
+  it('can keep an offline companion alive when the file admits disconnected mode', () => {
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('offline-break', { modes: ['disconnected'], minimum: 1, maximum: 1 }),
+    ], 12);
+    expect(scheduler.update(0, 'disconnected')).toBeUndefined();
+    expect(scheduler.update(1, 'disconnected')?.programId).toBe('offline-break');
   });
 });

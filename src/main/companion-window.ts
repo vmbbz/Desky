@@ -87,7 +87,29 @@ async function captureVisualTest(
   outputPath: string,
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
-  await new Promise((resolve) => setTimeout(resolve, 8_000));
+  let motionPreferenceError: string | null = null;
+  const visualMotionPreference = process.env.DESKY_VISUAL_TEST_MOTION_PREFERENCE;
+  if (visualMotionPreference === 'system' || visualMotionPreference === 'full' || visualMotionPreference === 'reduced') {
+    try {
+      const result = await window.webContents.executeJavaScript(`(async () => {
+        try {
+          await window.desky.setMotionPreference(${JSON.stringify(visualMotionPreference)});
+          return null;
+        } catch (error) {
+          return String(error);
+        }
+      })()`);
+      if (typeof result === 'string' && result.length > 0) motionPreferenceError = result;
+    } catch (error) {
+      motionPreferenceError = String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
+  const waitMs = Number.isSafeInteger(requestedWaitMs)
+    ? Math.max(0, Math.min(requestedWaitMs, 60_000))
+    : 8_000;
+  await new Promise((resolve) => setTimeout(resolve, waitMs));
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'draft') {
     await window.webContents.executeJavaScript(`(async () => {
       const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -159,6 +181,16 @@ async function captureVisualTest(
     launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null,
     avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
     avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null,
+    motionFrame: document.querySelector('.avatar-stage canvas')?.dataset.motionFrame ?? null,
+    motionElapsed: document.querySelector('.avatar-stage canvas')?.dataset.motionElapsed ?? null,
+    motionMode: document.querySelector('.avatar-stage canvas')?.dataset.motionMode ?? null,
+    motionStateClip: document.querySelector('.avatar-stage canvas')?.dataset.motionStateClip ?? null,
+    motionActiveProgram: document.querySelector('.avatar-stage canvas')?.dataset.motionActiveProgram ?? null,
+    motionActiveCue: document.querySelector('.avatar-stage canvas')?.dataset.motionActiveCue ?? null,
+    motionPendingCues: document.querySelector('.avatar-stage canvas')?.dataset.motionPendingCues ?? null,
+    motionReduced: document.querySelector('.avatar-stage canvas')?.dataset.motionReduced ?? null,
+    motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
+    motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null
   })`) as Record<string, unknown>;
   const diagnostic = {

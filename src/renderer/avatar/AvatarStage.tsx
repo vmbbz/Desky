@@ -287,11 +287,24 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
     resize();
 
     const clock = new Clock();
+    let motionFrame = 0;
     const animate = () => {
       if (disposed) return;
       const delta = Math.min(clock.getDelta(), 0.1);
       const elapsed = clock.elapsedTime;
-      motionControllerRef.current?.update(delta, elapsed);
+      const motionController = motionControllerRef.current;
+      motionController?.update(delta, elapsed);
+      motionFrame += 1;
+      const diagnostics = motionController?.runtimeDiagnostics;
+      canvas.dataset.motionFrame = String(motionFrame);
+      canvas.dataset.motionElapsed = elapsed.toFixed(2);
+      canvas.dataset.motionMode = diagnostics?.mode ?? 'loading';
+      canvas.dataset.motionStateClip = diagnostics?.stateClipId ?? '';
+      canvas.dataset.motionActiveProgram = diagnostics?.activeProgramId ?? '';
+      canvas.dataset.motionActiveCue = diagnostics?.activeCueId ?? '';
+      canvas.dataset.motionPendingCues = String(diagnostics?.pendingCueCount ?? 0);
+      canvas.dataset.motionReduced = String(diagnostics?.reducedMotion ?? false);
+      canvas.dataset.motionClipError = diagnostics?.lastClipError ?? '';
       expressionControllerRef.current?.update(delta, elapsed);
       currentVrm?.update(delta);
 

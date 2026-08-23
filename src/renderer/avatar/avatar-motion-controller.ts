@@ -163,17 +163,41 @@ export class AvatarMotionController {
     return this.cueQueue.pendingCount;
   }
 
+  get runtimeDiagnostics(): {
+    mode: CompanionMode;
+    stateClipId?: string;
+    activeProgramId?: string;
+    activeCueId?: string;
+    pendingCueCount: number;
+    reducedMotion: boolean;
+    lastClipError?: string;
+  } {
+    return {
+      mode: this.plan.mode,
+      stateClipId: this.plan.clip?.canonical.clipId,
+      activeProgramId: this.activeProgram?.program.programId,
+      activeCueId: this.cueQueue.active?.id,
+      pendingCueCount: this.cueQueue.pendingCount,
+      reducedMotion: this.reducedMotion,
+      lastClipError: this.clipError,
+    };
+  }
+
   queueMotionCue(kind: MotionCueKind, source: MotionCueSource = 'user'): boolean {
     if (this.preview) return false;
     this.cueSequence += 1;
     const program = isAvatarActionKind(kind)
       ? selectActionProgram(this.animationLibrary, kind)
       : undefined;
+    const localPriorityOverride = source === 'user' && this.plan.mode === 'disconnected'
+      ? this.plan.priority
+      : undefined;
     const cue = createMotionCue(
       `${source}-${kind}-${this.cueSequence}`,
       kind,
       source,
       program ? this.describeProgram(program) : undefined,
+      localPriorityOverride,
     );
     if (this.plan.priority > cue.priority) return false;
     return this.cueQueue.enqueue(cue);
@@ -275,8 +299,7 @@ export class AvatarMotionController {
     }
     const autonomousProgram = this.autonomousMotion.update(
       elapsedSeconds,
-      this.plan.mode === 'idle'
-        && !this.reducedMotion
+      !this.reducedMotion
         && !this.cueQueue.active
         && this.cueQueue.pendingCount === 0
         ? this.plan.mode
@@ -356,6 +379,7 @@ export class AvatarMotionController {
       program.fallbackCue,
       source,
       this.describeProgram(program),
+      this.plan.priority,
     );
     if (this.plan.priority > cue.priority) return false;
     return this.cueQueue.enqueue(cue);

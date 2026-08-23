@@ -64,7 +64,8 @@ describe('built-in CC0 animation library', () => {
     const ambient = library.programs.filter((program) => program.trigger.kind === 'ambient');
     expect(ambient.length).toBeGreaterThanOrEqual(10);
     expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
-      program.trigger.modes.includes('idle'))).toBe(true);
+      program.trigger.modes.includes('idle') &&
+      program.trigger.modes.includes('disconnected'))).toBe(true);
     expect(ambient.some((program) => program.programId === 'sit-and-chat' && program.steps.length === 4)).toBe(true);
     expect(library.programs.find((program) => program.programId === 'sleep-transition-candidate')?.trigger.kind).toBe('catalog');
   });
