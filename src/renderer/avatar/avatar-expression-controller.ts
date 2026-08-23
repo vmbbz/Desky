@@ -35,6 +35,8 @@ export class AvatarExpressionController {
 
   private reducedMotion = false;
 
+  private suspended = false;
+
   private nextBlinkAt = blinkIntervals[0];
 
   private blinkIntervalIndex = 0;
@@ -76,8 +78,20 @@ export class AvatarExpressionController {
     this.reducedMotion = reducedMotion;
   }
 
+  setSuspended(suspended: boolean): void {
+    if (this.suspended === suspended) return;
+    this.suspended = suspended;
+    if (!suspended) return;
+    this.restoreExpressions();
+    if (this.vrm.lookAt && this.lookAtBaseline) {
+      this.vrm.lookAt.yaw = this.lookAtBaseline.yaw;
+      this.vrm.lookAt.pitch = this.lookAtBaseline.pitch;
+    }
+  }
+
   update(_deltaSeconds: number, elapsedSeconds: number): void {
     this.elapsedSeconds = elapsedSeconds;
+    if (this.suspended) return;
     this.restoreExpressions();
     this.applyStateExpression(Math.max(0, elapsedSeconds - this.modeStartedAt));
     this.applyBlink(elapsedSeconds);

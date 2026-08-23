@@ -41,6 +41,22 @@ interface BoneBaseline {
   quaternion: Quaternion;
 }
 
+const previewInterruptingModes: ReadonlySet<CompanionMode> = new Set([
+  'approval',
+  'cancelled',
+  'disconnected',
+  'error',
+]);
+
+export interface MotionPreviewObserver {
+  onStarted(): void;
+  onEnded(result: 'completed' | 'interrupted'): void;
+}
+
+export type MotionPreviewStartResult =
+  | { accepted: true }
+  | { accepted: false; reason: string };
+
 export class AvatarMotionController {
   private readonly mixer: AnimationMixer;
 
@@ -71,6 +87,12 @@ export class AvatarMotionController {
   private activeCueStartedAt?: number;
 
   private cueSequence = 0;
+
+  private preview?: {
+    action: AnimationAction;
+    clip: AnimationClip;
+    observer: MotionPreviewObserver;
+  };
 
   constructor(
     private readonly vrm: VRM,
@@ -105,6 +127,7 @@ export class AvatarMotionController {
   }
 
   queueMotionCue(kind: MotionCueKind, source: MotionCueSource = 'user'): boolean {
+    if (this.preview) return false;
     this.cueSequence += 1;
     const cue = createMotionCue(
       `${source}-${kind}-${this.cueSequence}`,
@@ -122,6 +145,9 @@ export class AvatarMotionController {
     });
     if (next.mode === this.plan.mode && next.reducedMotion === this.plan.reducedMotion) return;
     const clearCues = mode === 'cancelled' || mode === 'approval' || mode === 'disconnected' || mode === 'error';
+    if (this.preview && previewInterruptingModes.has(mode)) {
+      this.endPreview('interrupted', false);
+    }
     const interrupted = this.cueQueue.reconcileState(next.priority, clearCues);
     if (interrupted) {
       this.activeCueStartedAt = undefined;
@@ -129,7 +155,7 @@ export class AvatarMotionController {
     }
     this.plan = next;
     this.modeStartedAt = this.elapsedSeconds;
-    if (!this.cueQueue.active) this.activatePlan(next);
+    if (!this.cueQueue.active && !this.preview) this.activatePlan(next);
     if (previousMode !== 'speaking' && mode === 'speaking') {
       this.queueMotionCue('emphasis', 'conversation');
     }
@@ -138,9 +164,48 @@ export class AvatarMotionController {
   setReducedMotion(reducedMotion: boolean): void {
     if (this.reducedMotion === reducedMotion) return;
     this.reducedMotion = reducedMotion;
+    if (reducedMotion && this.preview) this.endPreview('interrupted', false);
     this.plan = resolveMotionPlan(this.plan.mode, this.registrations, { reducedMotion });
     this.modeStartedAt = this.elapsedSeconds;
-    if (!this.cueQueue.active) this.activatePlan(this.plan);
+    if (!this.cueQueue.active && !this.preview) this.activatePlan(this.plan);
+  }
+
+  playPreviewClip(
+    clip: AnimationClip,
+    observer: MotionPreviewObserver,
+  ): MotionPreviewStartResult {
+    if (this.reducedMotion) {
+      return { accepted: false, reason: 'Animation preview is paused by the system reduced-motion setting.' };
+    }
+    if (this.plan.mode === 'approval') {
+      return { accepted: false, reason: `Animation preview is blocked while Desky is ${this.plan.mode}.` };
+    }
+    if (!Number.isFinite(clip.duration) || clip.duration <= 0 || clip.tracks.length === 0) {
+      return { accepted: false, reason: 'The VRM Animation has no playable tracks.' };
+    }
+    if (this.preview) this.endPreview('interrupted', false);
+    this.cueQueue.clear();
+    this.activeCueStartedAt = undefined;
+    this.stopCurrentAction();
+    this.restoreBaseline();
+    const action = this.mixer.clipAction(clip);
+    action.reset();
+    action.enabled = true;
+    action.clampWhenFinished = false;
+    action.setLoop(LoopOnce, 1);
+    action.setEffectiveTimeScale(1);
+    action.setEffectiveWeight(1);
+    action.play();
+    this.activeActions.add(action);
+    this.currentAction = action;
+    this.preview = { action, clip, observer };
+    observer.onStarted();
+    return { accepted: true };
+  }
+
+  stopPreview(): void {
+    if (!this.preview) return;
+    this.endPreview('interrupted', true);
   }
 
   update(deltaSeconds: number, elapsedSeconds: number): void {
@@ -151,6 +216,11 @@ export class AvatarMotionController {
         action.stop();
         this.activeActions.delete(action);
       }
+    }
+    if (this.preview) {
+      if (this.preview.action.isRunning()) return;
+      this.endPreview('completed', true);
+      return;
     }
     if (
       this.currentAction &&
@@ -188,6 +258,7 @@ export class AvatarMotionController {
   }
 
   dispose(): void {
+    if (this.preview) this.endPreview('interrupted', false);
     this.mixer.stopAllAction();
     for (const clip of this.runtimeClips.values()) this.mixer.uncacheClip(clip);
     this.mixer.uncacheRoot(this.vrm.scene);
@@ -248,6 +319,22 @@ export class AvatarMotionController {
     this.mixer.stopAllAction();
     this.activeActions.clear();
     this.currentAction = undefined;
+  }
+
+  private endPreview(result: 'completed' | 'interrupted', reactivatePlan: boolean): void {
+    const preview = this.preview;
+    if (!preview) return;
+    preview.action.stop();
+    this.activeActions.delete(preview.action);
+    if (this.currentAction === preview.action) this.currentAction = undefined;
+    this.mixer.uncacheClip(preview.clip);
+    this.preview = undefined;
+    this.restoreBaseline();
+    preview.observer.onEnded(result);
+    if (reactivatePlan) {
+      this.modeStartedAt = this.elapsedSeconds;
+      this.activatePlan(this.plan);
+    }
   }
 
   private restoreBaseline(): void {

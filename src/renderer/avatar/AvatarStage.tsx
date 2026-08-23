@@ -25,9 +25,15 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
-import type { DesktopRectangle } from '../../shared/runtime';
+import type { LocalAnimationPreviewCommand } from '../../shared/local-animation';
+import {
+  resolveReducedMotion,
+  type DesktopRectangle,
+  type MotionPreference,
+} from '../../shared/runtime';
 import { AvatarExpressionController } from './avatar-expression-controller';
 import { AvatarMotionController } from './avatar-motion-controller';
+import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
 import {
   assertCoreHumanoid,
@@ -38,6 +44,7 @@ import {
 
 interface AvatarStageProps {
   mode: CompanionMode;
+  motionPreference: MotionPreference;
   motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
 }
@@ -70,13 +77,14 @@ function applyRelaxedPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStageProps) {
+export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
   const onVisibleBoundsRef = useRef(onVisibleBounds);
   const motionControllerRef = useRef<AvatarMotionController>(undefined);
   const expressionControllerRef = useRef<AvatarExpressionController>(undefined);
   const motionCueRef = useRef(motionCue);
+  const motionPreferenceRef = useRef(motionPreference);
   const admittedMotionCueIdRef = useRef<string>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
@@ -101,6 +109,16 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
   }, [motionCue]);
 
   useEffect(() => {
+    motionPreferenceRef.current = motionPreference;
+    const reduced = resolveReducedMotion(
+      motionPreference,
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    );
+    motionControllerRef.current?.setReducedMotion(reduced);
+    expressionControllerRef.current?.setReducedMotion(reduced);
+  }, [motionPreference]);
+
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
 
@@ -108,11 +126,77 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
     let frameId = 0;
     let currentVrm: VRM | undefined;
     let avatarRoot: Object3D | undefined;
+    let activePreviewRequestId: string | undefined;
+    let queuedAnimationCommand: LocalAnimationPreviewCommand | undefined;
     let lastBoundsSignature = '';
+    const reportPreview = (
+      requestId: string,
+      status: 'playing' | 'completed' | 'blocked' | 'error',
+      message: string,
+    ) => {
+      void window.desky.animation.report({ requestId, status, message }).catch(() => undefined);
+    };
+    const runAnimationCommand = async (command: LocalAnimationPreviewCommand) => {
+      if (command.kind === 'clear') {
+        activePreviewRequestId = undefined;
+        motionControllerRef.current?.stopPreview();
+        expressionControllerRef.current?.setSuspended(false);
+        return;
+      }
+      queuedAnimationCommand = command;
+      const motionController = motionControllerRef.current;
+      const expressionController = expressionControllerRef.current;
+      if (!currentVrm || !motionController || !expressionController) return;
+      activePreviewRequestId = command.requestId;
+      try {
+        const clip = await loadVrmAnimationPreview(
+          command.asset.bytes,
+          currentVrm,
+          command.asset.fileName,
+        );
+        if (disposed || activePreviewRequestId !== command.requestId) return;
+        const result = motionController.playPreviewClip(clip, {
+          onStarted: () => {
+            expressionController.setSuspended(true);
+            reportPreview(command.requestId, 'playing', `Playing ${command.asset.fileName}.`);
+          },
+          onEnded: (endResult) => {
+            expressionController.setSuspended(false);
+            if (activePreviewRequestId !== command.requestId) return;
+            activePreviewRequestId = undefined;
+            reportPreview(
+              command.requestId,
+              endResult === 'completed' ? 'completed' : 'blocked',
+              endResult === 'completed'
+                ? `Finished ${command.asset.fileName}.`
+                : `${command.asset.fileName} was interrupted by a higher-priority companion state.`,
+            );
+          },
+        });
+        if (!result.accepted) {
+          activePreviewRequestId = undefined;
+          reportPreview(command.requestId, 'blocked', result.reason);
+        }
+      } catch (error) {
+        if (disposed || activePreviewRequestId !== command.requestId) return;
+        activePreviewRequestId = undefined;
+        const message = error instanceof Error ? error.message : 'VRM Animation preview failed.';
+        reportPreview(command.requestId, 'error', message);
+      }
+    };
+    const acceptAnimationCommand = (command: LocalAnimationPreviewCommand) => {
+      if (command.kind === 'clear') queuedAnimationCommand = undefined;
+      void runAnimationCommand(command);
+    };
+    const removeAnimationCommand = window.desky.animation.onCommand(acceptAnimationCommand);
     const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
     const updateReducedMotion = () => {
-      motionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
-      expressionControllerRef.current?.setReducedMotion(reducedMotionQuery.matches);
+      const reduced = resolveReducedMotion(
+        motionPreferenceRef.current,
+        reducedMotionQuery.matches,
+      );
+      motionControllerRef.current?.setReducedMotion(reduced);
+      expressionControllerRef.current?.setReducedMotion(reduced);
     };
     reducedMotionQuery.addEventListener('change', updateReducedMotion);
 
@@ -266,10 +350,18 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
         const expressionController = new AvatarExpressionController(vrm, capabilities);
         motionControllerRef.current = motionController;
         expressionControllerRef.current = expressionController;
-        motionController.setReducedMotion(reducedMotionQuery.matches);
-        expressionController.setReducedMotion(reducedMotionQuery.matches);
+        const reduced = resolveReducedMotion(
+          motionPreferenceRef.current,
+          reducedMotionQuery.matches,
+        );
+        motionController.setReducedMotion(reduced);
+        expressionController.setReducedMotion(reduced);
         motionController.setMode(modeRef.current);
         expressionController.setMode(modeRef.current);
+        const currentCommand = await window.desky.animation.getCurrentCommand();
+        if (disposed) return;
+        if (currentCommand?.kind === 'play') queuedAnimationCommand = currentCommand;
+        if (queuedAnimationCommand) await runAnimationCommand(queuedAnimationCommand);
         const pendingMotionCue = motionCueRef.current;
         if (pendingMotionCue && motionController.queueMotionCue(pendingMotionCue.kind, pendingMotionCue.source)) {
           admittedMotionCueIdRef.current = pendingMotionCue.id;
@@ -293,6 +385,8 @@ export function AvatarStage({ mode, motionCue, onVisibleBounds }: AvatarStagePro
     return () => {
       disposed = true;
       cancelAnimationFrame(frameId);
+      activePreviewRequestId = undefined;
+      removeAnimationCommand();
       resizeObserver.disconnect();
       reducedMotionQuery.removeEventListener('change', updateReducedMotion);
       motionControllerRef.current?.dispose();

@@ -6,6 +6,19 @@ export const surfaceKinds = ['ambient', 'control-center'] as const;
 
 export type SurfaceKind = (typeof surfaceKinds)[number];
 
+export const motionPreferences = ['system', 'full', 'reduced'] as const;
+
+export type MotionPreference = (typeof motionPreferences)[number];
+
+export function resolveReducedMotion(
+  preference: MotionPreference,
+  systemPrefersReducedMotion: boolean,
+): boolean {
+  if (preference === 'full') return false;
+  if (preference === 'reduced') return true;
+  return systemPrefersReducedMotion;
+}
+
 export interface RuntimeInfo {
   distributionProfile: DistributionProfile;
   platform: NodeJS.Platform;

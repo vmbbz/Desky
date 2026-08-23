@@ -3,6 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   AmbientPointerRegion,
   AmbientSurfaceState,
+  MotionPreference,
   RuntimeInfo,
   WindowAction,
 } from '../shared/runtime';
@@ -16,6 +17,13 @@ import type {
 import type { AdapterEvent } from '../shared/adapter-events';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import type { AvatarAssetBridge, FeaturedAvatarAsset } from '../shared/avatar-assets';
+import type {
+  LocalAnimationBridge,
+  LocalAnimationPreviewCommand,
+  LocalAnimationPreviewReport,
+  LocalAnimationPreviewState,
+  LocalAnimationSelectionResult,
+} from '../shared/local-animation';
 import type {
   CompanionDraftSnapshot,
   CompanionSnapshot,
@@ -91,6 +99,36 @@ const avatar: AvatarAssetBridge = Object.freeze({
   getFeatured: () => ipcRenderer.invoke('desky:avatar:get-featured') as Promise<FeaturedAvatarAsset>,
 });
 
+const animationChannels = {
+  state: 'desky:animation:state',
+  command: 'desky:animation:command',
+  getState: 'desky:animation:get-state',
+  select: 'desky:animation:select',
+  play: 'desky:animation:play',
+  clear: 'desky:animation:clear',
+  getCurrentCommand: 'desky:animation:get-current-command',
+  report: 'desky:animation:report',
+} as const;
+
+const animation: LocalAnimationBridge = Object.freeze({
+  getState: () => ipcRenderer.invoke(animationChannels.getState) as Promise<LocalAnimationPreviewState>,
+  select: () => ipcRenderer.invoke(animationChannels.select) as Promise<LocalAnimationSelectionResult>,
+  play: () => ipcRenderer.invoke(animationChannels.play) as Promise<LocalAnimationPreviewState>,
+  clear: () => ipcRenderer.invoke(animationChannels.clear) as Promise<LocalAnimationPreviewState>,
+  getCurrentCommand: () => ipcRenderer.invoke(animationChannels.getCurrentCommand) as Promise<LocalAnimationPreviewCommand | undefined>,
+  report: (report: LocalAnimationPreviewReport) => ipcRenderer.invoke(animationChannels.report, report) as Promise<LocalAnimationPreviewState>,
+  onState: (listener: (state: LocalAnimationPreviewState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: LocalAnimationPreviewState) => listener(state);
+    ipcRenderer.on(animationChannels.state, handler);
+    return () => ipcRenderer.removeListener(animationChannels.state, handler);
+  },
+  onCommand: (listener: (command: LocalAnimationPreviewCommand) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, command: LocalAnimationPreviewCommand) => listener(command);
+    ipcRenderer.on(animationChannels.command, handler);
+    return () => ipcRenderer.removeListener(animationChannels.command, handler);
+  },
+});
+
 const api = Object.freeze({
   getRuntimeInfo: (): Promise<RuntimeInfo> =>
     ipcRenderer.invoke('desky:runtime-info') as Promise<RuntimeInfo>,
@@ -101,6 +139,15 @@ const api = Object.freeze({
     ipcRenderer.on('desky:ambient-state', handler);
     return () => ipcRenderer.removeListener('desky:ambient-state', handler);
   },
+  getMotionPreference: (): Promise<MotionPreference> =>
+    ipcRenderer.invoke('desky:motion-preference:get') as Promise<MotionPreference>,
+  setMotionPreference: (preference: MotionPreference): Promise<MotionPreference> =>
+    ipcRenderer.invoke('desky:motion-preference:set', preference) as Promise<MotionPreference>,
+  onMotionPreference: (listener: (preference: MotionPreference) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, preference: MotionPreference) => listener(preference);
+    ipcRenderer.on('desky:motion-preference:state', handler);
+    return () => ipcRenderer.removeListener('desky:motion-preference:state', handler);
+  },
   performWindowAction: (action: WindowAction): void => {
     ipcRenderer.send('desky:window-action', action);
   },
@@ -109,6 +156,7 @@ const api = Object.freeze({
   },
   companion,
   avatar,
+  animation,
   openClaw,
 });
 

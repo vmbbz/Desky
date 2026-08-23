@@ -170,6 +170,18 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3B2-EXPRESSIVE-MOTION-2026-08-22.md`.
 
+### F3b.4 local-VRMA preview and gallery audit — 2026-08-23
+
+Implemented and test-verified:
+
+- Added an exact-version-pinned VRM Animation parser and a control-center-only `.vrma` selection/replay/clear workflow.
+- Added main-process binary glTF/VRMA validation, structural and byte limits, external-resource rejection, exact SHA-256 identity, session-memory-only retention, and typed playback/status IPC without exposing the source path.
+- Routed imported one-shots through the existing per-avatar mixer. Additive expressions pause during playback, the authored baseline is restored, and newly entered approval/cancellation/disconnection/error states interrupt playback. Pending approval and reduced motion block a new preview, while a deliberate later offline preview does not require an agent connection.
+- Added System/Full/Reduced motion controls scoped to the current app session. System remains the default, so explicit Full playback does not silently override an OS accessibility preference.
+- Audited Toothpaste and the live Open Source Avatars gallery. Toothpaste contains no embedded animation; the gallery currently retargets eleven separate Mixamo-style FBX files. All eleven pass Desky's non-writing technical inspection, but none is admitted because the public repository/deployed responses do not provide per-file redistribution provenance.
+
+Evidence is recorded in `docs/verification/F3B4-LOCAL-VRMA-PREVIEW-2026-08-23.md` and `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md`.
+
 ### F3c.1 surface-separation status — 2026-08-22
 
 Implemented and package-verified on Windows:
@@ -212,7 +224,7 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
 
-The first asset-free animation-expression round and normalized Wave/Jump agent-action boundary are now implemented. The next animation gates are live OpenClaw plugin evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+The asset-free expression round, normalized Wave/Jump agent-action boundary, and rights-safe local VRMA preview are implemented. Packaged Windows has now completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, and restart-reset evidence. The next animation gates are live interruption by a newly entered authoritative state, live OpenClaw plugin evidence, the first rights-approved production clip, and representative binary-avatar evidence. External production clips remain blocked until their modification and commercial/store redistribution rights and conversion provenance are approved. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 
@@ -279,9 +291,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Implement F3c.3 contextual composer, draft, overflow, open-conversation, and cross-window approval reconciliation behavior.
-2. Start F5a generic adapter-host extraction now that the F3c surface and desktop-policy boundaries exist; finish it before Codex and before F4 connection management is finalized.
-3. In parallel, approve the first redistributable animation, build the binary VRM suite, and persist provenance-bearing cache records.
+1. Complete the remaining local-VRMA matrix by interrupting active playback with a newly entered authoritative companion state and repeat the packaged lane on macOS.
+2. Repair the current OpenClaw OAuth/model configuration and live-verify the normalized `desky_avatar_action` tool through the installed plugin.
+3. Start F5a generic adapter-host extraction before a second production adapter or final F4 connection management; OpenClaw must remain the first conformance implementation.
+4. In parallel, approve the first redistributable animation, build the binary VRM 0.x/1.0 suite, and persist provenance-bearing cache records.
 4. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
 5. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
 

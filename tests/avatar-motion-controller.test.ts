@@ -1,5 +1,5 @@
 import { VRMHumanBoneName, type VRM } from '@pixiv/three-vrm';
-import { Group, Quaternion } from 'three';
+import { AnimationClip, Group, Quaternion, QuaternionKeyframeTrack } from 'three';
 import { describe, expect, it } from 'vitest';
 
 import { AvatarMotionController } from '../src/renderer/avatar/avatar-motion-controller';
@@ -111,7 +111,7 @@ describe('AvatarMotionController', () => {
     }
 
     expect(controller.currentPlan.playback).toBe('once');
-    expect(head.quaternion.equals(baseline)).toBe(true);
+    expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
     expect(fixture.root.position.y).toBeCloseTo(0, 8);
   });
 
@@ -226,5 +226,77 @@ describe('AvatarMotionController', () => {
     expect(controller.activeMotionCue).toBeUndefined();
     expect(controller.currentPlan.mode).toBe('idle');
     expect(fixture.root.position.y).toBe(0);
+  });
+
+  it('plays a local VRMA clip through the same mixer and restores state afterward', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+    const baseline = head.quaternion.clone();
+    const halfAngle = 0.2;
+    const clip = new AnimationClip('local-preview', 0.3, [
+      new QuaternionKeyframeTrack(
+        `${head.name}.quaternion`,
+        [0, 0.3],
+        [0, 0, 0, 1, 0, Math.sin(halfAngle), 0, Math.cos(halfAngle)],
+      ),
+    ]);
+    const lifecycle: string[] = [];
+    let restoredAngle = Number.POSITIVE_INFINITY;
+
+    expect(controller.playPreviewClip(clip, {
+      onStarted: () => lifecycle.push('started'),
+      onEnded: (result) => {
+        lifecycle.push(result);
+        restoredAngle = head.quaternion.angleTo(baseline);
+      },
+    })).toEqual({ accepted: true });
+    controller.update(0.1, 0.1);
+    expect(head.quaternion.equals(baseline)).toBe(false);
+    controller.update(0.1, 0.2);
+    controller.update(0.1, 0.3);
+    controller.update(0.1, 0.4);
+
+    expect(lifecycle).toEqual(['started', 'completed']);
+    expect(restoredAngle).toBeLessThan(1e-8);
+    expect(controller.currentPlan.mode).toBe('idle');
+  });
+
+  it('does not let a local animation preview override approval or reduced-motion policy', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    const clip = new AnimationClip('local-preview', 1, [
+      new QuaternionKeyframeTrack(
+        `${fixture.bones.get(VRMHumanBoneName.Head)!.name}.quaternion`,
+        [0, 1],
+        [0, 0, 0, 1, 0, 0, 0, 1],
+      ),
+    ]);
+    const observer = { onStarted: () => undefined, onEnded: () => undefined };
+
+    controller.setMode('approval');
+    expect(controller.playPreviewClip(clip, observer)).toMatchObject({ accepted: false });
+    controller.setMode('idle');
+    controller.setReducedMotion(true);
+    expect(controller.playPreviewClip(clip, observer)).toMatchObject({ accepted: false });
+  });
+
+  it('allows an explicit local preview from a stable offline state', () => {
+    const fixture = createVrmFixture();
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+    const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+    const clip = new AnimationClip('local-preview', 1, [
+      new QuaternionKeyframeTrack(
+        `${head.name}.quaternion`,
+        [0, 1],
+        [0, 0, 0, 1, 0, 0, 0, 1],
+      ),
+    ]);
+
+    controller.setMode('disconnected');
+    expect(controller.playPreviewClip(clip, {
+      onStarted: () => undefined,
+      onEnded: () => undefined,
+    })).toEqual({ accepted: true });
   });
 });

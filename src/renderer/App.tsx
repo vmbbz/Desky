@@ -8,10 +8,15 @@ import {
   type CompanionSnapshot,
 } from '../shared/companion-state';
 import type { AgentActionCommand } from '../shared/agent-actions';
+import {
+  initialLocalAnimationPreviewState,
+  type LocalAnimationPreviewState,
+} from '../shared/local-animation';
 import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
 import type {
   AmbientSurfaceState,
   DesktopRectangle,
+  MotionPreference,
   RuntimeInfo,
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
@@ -52,6 +57,11 @@ export function App() {
   const [rememberCredential, setRememberCredential] = useState(true);
   const [busy, setBusy] = useState(false);
   const [uiError, setUiError] = useState('');
+  const [animationBusy, setAnimationBusy] = useState(false);
+  const [animationState, setAnimationState] = useState<LocalAnimationPreviewState>(
+    initialLocalAnimationPreviewState,
+  );
+  const [motionPreference, setMotionPreference] = useState<MotionPreference>('system');
   const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
   const adapterModeRef = useRef(adapterMode);
@@ -100,12 +110,18 @@ export function App() {
     void window.desky.companion.getDraft().then(acceptDraft);
     void window.desky.getAmbientSurfaceState().then(setAmbientState);
     const removeAmbientState = window.desky.onAmbientSurfaceState(setAmbientState);
+    void window.desky.animation.getState().then(setAnimationState);
+    const removeAnimationState = window.desky.animation.onState(setAnimationState);
+    void window.desky.getMotionPreference().then(setMotionPreference);
+    const removeMotionPreference = window.desky.onMotionPreference(setMotionPreference);
     return () => {
       removeState();
       removeCompanionState();
       removeCompanionAction();
       removeDraft();
       removeAmbientState();
+      removeAnimationState();
+      removeMotionPreference();
     };
   }, []);
 
@@ -205,6 +221,22 @@ export function App() {
     setCredential('');
     setShowConnection(next.status !== 'connected');
   });
+
+  const withAnimationBusy = async (operation: () => Promise<void>) => {
+    if (animationBusy) return;
+    setAnimationBusy(true);
+    try {
+      await operation();
+    } catch (error) {
+      setAnimationState((current) => ({
+        ...current,
+        status: 'error',
+        message: errorMessage(error),
+      }));
+    } finally {
+      setAnimationBusy(false);
+    }
+  };
 
   const run = () => withBusy(async () => {
     const text = draft.text.trim();
@@ -338,7 +370,7 @@ export function App() {
         ) : null}
 
         <div className="ambient-avatar">
-          <AvatarStage mode={state.mode} motionCue={motionCue} onVisibleBounds={setAvatarBounds} />
+          <AvatarStage mode={state.mode} motionPreference={motionPreference} motionCue={motionCue} onVisibleBounds={setAvatarBounds} />
           {avatarBounds ? (
             <button
               type="button"
@@ -450,6 +482,63 @@ export function App() {
           </button>
           <button type="button" onClick={() => window.desky.performWindowAction('reset-ambient-position')}>Reset position</button>
           <button type="button" onClick={() => window.desky.performWindowAction('hide-ambient')}>Hide companion</button>
+        </div>
+      </section>
+
+      <section className="animation-preview-card" aria-label="Local animation preview">
+        <div className="animation-preview-card__copy">
+          <div className="animation-preview-card__title">
+            <strong>Local animation preview</strong>
+            <span>Session only</span>
+          </div>
+          <p>Test a rights-cleared <code>.vrma</code> on the current avatar. The file stays in memory and is never added to Desky’s distributable assets.</p>
+          <div className="motion-preference" role="group" aria-label="Avatar motion preference">
+            <span>Motion</span>
+            {(['system', 'full', 'reduced'] as const).map((preference) => (
+              <button
+                key={preference}
+                type="button"
+                aria-pressed={motionPreference === preference}
+                disabled={animationBusy}
+                onClick={() => void withAnimationBusy(async () => {
+                  setMotionPreference(await window.desky.setMotionPreference(preference));
+                })}
+              >{preference === 'system' ? 'System' : preference === 'full' ? 'Full' : 'Reduced'}</button>
+            ))}
+          </div>
+          <span className={`animation-preview-card__status animation-preview-card__status--${animationState.status}`} role="status">
+            {animationState.selection ? `${animationState.selection.fileName} · ` : ''}{animationState.message}
+          </span>
+        </div>
+        <div className="animation-preview-card__actions">
+          <button
+            type="button"
+            disabled={animationBusy}
+            onClick={() => void withAnimationBusy(async () => {
+              const result = await window.desky.animation.select();
+              setAnimationState(result.state);
+            })}
+          >
+            {animationBusy ? 'Opening…' : animationState.selection ? 'Choose another' : 'Choose .vrma'}
+          </button>
+          {animationState.selection ? (
+            <>
+              <button
+                type="button"
+                disabled={animationBusy || animationState.status === 'loading' || animationState.status === 'playing'}
+                onClick={() => void withAnimationBusy(async () => {
+                  setAnimationState(await window.desky.animation.play());
+                })}
+              >Play again</button>
+              <button
+                type="button"
+                disabled={animationBusy}
+                onClick={() => void withAnimationBusy(async () => {
+                  setAnimationState(await window.desky.animation.clear());
+                })}
+              >Clear</button>
+            </>
+          ) : null}
         </div>
       </section>
 

@@ -66,6 +66,8 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 - Bound texture dimensions, skeleton size, morph count, and animation duration.
 - Dispose failed parses and avoid persisting rejected content.
 
+Local VRM Animation preview is an explicit control-center action. Main owns the native file chooser and returns no raw path. It rejects files over 32 MiB, malformed/non-VRMA glTF containers, missing/invalid humanoid channel maps, oversized structural counts, and external buffer/image URIs before sending exact bytes to the ambient sandbox. The renderer additionally rejects clips over 120 seconds or 256 tracks. Selection bytes live only in process memory for the current session; this preview path cannot write the asset cache, admit a release asset, or be invoked by agent text.
+
 ## Privacy
 
 - No analytics until a separate opt-in is presented.

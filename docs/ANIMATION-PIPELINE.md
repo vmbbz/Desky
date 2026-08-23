@@ -148,7 +148,22 @@ The first expressive extension remains inside this ownership boundary. A bounded
 
 `avatar-expression-controller.ts` separately applies only capabilities reported by the admitted VRM. It uses a deterministic blink interval sequence, small mode-aware gaze, and restrained available-preset expressions. It restores previous expression/look-at values on disposal and is a no-op when the manager or preset is absent. This additive layer does not own humanoid body tracks, and it does not synthesize visemes without a truthful speech-timing source.
 
-The renderer subscribes to `prefers-reduced-motion`. In reduced-motion mode it suppresses registered full-body clips, removes time-varying travel and bounce (including Jump translation), neutralizes gaze, and retains only a small static semantic/action acknowledgement plus the readable state label. This is an initial system-level route; the control-center override and pause-motion preference remain F3d work.
+The renderer subscribes to `prefers-reduced-motion`. In reduced-motion mode it suppresses registered full-body clips, removes time-varying travel and bounce (including Jump translation), neutralizes gaze, and retains only a small static semantic/action acknowledgement plus the readable state label. The control center defaults to System and exposes explicit Full and Reduced session overrides; app restart returns to the system preference. A durable account-level preference and independent pause control remain F3d work.
+
+## Session-only local VRMA preview
+
+The control center has a separate user-triggered preview lane for a local `.vrma`. This is not production asset admission and does not bypass the canonical FBX pipeline:
+
+- only the control-center surface can open the native file chooser or request replay/clear;
+- main validates the `.vrma` extension, 32 MiB cap, binary glTF 2.0 header and exact length, bounded JSON chunk, `VRMC_vrm_animation` declaration, usable hips/humanoid channel map, animation/node/accessor counts, and absence of external buffer/image URIs;
+- the raw filesystem path never crosses IPC; the renderer receives basename, size, SHA-256, and exact bytes only;
+- bytes and metadata remain in main-process memory for the current app session and are cleared explicitly or on exit;
+- the ambient renderer parses with the exact-version-pinned `@pixiv/three-vrm-animation` loader and bounds the resulting clip to 120 seconds and 256 tracks; and
+- playback uses `AvatarMotionController`'s existing mixer as a one-shot action owner. It suspends Desky's additive expression controller during the preview and restores the avatar baseline afterward. A newly entered approval, cancellation, disconnection, or error state interrupts it; pending approval and effective reduced motion block a new preview. A deliberate user preview may otherwise start from a stable offline/error/terminal screen, so animation testing does not require a provider connection.
+
+Replay state is reported back to the control center with a monotonic request identity, so late parse/playback reports cannot overwrite a newer selection. No assistant text or agent command can invoke this local-file lane.
+
+The live Open Source Avatars gallery currently uses runtime-retargeted FBX rather than VRMA. See `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md` for the implementation and rights audit.
 
 ## Release gate
 

@@ -83,6 +83,10 @@ The converter is not a licence oracle. It will not emit an admitted manifest wit
 
 Runtime admission enforces the same boundary. `admitMotionClip` accepts only a parsed approved manifest whose clip identity, semantic state, layer, sample rate, and exact canonical output checksum match the clip bytes. The controller never treats the open-source status of an avatar as evidence that a separate animation may be redistributed.
 
+The Open Source Avatars registry contains no animation registry. Its reference Mixamo loader is VRM 0.x-only, while the current live gallery separately serves eleven Mixamo-style FBX previews that are not present in the public gallery repository with per-file licence/provenance records. Desky has technically inspected those files but does not ship them. The evidence and hashes are recorded in `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md`.
+
+A user-selected local `.vrma` follows a separate session-preview policy. It is validated as a self-contained bounded VRM Animation, kept only in memory, never placed in the cache or release manifest, and shown in the UI as session-only. This permits testing files for which the user holds rights without representing them as Desky-owned or redistributable. Built-in admission still requires the full source/output provenance and rights-review manifest.
+
 ## Store content rules
 
 - The catalog is an indexed set of data assets, not downloadable executable code.

@@ -1,18 +1,31 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { readFile } from 'node:fs/promises';
+
+import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 
 import {
   ambientPointerRegions,
+  motionPreferences,
   windowActions,
   type AmbientPointerRegion,
+  type MotionPreference,
   type WindowAction,
 } from '../shared/runtime';
 import type {
   OpenClawConnectInput,
   OpenClawResolveApprovalInput,
 } from '../shared/openclaw';
+import {
+  localAnimationPreviewStatuses,
+  type LocalAnimationPreviewCommand,
+  type LocalAnimationPreviewReport,
+} from '../shared/local-animation';
 import { getDistributionProfile } from './capabilities';
 import { loadFeaturedAvatarAsset } from './avatar-asset-broker';
 import { CompanionStateHost } from './companion-state-host';
+import {
+  LocalAnimationPreviewHost,
+  validateLocalAnimationAsset,
+} from './local-animation-preview';
 import {
   ambientPointerRegionChannel,
   ambientStateChannel,
@@ -43,6 +56,21 @@ const companionChannels = {
   draft: 'desky:companion:draft',
   getDraft: 'desky:companion:get-draft',
   setDraft: 'desky:companion:set-draft',
+} as const;
+const animationChannels = {
+  state: 'desky:animation:state',
+  command: 'desky:animation:command',
+  getState: 'desky:animation:get-state',
+  select: 'desky:animation:select',
+  play: 'desky:animation:play',
+  clear: 'desky:animation:clear',
+  getCurrentCommand: 'desky:animation:get-current-command',
+  report: 'desky:animation:report',
+} as const;
+const motionPreferenceChannels = {
+  state: 'desky:motion-preference:state',
+  get: 'desky:motion-preference:get',
+  set: 'desky:motion-preference:set',
 } as const;
 
 function isWindowAction(value: unknown): value is WindowAction {
@@ -89,6 +117,25 @@ function assertText(value: unknown, name: string, limit: number): string {
   return value;
 }
 
+function readAnimationReport(value: unknown): LocalAnimationPreviewReport {
+  if (!isRecord(value)
+    || typeof value.requestId !== 'string'
+    || value.requestId.length === 0
+    || value.requestId.length > 128
+    || typeof value.status !== 'string'
+    || !localAnimationPreviewStatuses.includes(value.status as never)
+    || (value.status !== 'playing' && value.status !== 'completed' && value.status !== 'blocked' && value.status !== 'error')
+    || typeof value.message !== 'string'
+    || value.message.length > 240) {
+    throw new Error('Invalid local animation preview report.');
+  }
+  return {
+    requestId: value.requestId,
+    status: value.status,
+    message: value.message,
+  };
+}
+
 async function rendererSafeOpenClawCall<T>(
   operation: () => T | Promise<T>,
   secrets: Array<string | undefined> = [],
@@ -105,6 +152,20 @@ export function registerIpc(
   windows: DeskyWindowManager,
 ): void {
   const companion = new CompanionStateHost();
+  const animation = new LocalAnimationPreviewHost();
+  let motionPreference: MotionPreference = 'system';
+  const broadcastAnimationState = () => {
+    const state = animation.getState();
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(animationChannels.state, state);
+    }
+  };
+  const sendAnimationCommand = (command: LocalAnimationPreviewCommand) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (windows.surfaceFor(window.webContents) !== 'ambient') continue;
+      window.webContents.send(animationChannels.command, command);
+    }
+  };
 
   ipcMain.handle(runtimeInfoChannel, (event) => ({
     distributionProfile: getDistributionProfile(),
@@ -113,6 +174,76 @@ export function registerIpc(
     surface: windows.surfaceFor(event.sender),
   }));
   ipcMain.handle(featuredAvatarChannel, () => loadFeaturedAvatarAsset());
+  ipcMain.handle(motionPreferenceChannels.get, () => motionPreference);
+  ipcMain.handle(motionPreferenceChannels.set, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Motion preference can only be changed from the control center.');
+    }
+    if (typeof value !== 'string' || !motionPreferences.includes(value as MotionPreference)) {
+      throw new Error('Invalid motion preference.');
+    }
+    motionPreference = value as MotionPreference;
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(motionPreferenceChannels.state, motionPreference);
+    }
+    return motionPreference;
+  });
+  ipcMain.handle(animationChannels.getState, () => animation.getState());
+  ipcMain.handle(animationChannels.select, async (event) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Local animations can only be selected from the control center.');
+    }
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options: OpenDialogOptions = {
+      title: 'Choose a VRM Animation',
+      properties: ['openFile'],
+      filters: [{ name: 'VRM Animation', extensions: ['vrma'] }],
+    };
+    const result = parent
+      ? await dialog.showOpenDialog(parent, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled || result.filePaths.length !== 1) {
+      return { cancelled: true, state: animation.getState() };
+    }
+    const filePath = result.filePaths[0];
+    const asset = validateLocalAnimationAsset(filePath, await readFile(filePath));
+    const command = animation.select(asset);
+    windows.performAction(event.sender, 'show-ambient');
+    broadcastAnimationState();
+    sendAnimationCommand(command);
+    return { cancelled: false, state: animation.getState() };
+  });
+  ipcMain.handle(animationChannels.play, (event) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Local animation previews can only be started from the control center.');
+    }
+    const command = animation.requestPlay();
+    windows.performAction(event.sender, 'show-ambient');
+    broadcastAnimationState();
+    sendAnimationCommand(command);
+    return animation.getState();
+  });
+  ipcMain.handle(animationChannels.clear, (event) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Local animation previews can only be cleared from the control center.');
+    }
+    const state = animation.clear();
+    broadcastAnimationState();
+    sendAnimationCommand({ kind: 'clear' });
+    return state;
+  });
+  ipcMain.handle(animationChannels.getCurrentCommand, (event) => {
+    if (windows.surfaceFor(event.sender) !== 'ambient') return undefined;
+    return animation.getCurrentCommand();
+  });
+  ipcMain.handle(animationChannels.report, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'ambient') {
+      throw new Error('Only the ambient companion can report animation playback.');
+    }
+    const state = animation.report(readAnimationReport(value));
+    broadcastAnimationState();
+    return state;
+  });
 
   ipcMain.on(windowActionChannel, (event, action: unknown) => {
     if (!isWindowAction(action)) return;
@@ -189,5 +320,7 @@ export const ipcChannels = {
   ambientState: ambientStateChannel,
   ambientPointerRegion: ambientPointerRegionChannel,
   companion: companionChannels,
+  animation: animationChannels,
+  motionPreference: motionPreferenceChannels,
   openClaw: openClawChannels,
 } as const;
