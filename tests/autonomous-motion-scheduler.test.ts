@@ -5,7 +5,14 @@ import { AutonomousMotionScheduler } from '../src/renderer/avatar/autonomous-mot
 
 function ambientProgram(
   programId: string,
-  options: { modes?: ('idle' | 'disconnected')[]; weight?: number; minimum?: number; maximum?: number; cooldown?: number } = {},
+  options: {
+    modes?: ('idle' | 'disconnected')[];
+    weight?: number;
+    minimum?: number;
+    maximum?: number;
+    cooldown?: number;
+    cycle?: { id: string; length: number; slots: number[] };
+  } = {},
 ): AdmittedAnimationProgram {
   return {
     programId,
@@ -19,6 +26,7 @@ function ambientProgram(
       minimumQuietSeconds: options.minimum ?? 4.5,
       maximumQuietSeconds: options.maximum ?? 10,
       cooldownSeconds: options.cooldown ?? 20,
+      cycle: options.cycle,
     },
     steps: [],
   };
@@ -76,5 +84,32 @@ describe('AutonomousMotionScheduler', () => {
     ], 12);
     expect(scheduler.update(0, 'disconnected')).toBeUndefined();
     expect(scheduler.update(1, 'disconnected')?.programId).toBe('offline-break');
+  });
+
+  it('follows an exact file-defined cadence with repeated primary slots', () => {
+    const cycle = { id: 'primary-idle', length: 3 };
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('long-look-around', {
+        minimum: 1,
+        maximum: 1,
+        cycle: { ...cycle, slots: [0, 1] },
+      }),
+      ambientProgram('celebration-fist-pump', {
+        minimum: 1,
+        maximum: 1,
+        cycle: { ...cycle, slots: [2] },
+      }),
+    ], 42);
+
+    const selected: string[] = [];
+    for (let second = 0; second <= 6; second += 1) {
+      const program = scheduler.update(second, 'idle');
+      if (program) selected.push(program.programId);
+    }
+    expect(selected).toEqual([
+      'long-look-around',
+      'long-look-around',
+      'celebration-fist-pump',
+    ]);
   });
 });

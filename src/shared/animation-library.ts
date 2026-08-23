@@ -25,6 +25,12 @@ export interface AnimationProgramStep {
   holdSeconds: number;
 }
 
+export interface AnimationProgramCycle {
+  id: string;
+  length: number;
+  slots: number[];
+}
+
 export type AnimationProgramTrigger =
   | {
       kind: 'ambient';
@@ -33,6 +39,7 @@ export type AnimationProgramTrigger =
       minimumQuietSeconds: number;
       maximumQuietSeconds: number;
       cooldownSeconds: number;
+      cycle?: AnimationProgramCycle;
     }
   | { kind: 'action'; action: AvatarActionKind; order: number }
   | { kind: 'catalog' };
@@ -188,6 +195,23 @@ function parseTrigger(value: unknown): AnimationProgramTrigger {
     minimumQuietSeconds,
     600,
   );
+  let cycle: AnimationProgramCycle | undefined;
+  if (value.cycle !== undefined) {
+    if (!isRecord(value.cycle) || !Array.isArray(value.cycle.slots)) {
+      throw new Error('Invalid animation library ambient cycle');
+    }
+    const length = readNumber(value.cycle.length, 'ambient cycle length', 2, 32, true);
+    const slots = value.cycle.slots.map((slot) =>
+      readNumber(slot, 'ambient cycle slot', 0, length - 1, true));
+    if (slots.length === 0 || new Set(slots).size !== slots.length) {
+      throw new Error('Invalid animation library ambient cycle slots');
+    }
+    cycle = {
+      id: readId(value.cycle.id, 'ambient cycle id'),
+      length,
+      slots,
+    };
+  }
   return {
     kind: 'ambient',
     modes,
@@ -195,7 +219,47 @@ function parseTrigger(value: unknown): AnimationProgramTrigger {
     minimumQuietSeconds,
     maximumQuietSeconds,
     cooldownSeconds: readNumber(value.cooldownSeconds, 'ambient cooldown', 0, 3_600),
+    cycle,
   };
+}
+
+function validateAmbientCycles(programs: readonly AnimationProgram[]): void {
+  const allAmbient = programs.filter(
+    (program): program is AnimationProgram & { trigger: Extract<AnimationProgramTrigger, { kind: 'ambient' }> } =>
+      program.trigger.kind === 'ambient',
+  );
+  const ambient = allAmbient.filter(
+    (program): program is AnimationProgram & { trigger: Extract<AnimationProgramTrigger, { kind: 'ambient' }> } =>
+      program.trigger.kind === 'ambient' && program.trigger.cycle !== undefined,
+  );
+  const cycleIdsByMode = new Map<CompanionMode, Set<string>>();
+  for (const program of ambient) {
+    const cycle = program.trigger.cycle!;
+    for (const mode of program.trigger.modes) {
+      const ids = cycleIdsByMode.get(mode) ?? new Set<string>();
+      ids.add(cycle.id);
+      cycleIdsByMode.set(mode, ids);
+    }
+  }
+  for (const [mode, ids] of cycleIdsByMode) {
+    if (ids.size > 1) throw new Error(`Animation library ambient mode ${mode} has competing cycles`);
+    if (allAmbient.some((program) => program.trigger.modes.includes(mode) && !program.trigger.cycle)) {
+      throw new Error(`Animation library ambient mode ${mode} mixes cycled and weighted programs`);
+    }
+    const cycleId = [...ids][0];
+    const members = ambient.filter(
+      (program) => program.trigger.cycle?.id === cycleId && program.trigger.modes.includes(mode),
+    );
+    const lengths = new Set(members.map((program) => program.trigger.cycle!.length));
+    if (lengths.size !== 1) throw new Error(`Animation library ambient cycle ${cycleId} has inconsistent length`);
+    const length = [...lengths][0];
+    for (let slot = 0; slot < length; slot += 1) {
+      const owners = members.filter((program) => program.trigger.cycle!.slots.includes(slot));
+      if (owners.length !== 1) {
+        throw new Error(`Animation library ambient cycle ${cycleId} must own slot ${slot} exactly once`);
+      }
+    }
+  }
 }
 
 export function parseAnimationLibrary(value: unknown): AnimationLibrary {
@@ -301,6 +365,7 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
   if (new Set(programs.map((program) => program.programId)).size !== programs.length) {
     throw new Error('Animation library program IDs must be unique');
   }
+  validateAmbientCycles(programs);
 
   return {
     schemaVersion: 1,

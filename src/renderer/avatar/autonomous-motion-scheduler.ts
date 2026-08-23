@@ -10,6 +10,10 @@ export class AutonomousMotionScheduler {
 
   private previousProgramId?: string;
 
+  private nextCycle?: { id: string; slot: number; length: number };
+
+  private readonly cycleSlots = new Map<string, number>();
+
   private readonly lastPlayedAt = new Map<string, number>();
 
   constructor(
@@ -43,20 +47,45 @@ export class AutonomousMotionScheduler {
     const selected = this.nextProgram;
     this.lastPlayedAt.set(selected.programId, elapsedSeconds);
     this.previousProgramId = selected.programId;
+    if (this.nextCycle) {
+      this.cycleSlots.set(this.nextCycle.id, (this.nextCycle.slot + 1) % this.nextCycle.length);
+    }
     this.nextProgram = undefined;
     this.nextProgramAt = undefined;
+    this.nextCycle = undefined;
     return selected;
   }
 
   private resetQuietInterval(): void {
     this.nextProgram = undefined;
     this.nextProgramAt = undefined;
+    this.nextCycle = undefined;
   }
 
   private schedule(
     elapsedSeconds: number,
     eligible: readonly AdmittedAnimationProgram[],
   ): void {
+    const cycled = eligible.filter(
+      (program) => program.trigger.kind === 'ambient' && program.trigger.cycle !== undefined,
+    );
+    if (cycled.length > 0) {
+      const cycle = cycled[0].trigger.kind === 'ambient' ? cycled[0].trigger.cycle : undefined;
+      if (!cycle) return;
+      const slot = this.cycleSlots.get(cycle.id) ?? 0;
+      const selected = cycled.find(
+        (program) => program.trigger.kind === 'ambient'
+          && program.trigger.cycle?.id === cycle.id
+          && program.trigger.cycle.slots.includes(slot),
+      );
+      if (!selected || selected.trigger.kind !== 'ambient') return;
+      this.nextProgram = selected;
+      this.nextCycle = { id: cycle.id, slot, length: cycle.length };
+      this.nextProgramAt = elapsedSeconds
+        + selected.trigger.minimumQuietSeconds
+        + this.random() * (selected.trigger.maximumQuietSeconds - selected.trigger.minimumQuietSeconds);
+      return;
+    }
     let candidates = eligible.filter((program) => {
       if (eligible.length > 1 && program.programId === this.previousProgramId) return false;
       if (program.trigger.kind !== 'ambient') return false;

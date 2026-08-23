@@ -244,13 +244,13 @@
   ],
   "programs": [
     {
-      "programId": "idle-variation",
-      "label": "Idle variation",
-      "tags": ["ambient", "idle"],
-      "fallbackCue": "weight-shift",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 5, "minimumQuietSeconds": 7, "maximumQuietSeconds": 14, "cooldownSeconds": 18 },
+      "programId": "long-look-around",
+      "label": "Long look around",
+      "tags": ["ambient", "idle", "look-around", "reference-sequence"],
+      "fallbackCue": "look-around",
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1, "minimumQuietSeconds": 4, "maximumQuietSeconds": 7, "cooldownSeconds": 0, "cycle": { "id": "primary-idle", "length": 3, "slots": [0, 1] } },
       "steps": [
-        { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
+        { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 3, "reverse": false, "holdSeconds": 0 }
       ]
     },
     {
@@ -258,7 +258,7 @@
       "label": "Bored fold arms",
       "tags": ["ambient", "bored", "osa-match"],
       "fallbackCue": "weight-shift",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 3, "minimumQuietSeconds": 9, "maximumQuietSeconds": 18, "cooldownSeconds": 45 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Idle_FoldArms_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -268,17 +268,17 @@
       "label": "Phone check",
       "tags": ["ambient", "phone", "texting-adjacent", "osa-near-match"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1.8, "minimumQuietSeconds": 12, "maximumQuietSeconds": 24, "cooldownSeconds": 60 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Idle_TalkingPhone_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
     },
     {
-      "programId": "affirmative-nod",
-      "label": "Affirmative nod",
-      "tags": ["ambient", "affirmation", "conversation"],
+      "programId": "celebration-fist-pump",
+      "label": "Celebration fist pump",
+      "tags": ["ambient", "affirmation", "celebration", "reference-sequence"],
       "fallbackCue": "nod",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 3, "minimumQuietSeconds": 8, "maximumQuietSeconds": 16, "cooldownSeconds": 30 },
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1, "minimumQuietSeconds": 5, "maximumQuietSeconds": 8, "cooldownSeconds": 0, "cycle": { "id": "primary-idle", "length": 3, "slots": [2] } },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Yes", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -288,7 +288,7 @@
       "label": "Dance break",
       "tags": ["ambient", "dance", "celebration"],
       "fallbackCue": "stretch",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.5, "minimumQuietSeconds": 20, "maximumQuietSeconds": 45, "cooldownSeconds": 180 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Dance_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
       ]
@@ -298,7 +298,7 @@
       "label": "Formal walk",
       "tags": ["ambient", "locomotion", "walk"],
       "fallbackCue": "weight-shift",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 1.2, "minimumQuietSeconds": 14, "maximumQuietSeconds": 28, "cooldownSeconds": 75 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Walk_Formal_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -308,7 +308,7 @@
       "label": "Quick jog",
       "tags": ["ambient", "locomotion", "run"],
       "fallbackCue": "weight-shift",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.4, "minimumQuietSeconds": 20, "maximumQuietSeconds": 40, "cooldownSeconds": 150 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Jog_Fwd_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
       ]
@@ -318,7 +318,7 @@
       "label": "Sprint burst",
       "tags": ["ambient", "locomotion", "run", "rare"],
       "fallbackCue": "stretch",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.15, "minimumQuietSeconds": 30, "maximumQuietSeconds": 60, "cooldownSeconds": 300 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Sprint_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 }
       ]
@@ -328,7 +328,7 @@
       "label": "Sit and chat",
       "tags": ["ambient", "sit", "rest", "sequence"],
       "fallbackCue": "weight-shift",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.7, "minimumQuietSeconds": 24, "maximumQuietSeconds": 50, "cooldownSeconds": 240 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Enter", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
         { "sourceId": "uam1", "sourceClip": "Armature|Sitting_Idle_Loop", "repetitions": 2, "reverse": false, "holdSeconds": 0 },
@@ -341,7 +341,7 @@
       "label": "Magic trick",
       "tags": ["ambient", "magic", "attack", "sequence", "osa-near-match"],
       "fallbackCue": "ambient-wave",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.25, "minimumQuietSeconds": 30, "maximumQuietSeconds": 60, "cooldownSeconds": 300 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Enter", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
         { "sourceId": "uam1", "sourceClip": "Armature|Spell_Simple_Idle_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 },
@@ -354,7 +354,7 @@
       "label": "Crouch and search",
       "tags": ["ambient", "crouch", "search"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.5, "minimumQuietSeconds": 20, "maximumQuietSeconds": 45, "cooldownSeconds": 180 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Crouch_Idle_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -364,7 +364,7 @@
       "label": "Search and interact",
       "tags": ["ambient", "search", "interact", "osa-near-match"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 0.8, "minimumQuietSeconds": 14, "maximumQuietSeconds": 30, "cooldownSeconds": 90 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Interact", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]

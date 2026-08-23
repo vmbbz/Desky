@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -28,7 +29,8 @@ import type {
   RuntimeInfo,
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
-import { AvatarStage } from './avatar/AvatarStage';
+import { AvatarStage, type AvatarHitTest } from './avatar/AvatarStage';
+import { resolveAvatarDragMode } from './avatar/avatar-manipulation';
 import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
 
 const initialGateway: OpenClawConnectionState = {
@@ -85,6 +87,7 @@ export function App() {
   const motionCueSequenceRef = useRef(0);
   const ambientManipulationActiveRef = useRef(false);
   const suppressAvatarClickUntilRef = useRef(0);
+  const avatarHitTestRef = useRef<AvatarHitTest | undefined>(undefined);
   const avatarManipulationRef = useRef<{
     moved: boolean;
     mode: 'move' | 'rotate';
@@ -339,9 +342,17 @@ export function App() {
     window.desky.setAmbientAvatarYaw(normalized);
   };
 
+  const acceptAvatarHitTest = useCallback((hitTest: AvatarHitTest | undefined) => {
+    avatarHitTestRef.current = hitTest;
+  }, []);
+
   const beginAvatarManipulation = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
-    const mode = event.shiftKey || event.altKey ? 'rotate' : 'move';
+    const hitAvatar = avatarHitTestRef.current?.(event.clientX, event.clientY) ?? true;
+    const mode = resolveAvatarDragMode({
+      hitAvatar,
+      forceRotate: event.shiftKey || event.altKey,
+    });
     avatarManipulationRef.current = {
       moved: false,
       mode,
@@ -503,14 +514,21 @@ export function App() {
         ) : null}
 
         <div className="ambient-avatar">
-          <AvatarStage mode={state.mode} motionPreference={motionPreference} motionCue={motionCue} onVisibleBounds={setAvatarBounds} viewYawDegrees={avatarYawDegrees} />
+          <AvatarStage
+            mode={state.mode}
+            motionPreference={motionPreference}
+            motionCue={motionCue}
+            onVisibleBounds={setAvatarBounds}
+            onHitTestReady={acceptAvatarHitTest}
+            viewYawDegrees={avatarYawDegrees}
+          />
           {avatarBounds ? (
             <button
               type="button"
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
               aria-label="Move or rotate the Desky companion"
-              title="Drag to move · Shift-drag or scroll to rotate · double-click to jump"
+              title="Drag the character to rotate · drag its transparent gaps or the grip to move · double-click to jump"
               style={{
                 left: avatarBounds.x,
                 top: avatarBounds.y,
@@ -617,7 +635,7 @@ export function App() {
         <div>
           <strong>Desktop presence</strong>
           <span>
-            Drag the character to move it; Shift-drag, Alt-drag, scroll, or arrow keys rotate it. Transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
+            Drag the character itself to rotate it. Drag transparent space inside its bounds or the grip to move Desky; Shift/Alt, scroll, and arrow keys also rotate. Outer transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
           </span>
         </div>
         <div className="desktop-presence-card__actions">

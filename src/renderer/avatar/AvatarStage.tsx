@@ -13,8 +13,10 @@ import {
   Color,
   DirectionalLight,
   PerspectiveCamera,
+  Raycaster,
   Scene,
   SRGBColorSpace,
+  Vector2,
   Vector3,
   WebGLRenderer,
   type Material,
@@ -53,8 +55,11 @@ interface AvatarStageProps {
   motionPreference: MotionPreference;
   motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
+  onHitTestReady?: (hitTest: AvatarHitTest | undefined) => void;
   viewYawDegrees?: number;
 }
+
+export type AvatarHitTest = (clientX: number, clientY: number) => boolean;
 
 type LoadState =
   | { kind: 'loading'; message: string }
@@ -84,10 +89,18 @@ function applyRelaxedPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds, viewYawDegrees = 0 }: AvatarStageProps) {
+export function AvatarStage({
+  mode,
+  motionPreference,
+  motionCue,
+  onVisibleBounds,
+  onHitTestReady,
+  viewYawDegrees = 0,
+}: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modeRef = useRef(mode);
   const onVisibleBoundsRef = useRef(onVisibleBounds);
+  const onHitTestReadyRef = useRef(onHitTestReady);
   const motionControllerRef = useRef<AvatarMotionController>(undefined);
   const expressionControllerRef = useRef<AvatarExpressionController>(undefined);
   const motionCueRef = useRef(motionCue);
@@ -108,6 +121,10 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
   useEffect(() => {
     onVisibleBoundsRef.current = onVisibleBounds;
   }, [onVisibleBounds]);
+
+  useEffect(() => {
+    onHitTestReadyRef.current = onHitTestReady;
+  }, [onHitTestReady]);
 
   useEffect(() => {
     viewYawDegreesRef.current = viewYawDegrees;
@@ -229,6 +246,8 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
     const camera = new PerspectiveCamera(28, 1, 0.1, 100);
     camera.position.set(0, 0, 4.2);
     camera.lookAt(0, 0, 0);
+    const raycaster = new Raycaster();
+    const pointer = new Vector2();
 
     const reportVisibleBounds = () => {
       if (!avatarRoot) return;
@@ -391,6 +410,23 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
         avatarRoot.position.y -= center.y;
         avatarRoot.position.z -= center.z;
         scene.add(avatarRoot);
+        const hitTest: AvatarHitTest = (clientX, clientY) => {
+          if (!avatarRoot) return false;
+          const rectangle = canvas.getBoundingClientRect();
+          if (
+            rectangle.width <= 0 || rectangle.height <= 0 ||
+            clientX < rectangle.left || clientX > rectangle.right ||
+            clientY < rectangle.top || clientY > rectangle.bottom
+          ) return false;
+          pointer.set(
+            ((clientX - rectangle.left) / rectangle.width) * 2 - 1,
+            -((clientY - rectangle.top) / rectangle.height) * 2 + 1,
+          );
+          scene.updateMatrixWorld(true);
+          raycaster.setFromCamera(pointer, camera);
+          return raycaster.intersectObject(avatarRoot, true).length > 0;
+        };
+        onHitTestReadyRef.current?.(hitTest);
         const seed = globalThis.crypto.getRandomValues(new Uint32Array(1))[0];
         const motionController = new AvatarMotionController(
           vrm,
@@ -453,6 +489,7 @@ export function AvatarStage({ mode, motionPreference, motionCue, onVisibleBounds
       if (avatarRoot) disposeObject(avatarRoot);
       renderer.dispose();
       onVisibleBoundsRef.current?.(undefined);
+      onHitTestReadyRef.current?.(undefined);
     };
   }, []);
 

@@ -62,12 +62,47 @@ describe('built-in CC0 animation library', () => {
     }
 
     const ambient = library.programs.filter((program) => program.trigger.kind === 'ambient');
-    expect(ambient.length).toBeGreaterThanOrEqual(10);
+    expect(ambient).toHaveLength(2);
     expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
       program.trigger.modes.includes('idle') &&
       program.trigger.modes.includes('disconnected'))).toBe(true);
-    expect(ambient.some((program) => program.programId === 'sit-and-chat' && program.steps.length === 4)).toBe(true);
+    expect(ambient.map((program) => program.programId)).toEqual([
+      'long-look-around',
+      'celebration-fist-pump',
+    ]);
+    expect(ambient.map((program) => program.trigger.kind === 'ambient' && program.trigger.cycle)).toEqual([
+      { id: 'primary-idle', length: 3, slots: [0, 1] },
+      { id: 'primary-idle', length: 3, slots: [2] },
+    ]);
+    expect(ambient[0].steps[0].repetitions).toBe(3);
+    const sitAndChat = library.programs.find((program) => program.programId === 'sit-and-chat');
+    expect(sitAndChat?.steps).toHaveLength(4);
+    expect(sitAndChat?.trigger.kind).toBe('catalog');
     expect(library.programs.find((program) => program.programId === 'sleep-transition-candidate')?.trigger.kind).toBe('catalog');
+  });
+
+  it('rejects incomplete or mixed ambient cadence policy', () => {
+    type MutableLibrary = {
+      programs: Array<{ programId: string; trigger: Record<string, unknown> }>;
+    };
+    const incomplete = structuredClone(builtInAnimationLibrary) as unknown as MutableLibrary;
+    const celebration = incomplete.programs.find(
+      (program) => program.programId === 'celebration-fist-pump',
+    )!;
+    celebration.trigger.cycle = { id: 'primary-idle', length: 3, slots: [] };
+    expect(() => parseAnimationLibrary(incomplete)).toThrow('ambient cycle slots');
+
+    const mixed = structuredClone(builtInAnimationLibrary) as unknown as MutableLibrary;
+    const bored = mixed.programs.find((program) => program.programId === 'bored-fold-arms')!;
+    bored.trigger = {
+      kind: 'ambient',
+      modes: ['idle', 'disconnected'],
+      weight: 1,
+      minimumQuietSeconds: 4,
+      maximumQuietSeconds: 7,
+      cooldownSeconds: 0,
+    };
+    expect(() => parseAnimationLibrary(mixed)).toThrow('mixes cycled and weighted programs');
   });
 
   it('cryptographically admits every clip and resolves Jump as a two-file action program', async () => {

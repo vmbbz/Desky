@@ -143,7 +143,8 @@ async function captureVisualTest(
       if (!(avatar instanceof HTMLButtonElement)) throw new Error('Avatar hit target is unavailable');
       avatar.setPointerCapture = () => undefined;
       avatar.hasPointerCapture = () => false;
-      const dispatch = (type, screenX, screenY, shiftKey = false) => {
+      const bounds = avatar.getBoundingClientRect();
+      const dispatch = (type, screenX, screenY, clientX, clientY, shiftKey = false) => {
         avatar.dispatchEvent(new PointerEvent(type, {
           bubbles: true,
           button: 0,
@@ -151,16 +152,39 @@ async function captureVisualTest(
           pointerId: 7,
           screenX,
           screenY,
+          clientX,
+          clientY,
           shiftKey,
         }));
       };
-      dispatch('pointerdown', 100, 100);
-      dispatch('pointermove', 148, 132);
-      dispatch('pointerup', 148, 132);
-      dispatch('pointerdown', 200, 200, true);
-      dispatch('pointermove', 312, 200, true);
-      dispatch('pointerup', 312, 200, true);
+      dispatch('pointerdown', 100, 100, bounds.left + 2, bounds.top + 2);
+      dispatch('pointermove', 148, 132, bounds.left + 50, bounds.top + 34);
+      dispatch('pointerup', 148, 132, bounds.left + 50, bounds.top + 34);
+      dispatch('pointerdown', 200, 200, bounds.left + bounds.width / 2, bounds.top + bounds.height / 2);
+      dispatch('pointermove', 312, 200, bounds.left + bounds.width / 2 + 112, bounds.top + bounds.height / 2);
+      dispatch('pointerup', 312, 200, bounds.left + bounds.width / 2 + 112, bounds.top + bounds.height / 2);
       await wait(180);
+    })()`);
+  }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'idle-cycle') {
+    await window.webContents.executeJavaScript(`(async () => {
+      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+      const observed = [];
+      let previous = '';
+      const deadline = performance.now() + 50_000;
+      while (performance.now() < deadline) {
+        const stage = document.querySelector('.avatar-stage');
+        const canvas = stage?.querySelector('canvas');
+        const program = canvas?.dataset.motionActiveProgram ?? '';
+        if (program && !previous) observed.push(program);
+        previous = program;
+        if (stage instanceof HTMLElement) stage.dataset.observedPrograms = observed.join(',');
+        if (observed.length >= 3 && observed.at(-1) === 'celebration-fist-pump') {
+          await wait(1_000);
+          break;
+        }
+        await wait(50);
+      }
     })()`);
   }
   const rendererDiagnostic = await window.webContents.executeJavaScript(`({
@@ -190,6 +214,7 @@ async function captureVisualTest(
     motionPendingCues: document.querySelector('.avatar-stage canvas')?.dataset.motionPendingCues ?? null,
     motionReduced: document.querySelector('.avatar-stage canvas')?.dataset.motionReduced ?? null,
     motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
+    motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null
   })`) as Record<string, unknown>;
