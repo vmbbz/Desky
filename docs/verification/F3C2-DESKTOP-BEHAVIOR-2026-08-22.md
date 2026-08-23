@@ -57,6 +57,20 @@ A separate packaged native behavior harness produced:
 
 No capture, package, isolated user-data directory, generated avatar, token, or diagnostic JSON is committed.
 
+## Minimize recovery follow-up — 2026-08-23
+
+Live testing found the ambient surface genuinely hidden after foreground-window changes; the control center remained visible and **Show companion** recovered it. Because the surface is taskbar-free, a Windows shell minimize transition could strand it without an ordinary taskbar restore route. The ambient window is now non-minimizable, non-maximizable, and non-fullscreenable, and a delivered minimize event is recovered through `showInactive()` rather than the focus-taking `restore()` API.
+
+A fresh packaged behavior harness deliberately attempted to minimize the ambient window while the control center held focus. It recorded:
+
+- `ambientRecoveredFromMinimize: true`;
+- `focusPreservedAfterMinimizeRecovery: true`;
+- `ambientDocumentFocused: false` and `controlDocumentFocused: true`;
+- focus still preserved after inactive show and native clamping; and
+- tray, shortcut, and full-click-through recovery still operational.
+
+The first implementation used `restore()` and the harness correctly failed the focus gate. That implementation was discarded before commit. Explicit **Hide companion** remains the user-controlled disappearance route.
+
 ## Remaining device evidence
 
 - Manually prove that underlying applications receive clicks through transparent regions at Windows 100%, 125%, 150%, and 200% scaling while every measured visible region remains interactive.

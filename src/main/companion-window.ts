@@ -211,9 +211,7 @@ export class DeskyWindowManager {
 
   openAmbient(): BrowserWindow {
     if (this.ambient && !this.ambient.isDestroyed()) {
-      this.clampAmbientToWorkArea();
-      this.ambient.showInactive();
-      this.publishAmbientState();
+      this.showAmbientWindow(this.ambient);
       return this.ambient;
     }
     const window = this.createWindow('ambient');
@@ -336,6 +334,11 @@ export class DeskyWindowManager {
     window.webContents.on('destroyed', () => this.surfaces.delete(contentsId));
     if (surface === 'ambient') {
       window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
+      window.on('minimize', () => {
+        setImmediate(() => {
+          if (this.ambient === window && !window.isDestroyed()) this.showAmbientWindow(window);
+        });
+      });
       window.on('move', () => this.schedulePlacementSave());
       window.on('show', () => this.publishAmbientState());
       window.on('hide', () => this.publishAmbientState());
@@ -347,8 +350,7 @@ export class DeskyWindowManager {
     window.once('ready-to-show', () => {
       if (surface === 'ambient') {
         this.applyPointerPolicy();
-        window.showInactive();
-        this.publishAmbientState();
+        this.showAmbientWindow(window);
       }
       else window.show();
       const visualTestPath = process.env.DESKY_VISUAL_TEST_PATH;
@@ -446,6 +448,16 @@ export class DeskyWindowManager {
     this.publishAmbientState();
   }
 
+  private showAmbientWindow(window: BrowserWindow): void {
+    if (window.isDestroyed()) return;
+    this.clampAmbientToWorkArea();
+    window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
+    window.showInactive();
+    if (this.desktopState.alwaysOnTop) window.moveTop();
+    this.applyPointerPolicy();
+    this.publishAmbientState();
+  }
+
   private hideAmbient(): void {
     if (this.ambient && !this.ambient.isDestroyed()) this.ambient.hide();
     this.publishAmbientState();
@@ -515,6 +527,11 @@ export class DeskyWindowManager {
     await new Promise((resolve) => setTimeout(resolve, 100));
     const focusedAfterInactiveShow = BrowserWindow.getFocusedWindow()?.id ?? null;
 
+    ambient.minimize();
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const ambientRecoveredFromMinimize = !ambient.isMinimized() && ambient.isVisible();
+    const focusedAfterMinimizeRecovery = BrowserWindow.getFocusedWindow()?.id ?? null;
+
     const workArea = screen.getPrimaryDisplay().workArea;
     ambient.setBounds({
       x: workArea.x - ambientSize.width - 500,
@@ -539,10 +556,12 @@ export class DeskyWindowManager {
       controlWindowId: controlCenter.id,
       focusPreservedAfterClamp: focusedAfterClamp === controlCenter.id,
       focusPreservedAfterInactiveShow: focusedAfterInactiveShow === controlCenter.id,
+      focusPreservedAfterMinimizeRecovery: focusedAfterMinimizeRecovery === controlCenter.id,
       focusedBeforeWasControlCenter: focusedBefore === controlCenter.id,
       fullClickThroughEnabled,
       fullClickThroughRecovered,
       recoveryAvailable: this.desktopControls.hasRecoverySurface,
+      ambientRecoveredFromMinimize,
       shortcutRegistered: this.desktopControls.isShortcutRegistered,
       trayAvailable: this.desktopControls.isTrayAvailable,
       workArea,

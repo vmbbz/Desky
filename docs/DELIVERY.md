@@ -195,6 +195,7 @@ Implemented and package-verified on Windows:
 - Added tray, native context-menu, global `Ctrl/Cmd+Shift+D`, and control-center recovery routes. Full click-through cannot enable when neither tray nor shortcut recovery is available.
 - Added saved always-on-top, reset-position, hide, show, control-center, and quit controls without exposing raw Electron APIs.
 - Proved in a packaged Windows harness that inactive ambient show, state publication, and native clamping preserve focus on the active control center.
+- Prevented the taskbar-free ambient surface from becoming stranded by a shell minimize transition; the packaged harness proves it becomes visible again without taking focus, while explicit Hide remains unchanged.
 
 Evidence is recorded in `docs/verification/F3C2-DESKTOP-BEHAVIOR-2026-08-22.md`.
 

@@ -13,6 +13,9 @@ describe('desktop surface contract', () => {
       frame: false,
       transparent: true,
       resizable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
       alwaysOnTop: true,
       skipTaskbar: true,
       webPreferences: {
