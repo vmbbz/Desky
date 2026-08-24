@@ -66,7 +66,7 @@ Together with F4.3 CoolBanana evidence, all three admitted free avatars now pass
 
 ## Remaining gates
 
-- rights-clear real VRM 1.0 binary;
+- Real external Seed-san VRM 1.0 cache/offline repair and WebGL recovery now pass; a product-suitable CC0 VRM 1.0 marketplace revision remains open.
 - representative full-motion Milk and Astronaut captures;
 - longer Windows GPU plateau and sleep/wake lifecycle;
 - hidden/occluded render suspension and unrecoverable-context fallback;

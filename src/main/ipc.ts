@@ -50,6 +50,10 @@ import type { AgentAdapterRegistry } from './adapters/registry';
 import type { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { readScopedCodexVisualTestWorkspace } from './codex/visual-test-workspace';
 import { shouldDisableAvatarNetwork } from './visual-test-policy';
+import {
+  admitVrm1CompatibilityFixture,
+  readScopedVrm1CompatibilityFile,
+} from './vrm1-compatibility-fixture';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -276,7 +280,19 @@ export function registerIpc(
     }
   });
   ipcMain.handle(avatarChannels.getState, () => avatarAssets.getState());
-  ipcMain.handle(avatarChannels.getSelected, () => avatarAssets.getSelected());
+  ipcMain.handle(avatarChannels.getSelected, async () => {
+    const compatibilityFile = readScopedVrm1CompatibilityFile({
+      exercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
+      capturePath: process.env.DESKY_VISUAL_TEST_PATH,
+      userDataPath: process.env.DESKY_VISUAL_TEST_USER_DATA,
+      avatarPath: process.env.DESKY_VRM1_UI_TEST_FILE,
+      temporaryRoot: tmpdir(),
+    });
+    if (compatibilityFile) {
+      return admitVrm1CompatibilityFixture(await readFile(compatibilityFile));
+    }
+    return avatarAssets.getSelected();
+  });
   ipcMain.handle(avatarChannels.reportLoad, (event, value: unknown) => {
     if (windows.surfaceFor(event.sender) !== 'ambient') {
       throw new Error('Avatar load results can only be reported by the ambient companion.');

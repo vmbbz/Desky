@@ -80,6 +80,6 @@ be redundant.
 ## Remaining gates
 
 - Rerun the separate live Wave turn after provider capacity is available.
-- Repeat the package matrix on a rights-reviewed real VRM 1.0 binary and macOS.
+- Representative real VRM 1.0 state/action/cache/recovery evidence now passes with external Seed-san; the every-enabled-clip matrix and macOS remain open.
 - Complete the broader reference-device, sleep/wake, accessibility, and Store
   release matrices tracked in `docs/DELIVERY.md`.

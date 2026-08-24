@@ -83,7 +83,7 @@ The packaged surface supports direct manipulation after a five-pixel threshold a
 
 ### Next animation round — expressive motion layers
 
-Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x; a rights-reviewed real VRM 1.0 and the full state/clip matrix remain open.
+Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x. F4.8 adds the real, provenance-reviewed Seed-san VRM 1.0 compatibility fixture and package-proves its normalized idle/listening/thinking/working/speaking/success cycle, explicit Jump, framing, reduced motion, WebGL recovery, cache repair, and offline restart. The every-enabled-clip visual matrix and a product-suitable CC0 VRM 1.0 marketplace revision remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink and restrained look-at that work without external animation files and obey reduced-motion/cancellation priority. Keep speaking on its authored state clip rather than interrupting it with a procedural full-body emphasis.
@@ -124,7 +124,7 @@ This lane does not block F3c because deterministic procedural state fallbacks al
 
 ### F4 marketplace foundation
 
-Status: motion personality, three real free admitted revisions, exact model/thumbnail provenance, content-addressed cache, transactional activation/rollback, saved selection, and the first-class Companions route are implemented. All three activate and restore from verified cache in packaged Windows; bounded eviction/detail preview, user-facing removal, corrupt-cache repair, and 20/40/80-switch matrices are proved. A qualifying VRM 1.0 binary, signed production catalog, macOS, and final reference-device performance remain open.
+Status: motion personality, three real free admitted revisions, exact model/thumbnail provenance, content-addressed cache, transactional activation/rollback, saved selection, and the first-class Companions route are implemented. All three activate and restore from verified cache in packaged Windows; bounded eviction/detail preview, user-facing removal, corrupt-cache repair, and 20/40/80-switch matrices are proved. The external Seed-san fixture now closes real VRM 1.0 engineering compatibility, but it is not a marketplace offer and does not satisfy the three-free CC0 product portfolio. A product-suitable CC0 VRM 1.0 revision, signed production catalog, macOS, and final reference-device performance remain open.
 
 - Add user-facing `Paused`, `Quiet`, `Balanced`, `Lively`, and category-based `Custom` motion policy without exposing clip filenames.
 - Define strict admitted-avatar revision and signed presentation-catalog contracts; the upstream Open Source Avatars registry remains untrusted candidate input.

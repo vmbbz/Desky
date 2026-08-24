@@ -53,11 +53,11 @@ Generated captures, profiles, downloaded avatar bytes, and packages remain ignor
 
 ## VRM 1.0 admission audit
 
-The pinned Open Source Avatars registry does not declare model VRM generation in its records, and its reference Mixamo loader explicitly states that it is VRM 0.x-only. Desky therefore does not infer VRM 1.0 from collection age or rename a 0.x binary. A real 1.0 candidate must contain `extensions.VRMC_vrm` with `specVersion` 1.0 and must separately pass embedded commercial-use and redistribution review. No qualifying registry candidate was admitted in this round.
+The pinned Open Source Avatars registry does not declare model VRM generation in its records, and its reference Mixamo loader explicitly states that it is VRM 0.x-only. Desky therefore does not infer VRM 1.0 from collection age or rename a 0.x binary. A real 1.0 candidate must contain `extensions.VRMC_vrm` with `specVersion` 1.0 and must separately pass embedded commercial-use and redistribution review. No qualifying registry candidate was admitted in this round. Follow-up F4.8 admits the official Seed-san binary as an external engineering fixture under its embedded VRM Public License 1.0 settings, without adding it to the marketplace.
 
 ## Remaining gates
 
-- real redistributable VRM 1.0 binary with permissive embedded metadata;
+- Product-suitable CC0 VRM 1.0 marketplace revision; external real-binary engineering compatibility now passes with Seed-san.
 - corrupt/restart evidence for Milk and Astronaut;
 - user-facing cache inventory and safe remove controls;
 - longer Windows GPU plateau plus sleep/wake and WebGL-loss recovery;

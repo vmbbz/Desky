@@ -360,7 +360,16 @@ Evidence: `docs/verification/F4-MOTION-ENVELOPE-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-ADAPTIVE-PERFORMANCE-2026-08-24.md`.
 
-Next: profile the remaining composed idle cost, admit a rights-clear real VRM 1.0, run real Windows sleep/wake, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
+### F4.8 real VRM 1.0 engineering compatibility — 2026-08-24
+
+- Pinned the official Seed-san VRM 1.0 sample by repository commit, source-record/model/screenshot hashes, exact byte lengths, creator, VPL 1.0 terms, and embedded commercial/redistribution/modification/credit settings without bundling it or adding it to the marketplace.
+- Added a fail-closed temporary package lane that accepts only the exact external binary for three finite VRM 1.0 exercises and leaves ordinary selected-avatar loading unchanged.
+- Proved production cache admission, verified offline restart, corrupt-sidecar repair, the six-mode normalized companion cycle, explicit Jump, live framing, reduced-motion switching, idle restoration, and forced WebGL loss/recovery on packaged Windows.
+- Visually compared the unusual extended mechanical arm against the official reference and confirmed it is authored model geometry, not retargeting corruption.
+
+Evidence: `docs/verification/F4-VRM1-COMPATIBILITY-2026-08-24.md`.
+
+Next: profile the remaining composed idle cost, select a product-suitable CC0 VRM 1.0 marketplace revision, run real Windows sleep/wake, full-screen policy, and accessibility. macOS, Claude, and x402 are explicitly deferred. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 
@@ -470,10 +479,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix; live motion-envelope framing now passes on both admitted representative VRM 0.x companions.
-2. Rerun the separate live Wave evidence after provider capacity returns; local-VRMA interruption, Milk/Astronaut runtime motion, and the full corrupt/restart matrix are proved. Complete the rights-reviewed VRM 1.0/macOS matrix next.
-3. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture the remote lifecycle/certificate matrix; keep typed actions unsupported and the MCP helper deferred under the one-app decision. Repeat the credential/package matrix on macOS. Hermes remains excluded from Store builds. Continue the Claude Agent SDK authenticated matrix independently; keep commerce capability separate.
-4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
-5. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
+1. Complete the remaining Windows reference-device lifecycle/performance, sleep/wake, full-screen, and accessibility portions of the F4 compatibility matrix. Real VRM 1.0 engineering compatibility now passes with external Seed-san; select a product-suitable CC0 VRM 1.0 marketplace revision separately.
+2. Rerun the separate live Wave evidence after provider capacity returns; local-VRMA interruption, Milk/Astronaut/Seed-san representative runtime motion, and cache corruption/restart are proved.
+3. Complete remote OpenClaw `wss://`, clean pairing/rotation, certificate-failure, and Windows reference-device lifecycle evidence.
+4. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture its remote lifecycle/certificate matrix; keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
+5. Owner-deferred lanes: macOS equivalence/Keychain, Claude's authenticated matrix, and F4x/x402. Resume them only after the current Windows-local gates or explicit owner direction.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

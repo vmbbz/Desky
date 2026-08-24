@@ -53,7 +53,7 @@ Follow-up: F4.6 closes this exact visual failure with generic live skinned-motio
 
 ## Remaining gates
 
-- Add a legally redistributable, provenance-reviewed real VRM 1.0 fixture and run the same motion/cache/recovery matrix.
+- The legally redistributable, provenance-reviewed external Seed-san VRM 1.0 fixture now passes the representative motion/cache/WebGL-recovery matrix; see `F4-VRM1-COMPATIBILITY-2026-08-24.md`. It is not a marketplace product.
 - Add motion-envelope framing or per-avatar/clip admission metadata, then repeat Milk and Astronaut's expansive action captures.
 - Run real sleep/wake, display reconnect, full-screen suppression, timed CPU/GPU plateau, and assistive-technology checks on Windows reference hardware.
 - Repeat package, lifecycle, visual, Keychain, and performance evidence on macOS.

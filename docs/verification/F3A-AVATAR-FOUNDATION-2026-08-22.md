@@ -54,7 +54,7 @@ The ignored PNG capture also showed the Milk model rendered behind the open conn
 
 ## Remaining evidence
 
-- Parse reviewed representative VRM 0.x/1.0 binaries through the production Three.js loader in tests.
+- Real VRM 0.x production assets and the external, provenance-pinned Seed-san VRM 1.0 fixture now pass the production Three.js loader; see `F4-VRM1-COMPATIBILITY-2026-08-24.md`.
 - Exercise material, expression, spring-bone, coordinate, and cleanup behavior.
 - Convert a rights-approved animation twice and prove identical output bytes and manifest.
 - Validate foot contact, hips-height scaling, root-motion policy, and cross-avatar playback.

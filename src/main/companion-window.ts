@@ -759,11 +759,101 @@ async function captureVisualTest(
       visualExerciseError = String(error);
     }
   }
+  if (surface === 'ambient'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-state-cycle') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 30000;
+        let stage;
+        let canvas;
+        while (Date.now() < deadline) {
+          stage = document.querySelector('.avatar-stage');
+          canvas = stage?.querySelector('canvas');
+          if (stage instanceof HTMLElement
+            && canvas instanceof HTMLCanvasElement
+            && stage.dataset.avatarState === 'ready') break;
+          await wait(50);
+        }
+        if (!(stage instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
+          throw new Error('VRM 1.0 state-cycle avatar did not become ready');
+        }
+        const status = stage.querySelector('.asset-status')?.textContent?.trim() ?? '';
+        if (!status.includes('Seed-san') || !status.includes('VRM 1.0')) {
+          throw new Error('VRM 1.0 state-cycle loaded the wrong fixture');
+        }
+
+        document.querySelector('.ambient-launcher button')?.click();
+        let input;
+        while (Date.now() < deadline) {
+          input = document.querySelector('#ambient-prompt');
+          if (input instanceof HTMLInputElement && !input.disabled) break;
+          await wait(25);
+        }
+        if (!(input instanceof HTMLInputElement)) throw new Error('Simulation composer is unavailable');
+        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+        setter?.call(input, 'Exercise the normalized companion state cycle.');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        const form = input.closest('form');
+        if (!(form instanceof HTMLFormElement)) throw new Error('Simulation composer form is unavailable');
+        await wait(50);
+        form.requestSubmit();
+
+        const expected = ['idle', 'listening', 'thinking', 'working', 'speaking', 'success'];
+        const observed = new Map();
+        while (Date.now() < deadline) {
+          const mode = canvas.dataset.motionMode;
+          if (mode && !observed.has(mode)) {
+            observed.set(mode, canvas.dataset.motionStateClip ?? '');
+          }
+          if (expected.every((modeName) => observed.has(modeName))) break;
+          await wait(20);
+        }
+        const missing = expected.filter((modeName) => !observed.has(modeName));
+        if (missing.length > 0) throw new Error('VRM 1.0 state cycle missed: ' + missing.join(', '));
+        if (canvas.dataset.motionClipError) {
+          throw new Error('VRM 1.0 state cycle reported a clip error: ' + canvas.dataset.motionClipError);
+        }
+        stage.dataset.vrm1FixtureVerified = 'true';
+        stage.dataset.vrm1StateCycleVerified = 'true';
+        stage.dataset.vrm1ObservedModes = JSON.stringify(Object.fromEntries(observed));
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
   const waitMs = Number.isSafeInteger(requestedWaitMs)
     ? Math.max(0, Math.min(requestedWaitMs, 60_000))
     : 8_000;
   await new Promise((resolve) => setTimeout(resolve, waitMs));
+  if (surface === 'ambient'
+    && (process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-compatibility'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-jump'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-state-cycle')) {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 30000;
+        while (Date.now() < deadline) {
+          const stage = document.querySelector('.avatar-stage');
+          const status = stage?.querySelector('.asset-status')?.textContent?.trim() ?? '';
+          if (stage instanceof HTMLElement
+            && stage.dataset.avatarState === 'ready'
+            && status.includes('Seed-san')
+            && status.includes('VRM 1.0')
+            && status.includes('VRM-Public-License-1.0')) {
+            stage.dataset.vrm1FixtureVerified = 'true';
+            return;
+          }
+          await wait(50);
+        }
+        throw new Error('Pinned VRM 1.0 fixture did not reach a rights-reviewed ready state');
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'draft') {
     await window.webContents.executeJavaScript(`(async () => {
       const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -782,7 +872,10 @@ async function captureVisualTest(
       }
     })()`);
   }
-  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'jump') {
+  if (surface === 'ambient'
+    && (process.env.DESKY_VISUAL_TEST_EXERCISE === 'jump'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-compatibility'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-jump')) {
     await window.webContents.executeJavaScript(`(async () => {
       const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
       const avatar = document.querySelector('.ambient-avatar-hitbox');
@@ -798,7 +891,9 @@ async function captureVisualTest(
       }
     })()`);
   }
-  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-loss') {
+  if (surface === 'ambient'
+    && (process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-loss'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-compatibility')) {
     try {
       await window.webContents.executeJavaScript(`(async () => {
         const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -832,6 +927,40 @@ async function captureVisualTest(
         if (canvas.dataset.webglRecoveryVerified !== 'true') {
           throw new Error('Avatar rendering did not recover after WebGL restoration');
         }
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'ambient'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrm1-compatibility') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 30000;
+        const stage = document.querySelector('.avatar-stage');
+        const canvas = stage?.querySelector('canvas');
+        if (!(stage instanceof HTMLElement) || !(canvas instanceof HTMLCanvasElement)) {
+          throw new Error('VRM 1.0 compatibility surface is unavailable');
+        }
+        await window.desky.setMotionPreference('reduced');
+        while (Date.now() < deadline && canvas.dataset.motionReduced !== 'true') await wait(25);
+        if (canvas.dataset.motionReduced !== 'true') {
+          throw new Error('VRM 1.0 reduced-motion state was not observed');
+        }
+        stage.dataset.vrm1ReducedMotionVerified = 'true';
+
+        await window.desky.setMotionPreference('full');
+        while (Date.now() < deadline) {
+          if (canvas.dataset.motionReduced === 'false'
+            && !canvas.dataset.motionActiveProgram
+            && Boolean(canvas.dataset.motionStateClip)) {
+            stage.dataset.vrm1IdleRestored = 'true';
+            return;
+          }
+          await wait(25);
+        }
+        throw new Error('VRM 1.0 idle state did not resume after action and reduced motion');
       })()`);
     } catch (error) {
       visualExerciseError = String(error);
@@ -1123,7 +1252,13 @@ async function captureVisualTest(
     draftValue: document.querySelector('#ambient-prompt')?.value ?? null,
     launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null,
     avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
+    avatarStatusText: document.querySelector('.avatar-stage .asset-status')?.textContent?.trim() ?? null,
     avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null,
+    vrm1FixtureVerified: document.querySelector('.avatar-stage')?.dataset.vrm1FixtureVerified ?? null,
+    vrm1ReducedMotionVerified: document.querySelector('.avatar-stage')?.dataset.vrm1ReducedMotionVerified ?? null,
+    vrm1IdleRestored: document.querySelector('.avatar-stage')?.dataset.vrm1IdleRestored ?? null,
+    vrm1StateCycleVerified: document.querySelector('.avatar-stage')?.dataset.vrm1StateCycleVerified ?? null,
+    vrm1ObservedModes: document.querySelector('.avatar-stage')?.dataset.vrm1ObservedModes ?? null,
     motionFrame: document.querySelector('.avatar-stage canvas')?.dataset.motionFrame ?? null,
     motionElapsed: document.querySelector('.avatar-stage canvas')?.dataset.motionElapsed ?? null,
     renderTargetFps: document.querySelector('.avatar-stage canvas')?.dataset.renderTargetFps ?? null,

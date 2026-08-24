@@ -40,6 +40,6 @@ Both Jump captures reported `motionFramingVerified: true`, `motionActiveProgram:
 
 ## Remaining compatibility gates
 
-- Admit a real rights-reviewed VRM 1.0 binary and run this same idle/action envelope matrix across materially different proportions.
+- The external rights-reviewed Seed-san VRM 1.0 fixture now passes the idle/state/Jump envelope matrix; see `F4-VRM1-COMPATIBILITY-2026-08-24.md`. Every enabled clip still needs visual admission on the eventual product-suitable CC0 VRM 1.0 revision.
 - Run timed idle/action CPU and GPU measurements on reference hardware; adaptive skinned-bound sampling is intentionally measurable rather than assumed free.
 - Repeat visual, lifecycle, and performance evidence in the packaged macOS build.

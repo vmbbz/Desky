@@ -10,7 +10,7 @@ The selection balances immediate character affinity and runtime coverage:
 - **CoolBanana** is a recognizable upstream flagship with a narrow, unusual silhouette that exercises framing and retargeting.
 - **Astronaut** provides a compact human-shaped body with a helmet/suit silhouette, broadening motion, crop, and hit-test evidence.
 
-All three currently resolve to VRM 0.x. Desky does not claim the VRM 1.0 portfolio gate is complete; a qualifying redistributable VRM 1.0 revision remains required.
+All three currently resolve to VRM 0.x. The external Seed-san fixture now proves real VRM 1.0 engineering compatibility, but Desky does not claim the free-product VRM 1.0 portfolio gate is complete; a product-suitable CC0 VRM 1.0 marketplace revision remains required.
 
 ## Pinned upstream evidence
 
