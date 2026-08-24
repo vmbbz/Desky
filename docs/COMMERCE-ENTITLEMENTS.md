@@ -260,6 +260,8 @@ Microsoft Store policy 7.19 currently permits secure third-party purchase APIs f
 
 Capabilities are compiled/signed release configuration plus runtime storefront eligibility, not a renderer setting, remote feature flag alone, URL parameter, or agent instruction.
 
+The initial Microsoft Store artifact is `windows-store-free`: premium commerce implementation and UI are excluded from its import graph and package. Retaining x402 source in the shared repository does not make it a dormant Store capability. A later Store enablement requires a newly built `windows-store-third-party-commerce` artifact, updated disclosures/declarations, certification, package flight, and gradual rollout. The direct website build remains a separate supported channel and may reach the x402 production gate first. This channel decision is detailed in `docs/DISTRIBUTION.md`.
+
 ## Human approval contract
 
 Before signing, Desky shows:

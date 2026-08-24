@@ -404,6 +404,8 @@ F4x.1a–b are implemented: strict products/offers/orders/payments/events plus a
 
 Microsoft Store x402 is not assumed. Current policy 7.19 permits secure third-party commerce for non-game PC digital goods but treats cryptocurrency initiation as financial information. The initial Store profile stays free-only; company identity, declarations, explicit provider/authentication/confirmation and disable controls, regional legal review, content/storefront obligations, and certification are mandatory before any later enablement. The evidence checklist is `docs/research/MICROSOFT-STORE-X402-POLICY-2026-08-24.md`.
 
+The Windows channel decision is locked: the website offers a signed direct download beside the Microsoft Store link. The initial Store package is free-only with commerce code/routes absent. Later Store x402 is a new declared and certified package update, never a remote activation; direct Windows remains the first candidate x402 pilot. Before paid code exists, replace the development `DESKY_DISTRIBUTION` default with a baked fail-closed release manifest and artifact-absence tests.
+
 ### F4x.2 x402 Base direct-build pilot
 
 - Pin and audit x402 v2; pass Base Sepolia exact-USDC success/failure/replay/expiry/duplicate/callback-loss tests.

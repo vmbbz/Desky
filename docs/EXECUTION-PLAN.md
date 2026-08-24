@@ -146,6 +146,8 @@ Status: F4x.1a–b now provide strict product/offer/order/payment/event contract
 
 Microsoft Store launches free-only by default. Its later x402 gate follows `docs/research/MICROSOFT-STORE-X402-POLICY-2026-08-24.md`; direct Windows remains the first candidate pilot.
 
+Windows distribution uses two explicit channels: Store MSIX and a signed website download. Store commerce can be added later only through a new certified package/metadata submission and controlled rollout. It is never activated remotely in the already-certified free artifact. A baked fail-closed release manifest must replace the development environment-variable profile before any paid provider is admitted.
+
 F4x must not block the free companion or adapter platform. Its complete contract and failure matrix are in `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ### F2 verification completion

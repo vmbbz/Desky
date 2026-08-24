@@ -41,3 +41,7 @@ Before enabling x402 in a Store-signed profile, all of the following must have c
 Desky will not hide or disguise x402, instruct reviewers to overlook it, or remotely activate an undeclared checkout after certification. Store and direct builds are separate signed capability profiles. Payment authority stays in the commerce service, wallet consent stays with the user, private keys never enter Desky, and a settled payment does not bypass the entitlement ledger.
 
 No architecture can guarantee acceptance: Microsoft can interpret policy, request changes, restrict regions, or update its rules. The safe operational promise is narrower and enforceable: no x402 capability ships in the Microsoft Store package until it has passed the then-current gate above.
+
+## Distribution decision update — 2026-08-25
+
+The initial Store package is free-only and physically excludes x402 code paths. Desky's website separately offers a signed direct Windows installer. Source code stays shared, but a later Store x402 enablement is a new declared package submission that must pass certification and a controlled flight/gradual rollout. It is never a remote feature-flag activation of the previously certified package. The release-grade profile will be baked into the artifact and fail closed; the current development environment-variable selector is not accepted as commerce authority.

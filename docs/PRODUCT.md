@@ -88,6 +88,7 @@ The architecture supports a free open-source core and paid convenience without l
 - Optional Desky-ready avatar and animation-profile unlocks with auditable licences, provenance, updates, and support. Original source and licence remain visible; payment grants Desky service access, not exclusive copyright.
 - Optional hosted relay or synchronization service, never required for local gateways.
 - Store purchase for convenience; direct-download builds for advanced local integrations.
+- Windows launch presents a free-only Microsoft Store build beside a signed website download. The direct channel receives eligible x402 commerce first; later Store commerce, if approved, arrives only as a newly certified update rather than a hidden remote switch.
 
 The marketplace, motion-personality presets, free-tier promise, catalog admission, and staged rollout are specified in `docs/AVATAR-MARKETPLACE.md`. Payments are optional provider adapters behind the durable entitlement contract in `docs/COMMERCE-ENTITLEMENTS.md`; x402 is one direct-distribution rail, not the product database or agent architecture.
 
