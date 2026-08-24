@@ -9,6 +9,7 @@ import type {
 import type { AdapterSessionSummary } from '../../shared/agent-adapter';
 
 export const CLAUDE_AGENT_SDK_VERSION = '0.3.241' as const;
+export const CLAUDE_CODE_VERSION = '2.1.241' as const;
 
 type ClaudeSdkModule = {
   listSessions: typeof listClaudeSessions;
@@ -79,6 +80,7 @@ export class ClaudeSdkClient implements ClaudeSdkClientPort {
   constructor(
     private readonly environment: NodeJS.ProcessEnv = process.env,
     private readonly loadSdk: () => Promise<ClaudeSdkModule> = () => import('@anthropic-ai/claude-agent-sdk'),
+    private readonly cliExecutablePath?: string,
   ) {}
 
   async listSessions(cwd: string): Promise<AdapterSessionSummary[]> {
@@ -104,6 +106,9 @@ export class ClaudeSdkClient implements ClaudeSdkClientPort {
         includePartialMessages: true,
         permissionMode: input.permissionMode,
         settingSources: [],
+        strictMcpConfig: true,
+        mcpServers: {},
+        ...(this.cliExecutablePath ? { pathToClaudeCodeExecutable: this.cliExecutablePath } : {}),
         maxTurns: 100,
         env: buildClaudeEnvironment(this.environment, input.apiKey, input.appVersion),
         canUseTool: async (toolName, toolInput, context) => input.onPermission({

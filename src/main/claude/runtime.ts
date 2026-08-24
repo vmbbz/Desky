@@ -24,13 +24,28 @@ import { claudeApprovalPresentation, ClaudeProtocolNormalizer } from './protocol
 
 export interface ClaudeRuntimeConfiguration {
   workspaceGrantId: string;
-  apiKey: string;
+  apiKey?: string;
+  rememberApiKey: boolean;
   permissionMode: 'plan' | 'default';
 }
 
-interface ResolvedClaudeConfiguration extends ClaudeRuntimeConfiguration {
+interface ResolvedClaudeConfiguration extends Omit<ClaudeRuntimeConfiguration, 'apiKey'> {
+  apiKey: string;
   workspaceDirectory: string;
 }
+
+interface StoredClaudeCredential {
+  version: 1;
+  apiKey: string;
+}
+
+export interface ClaudeCredentialVault {
+  get<T>(key: string): T | undefined;
+  set(key: string, value: unknown): void;
+  delete(key: string): void;
+}
+
+export const claudeCredentialVaultKey = 'claude:active-profile';
 
 interface PendingClaudeApproval {
   requestId: string;
@@ -45,10 +60,12 @@ interface PendingClaudeApproval {
 export interface ClaudeRuntimeDependencies {
   appVersion: string;
   environment?: NodeJS.ProcessEnv;
+  cliExecutablePath?: string;
   createClient?: () => ClaudeSdkClientPort;
   createConnectionId?: () => string;
   createTurnId?: () => string;
   resolveWorkspaceGrant?: (grantId: string, sandbox: CodexSandboxMode) => Promise<string>;
+  vault?: ClaudeCredentialVault;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -60,17 +77,28 @@ export function readClaudeConfiguration(value: unknown): ClaudeRuntimeConfigurat
     || typeof value.workspaceGrantId !== 'string'
     || value.workspaceGrantId.length === 0
     || value.workspaceGrantId.length > 160
-    || typeof value.apiKey !== 'string'
-    || value.apiKey.length === 0
-    || value.apiKey.length > 16_384
+    || (value.apiKey !== undefined && (typeof value.apiKey !== 'string'
+      || value.apiKey.length === 0
+      || value.apiKey.length > 16_384))
+    || (value.rememberApiKey !== undefined && typeof value.rememberApiKey !== 'boolean')
     || (value.permissionMode !== 'plan' && value.permissionMode !== 'default')) {
     throw new Error('Invalid Claude connection configuration.');
   }
   return {
     workspaceGrantId: value.workspaceGrantId,
-    apiKey: value.apiKey,
+    ...(value.apiKey === undefined ? {} : { apiKey: value.apiKey }),
+    rememberApiKey: value.rememberApiKey ?? false,
     permissionMode: value.permissionMode,
   };
+}
+
+function readStoredCredential(value: unknown): StoredClaudeCredential | undefined {
+  if (!isRecord(value)
+    || value.version !== 1
+    || typeof value.apiKey !== 'string'
+    || value.apiKey.length === 0
+    || value.apiKey.length > 16_384) return undefined;
+  return { version: 1, apiKey: value.apiKey };
 }
 
 function safeError(error: unknown, secrets: Array<string | undefined> = []): string {
@@ -123,6 +151,7 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
     grantId: string,
     sandbox: CodexSandboxMode,
   ) => Promise<string>;
+  private readonly vault?: ClaudeCredentialVault;
   private client?: ClaudeSdkClientPort;
   private configuration?: ResolvedClaudeConfiguration;
   private connectionId?: string;
@@ -146,10 +175,15 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
 
   constructor(dependencies: ClaudeRuntimeDependencies) {
     this.createClient = dependencies.createClient
-      ?? (() => new ClaudeSdkClient(dependencies.environment));
+      ?? (() => new ClaudeSdkClient(
+        dependencies.environment,
+        undefined,
+        dependencies.cliExecutablePath,
+      ));
     this.createConnectionId = dependencies.createConnectionId ?? randomUUID;
     this.createTurnId = dependencies.createTurnId ?? randomUUID;
     this.resolveWorkspaceGrant = dependencies.resolveWorkspaceGrant;
+    this.vault = dependencies.vault;
     this.appVersion = dependencies.appVersion;
   }
 
@@ -160,6 +194,9 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
   async connect(configurationValue: unknown): Promise<AdapterConnectionState> {
     const requested = readClaudeConfiguration(configurationValue);
     if (!this.resolveWorkspaceGrant) throw new Error('Claude workspace selection is unavailable.');
+    if (requested.rememberApiKey && !this.vault) {
+      throw new Error('Secure Claude credential storage is unavailable.');
+    }
     await this.disconnectInternal(false);
     this.patchState({ status: 'connecting', message: 'Preparing Claude Agent SDK' });
     try {
@@ -167,10 +204,17 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
         ? 'read-only'
         : 'workspace-write';
       const workspaceDirectory = await this.resolveWorkspaceGrant(requested.workspaceGrantId, sandbox);
+      const saved = requested.apiKey === undefined
+        ? readStoredCredential(this.vault?.get<unknown>(claudeCredentialVaultKey))
+        : undefined;
+      const apiKey = requested.apiKey ?? saved?.apiKey;
+      if (!apiKey) {
+        throw new Error('Anthropic API key is required. Enter it or use saved access.');
+      }
       const client = this.createClient();
       const sessions = await client.listSessions(workspaceDirectory);
       this.client = client;
-      this.configuration = { ...requested, workspaceDirectory };
+      this.configuration = { ...requested, apiKey, workspaceDirectory };
       this.connectionId = this.createConnectionId();
       this.patchState({
         status: 'connected',
@@ -264,6 +308,8 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
         connectionId: this.requireConnectionId(),
         selectedSessionId: this.state.selectedSessionId,
         turnId,
+        expectedCwd: configuration.workspaceDirectory,
+        expectedPermissionMode: configuration.permissionMode,
       });
       void this.consumeQuery(this.query, normalizer, turnId);
     } catch (error) {
@@ -406,6 +452,9 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
             message: `Claude is working via ${result.init.model}`,
           });
         }
+        if (result.events.some((event) => event.type === 'turn.completed')) {
+          this.settleCredentialAfterSuccessfulTurn();
+        }
         for (const event of result.events) this.emitNormalized(event);
         if (result.terminal) this.finishTurn(turnId, terminalMessage(result.events));
       }
@@ -454,6 +503,19 @@ export class ClaudeRuntime implements AgentAdapterRuntime {
       pending.resolve({ behavior: 'deny', message });
     }
     this.approvals.clear();
+  }
+
+  private settleCredentialAfterSuccessfulTurn(): void {
+    const configuration = this.requireConfiguration();
+    if (configuration.rememberApiKey) {
+      if (!this.vault) throw new Error('Secure Claude credential storage is unavailable.');
+      this.vault.set(claudeCredentialVaultKey, {
+        version: 1,
+        apiKey: configuration.apiKey,
+      } satisfies StoredClaudeCredential);
+    } else {
+      this.vault?.delete(claudeCredentialVaultKey);
+    }
   }
 
   private finishTurn(turnId: string, message: string): void {

@@ -9,7 +9,12 @@ import type {
   ClaudeSdkQueryHandle,
   ClaudeSdkStartInput,
 } from '../src/main/claude/sdk-client';
-import { ClaudeRuntime, readClaudeConfiguration } from '../src/main/claude/runtime';
+import {
+  ClaudeRuntime,
+  claudeCredentialVaultKey,
+  readClaudeConfiguration,
+  type ClaudeCredentialVault,
+} from '../src/main/claude/runtime';
 
 class MessageQueue implements AsyncIterable<SDKMessage> {
   private readonly values: SDKMessage[] = [];
@@ -63,6 +68,22 @@ const configuration = {
   permissionMode: 'plan' as const,
 };
 
+class FixtureVault implements ClaudeCredentialVault {
+  readonly entries = new Map<string, unknown>();
+  readonly sets: Array<{ key: string; value: unknown }> = [];
+  readonly deletes: string[] = [];
+
+  get<T>(key: string): T | undefined { return this.entries.get(key) as T | undefined; }
+  set(key: string, value: unknown) {
+    this.sets.push({ key, value });
+    this.entries.set(key, value);
+  }
+  delete(key: string) {
+    this.deletes.push(key);
+    this.entries.delete(key);
+  }
+}
+
 function fixtureRuntime(client = new FixtureClaudeClient()) {
   const resolveWorkspaceGrant = vi.fn(async () => workspaceDirectory);
   return {
@@ -81,12 +102,13 @@ function fixtureRuntime(client = new FixtureClaudeClient()) {
 const initMessage = {
   type: 'system', subtype: 'init', apiKeySource: 'ANTHROPIC_API_KEY',
   session_id: 'session-1', claude_code_version: '2.1.241', model: 'claude-sonnet-4-6',
+  cwd: workspaceDirectory, permissionMode: 'plan', mcp_servers: [],
   tools: ['Read', 'Bash'], capabilities: ['interrupt_receipt_v1'],
 };
 
 describe('ClaudeRuntime foundation', () => {
   it('requires an opaque workspace grant and maps permission mode to grant scope', async () => {
-    expect(readClaudeConfiguration(configuration)).toEqual(configuration);
+    expect(readClaudeConfiguration(configuration)).toEqual({ ...configuration, rememberApiKey: false });
     expect(() => readClaudeConfiguration({ ...configuration, apiKey: '' }))
       .toThrow('Invalid Claude');
     const { runtime, resolveWorkspaceGrant } = fixtureRuntime();
@@ -96,6 +118,67 @@ describe('ClaudeRuntime foundation', () => {
       adapterId: 'claude', status: 'connected', selectedSessionId: 'session-1',
       runtimeVersion: 'Agent SDK 0.3.241',
     });
+  });
+
+  it('persists, reuses, rotates, or removes API-key access only after a successful turn', async () => {
+    const vault = new FixtureVault();
+    vault.entries.set(claudeCredentialVaultKey, { version: 1, apiKey: 'old-key' });
+    const first = new FixtureClaudeClient();
+    const second = new FixtureClaudeClient();
+    const third = new FixtureClaudeClient();
+    const clients = [first, second, third];
+    let turn = 0;
+    const runtime = new ClaudeRuntime({
+      appVersion: '0.1.0',
+      vault,
+      createClient: () => {
+        const client = clients.shift();
+        if (!client) throw new Error('No fixture Claude client available.');
+        return client;
+      },
+      createTurnId: () => `turn-${++turn}`,
+      resolveWorkspaceGrant: async () => workspaceDirectory,
+    });
+
+    await runtime.connect({
+      workspaceGrantId: 'grant', permissionMode: 'plan', rememberApiKey: true,
+    });
+    await runtime.send('Use saved');
+    expect(first.starts[0].apiKey).toBe('old-key');
+    first.queue.emit(initMessage);
+    first.queue.emit({
+      type: 'result', subtype: 'success', session_id: 'session-1', is_error: false, result: 'Done',
+    });
+    await vi.waitFor(() => expect(vault.sets).toHaveLength(1));
+
+    await runtime.connect({
+      workspaceGrantId: 'grant', apiKey: 'new-key', permissionMode: 'plan', rememberApiKey: true,
+    });
+    await runtime.send('Reject replacement');
+    second.queue.emit({ ...initMessage, apiKeySource: 'none' });
+    await vi.waitFor(() => expect(runtime.getState().activeTurnId).toBeUndefined());
+    expect(vault.entries.get(claudeCredentialVaultKey)).toEqual({ version: 1, apiKey: 'old-key' });
+
+    await runtime.connect({
+      workspaceGrantId: 'grant', apiKey: 'new-key', permissionMode: 'plan', rememberApiKey: false,
+    });
+    await runtime.send('Remove saved access');
+    third.queue.emit(initMessage);
+    third.queue.emit({
+      type: 'result', subtype: 'success', session_id: 'session-1', is_error: false, result: 'Done',
+    });
+    await vi.waitFor(() => expect(vault.entries.has(claudeCredentialVaultKey)).toBe(false));
+    expect(vault.deletes).toContain(claudeCredentialVaultKey);
+  });
+
+  it('requires secure storage when remembering access and saved access when the key is blank', async () => {
+    const { runtime } = fixtureRuntime();
+    await expect(runtime.connect({
+      workspaceGrantId: 'grant', apiKey: 'key', permissionMode: 'plan', rememberApiKey: true,
+    })).rejects.toThrow('Secure Claude credential storage is unavailable');
+    await expect(runtime.connect({
+      workspaceGrantId: 'grant', permissionMode: 'plan', rememberApiKey: false,
+    })).rejects.toThrow('Anthropic API key is required');
   });
 
   it('streams a session, resolves SDK permission callbacks, and completes exactly once', async () => {
@@ -158,6 +241,22 @@ describe('ClaudeRuntime foundation', () => {
     client.queue.emit({ ...initMessage, apiKeySource: 'none' });
     await vi.waitFor(() => expect(runtime.getState().activeTurnId).toBeUndefined());
     expect(failures).toEqual([expect.objectContaining({ kind: 'error' })]);
+  });
+
+  it('fails closed on bundled CLI version or effective-policy drift', async () => {
+    for (const drift of [
+      { claude_code_version: '2.1.999' },
+      { permissionMode: 'default' },
+      { cwd: resolve('other-workspace') },
+      { mcp_servers: [{ name: 'ambient', status: 'connected' }] },
+    ]) {
+      const { runtime, client } = fixtureRuntime();
+      await runtime.connect(configuration);
+      await runtime.send('Hello');
+      client.queue.emit({ ...initMessage, ...drift });
+      await vi.waitFor(() => expect(runtime.getState().activeTurnId).toBeUndefined());
+      expect(runtime.getState().message).toBe('Claude turn failed');
+    }
   });
 
   it('redacts API keys and resolved workspace paths from renderer errors', () => {

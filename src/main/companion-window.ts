@@ -661,6 +661,36 @@ async function captureVisualTest(
         : message;
     }
   }
+  if (surface === 'control-center'
+    && (process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui-saved')) {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 15000;
+        let root;
+        while (Date.now() < deadline) {
+          root = document.querySelector('.control-center');
+          const provider = document.querySelector('[data-adapter-id="claude"]');
+          if (root && provider instanceof HTMLButtonElement) {
+            provider.click();
+            while (Date.now() < deadline) {
+              if (document.querySelector('[data-provider-form="claude"]')) {
+                document.querySelector('[data-provider-form="claude"]')?.scrollIntoView({ block: 'start' });
+                root.dataset.claudeUiExercise = 'provider-selected';
+                return;
+              }
+              await wait(25);
+            }
+          }
+          await wait(25);
+        }
+        throw new Error('Timed out waiting for the Claude admission form');
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
   const waitMs = Number.isSafeInteger(requestedWaitMs)
     ? Math.max(0, Math.min(requestedWaitMs, 60_000))
@@ -1062,12 +1092,14 @@ async function captureVisualTest(
     codexReconnectObserved: document.querySelector('.control-center')?.dataset.codexReconnectObserved ?? null,
     hermesUiExercise: document.querySelector('.control-center')?.dataset.hermesUiExercise ?? null,
     hermesTokenLeak: document.querySelector('.control-center')?.dataset.hermesTokenLeak ?? null,
+    claudeUiExercise: document.querySelector('.control-center')?.dataset.claudeUiExercise ?? null,
     adapterOptions: [...document.querySelectorAll('[data-adapter-id]')].map((button) => ({
       adapterId: button.dataset.adapterId,
       selected: button.dataset.adapterSelected
     })),
     codexFormVisible: Boolean(document.querySelector('[data-provider-form="codex"]')),
     hermesFormVisible: Boolean(document.querySelector('[data-provider-form="hermes"]')),
+    claudeFormVisible: Boolean(document.querySelector('[data-provider-form="claude"]')),
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
     marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
     marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,

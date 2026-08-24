@@ -61,6 +61,8 @@ describe('ClaudeSdkClient foundation', () => {
         includePartialMessages: boolean;
         permissionMode: string;
         settingSources: unknown[];
+        strictMcpConfig: boolean;
+        mcpServers: Record<string, unknown>;
         env: NodeJS.ProcessEnv;
         canUseTool: (
           name: string,
@@ -74,7 +76,7 @@ describe('ClaudeSdkClient foundation', () => {
       prompt: 'Inspect this project',
       options: {
         cwd: 'C:\\workspace', resume: 'session-1', includePartialMessages: true,
-        permissionMode: 'plan', settingSources: [],
+        permissionMode: 'plan', settingSources: [], strictMcpConfig: true, mcpServers: {},
       },
     });
     expect(call.options.env.ANTHROPIC_API_KEY).toBe('secret-key');

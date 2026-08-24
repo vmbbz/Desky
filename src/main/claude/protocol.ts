@@ -1,11 +1,14 @@
 import { basename } from 'node:path';
 
 import type { AdapterEvent } from '../../shared/adapter-events';
+import { CLAUDE_CODE_VERSION } from './sdk-client';
 
 export interface ClaudeProtocolContext {
   connectionId: string;
   turnId: string;
   selectedSessionId?: string;
+  expectedCwd?: string;
+  expectedPermissionMode?: 'plan' | 'default';
 }
 
 export interface ClaudeInitAdmission {
@@ -40,16 +43,24 @@ function safeText(value: unknown, fallback: string, maximum = 180): string {
     .slice(0, maximum);
 }
 
-export function readClaudeInit(value: unknown): ClaudeInitAdmission {
+export function readClaudeInit(
+  value: unknown,
+  expected: Pick<ClaudeProtocolContext, 'expectedCwd' | 'expectedPermissionMode'> = {},
+): ClaudeInitAdmission {
   if (!isRecord(value)
     || value.type !== 'system'
     || value.subtype !== 'init'
     || value.apiKeySource !== 'ANTHROPIC_API_KEY'
     || !readString(value.session_id)
-    || !readString(value.claude_code_version, 120)
+    || value.claude_code_version !== CLAUDE_CODE_VERSION
     || !readString(value.model, 240)
     || !Array.isArray(value.tools)
-    || !Array.isArray(value.capabilities)) {
+    || !Array.isArray(value.capabilities)
+    || (expected.expectedCwd !== undefined && value.cwd !== expected.expectedCwd)
+    || (expected.expectedPermissionMode !== undefined
+      && value.permissionMode !== expected.expectedPermissionMode)
+    || (value.mcp_servers !== undefined
+      && (!Array.isArray(value.mcp_servers) || value.mcp_servers.length !== 0))) {
     throw new Error('Claude Agent SDK initialization admission failed.');
   }
   return {
@@ -116,7 +127,7 @@ export class ClaudeProtocolNormalizer {
     };
     let init: ClaudeInitAdmission | undefined;
     if (value.type === 'system' && value.subtype === 'init') {
-      init = readClaudeInit(value);
+      init = readClaudeInit(value, this.context);
       this.sessionId = init.sessionId;
       return { events, init, terminal: false };
     }

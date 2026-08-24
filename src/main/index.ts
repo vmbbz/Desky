@@ -19,6 +19,7 @@ import { CodexRuntime } from './codex/runtime';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { installBoundedApplicationShutdown } from './bounded-shutdown';
 import { HermesRuntime } from './hermes/runtime';
+import { ClaudeRuntime } from './claude/runtime';
 
 let windows: DeskyWindowManager | undefined;
 
@@ -55,6 +56,15 @@ void app.whenReady().then(() => {
       resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
     }),
     () => new HermesRuntime({ vault: connectionsVault }),
+    process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui'
+      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui-saved'
+      ? () => new ClaudeRuntime({
+          appVersion: app.getVersion(),
+          vault: connectionsVault,
+          cliExecutablePath: app.isPackaged ? join(process.resourcesPath, 'claude.exe') : undefined,
+          resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
+        })
+      : undefined,
   );
   const adapters = new AgentAdapterRegistry(
     runtimes,

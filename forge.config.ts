@@ -10,12 +10,17 @@ import { mainConfig } from './webpack.main.config';
 import { rendererConfig } from './webpack.renderer.config';
 import { developmentRendererContentSecurityPolicy } from './src/shared/content-security-policy';
 
+const claudeAdmissionResources = process.env.DESKY_CLAUDE_ADMISSION_PACKAGE === '1'
+  ? [`node_modules/@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/${process.platform === 'win32' ? 'claude.exe' : 'claude'}`]
+  : [];
+
 const config: ForgeConfig = {
   packagerConfig: {
     appBundleId: 'com.desky.companion',
     appCategoryType: 'public.app-category.productivity',
     asar: true,
     executableName: 'Desky',
+    extraResource: claudeAdmissionResources,
   },
   rebuildConfig: {},
   makers: [

@@ -135,6 +135,10 @@ export function App() {
   const [hermesEndpoint, setHermesEndpoint] = useState('http://127.0.0.1:8642');
   const [hermesToken, setHermesToken] = useState('');
   const [rememberHermesToken, setRememberHermesToken] = useState(true);
+  const [claudeApiKey, setClaudeApiKey] = useState('');
+  const [rememberClaudeApiKey, setRememberClaudeApiKey] = useState(true);
+  const [claudePermissionMode, setClaudePermissionMode] = useState<'plan' | 'default'>('plan');
+  const [claudeWorkspace, setClaudeWorkspace] = useState<CodexWorkspaceGrantSummary>();
   const [codexWorkspace, setCodexWorkspace] = useState<CodexWorkspaceGrantSummary>();
   const [codexSandbox, setCodexSandbox] = useState<CodexSandboxMode>('read-only');
   const [busy, setBusy] = useState(false);
@@ -451,6 +455,44 @@ export function App() {
     setGateway(next);
     setSelectedAdapterId(next.adapterId);
     setHermesToken('');
+    setShowConnection(next.status !== 'connected');
+  });
+
+  const selectClaudeWorkspace = () => withBusy(async () => {
+    const maximumSandbox = claudePermissionMode === 'plan' ? 'read-only' : 'workspace-write';
+    const selection = await window.desky.codexWorkspace.select(maximumSandbox);
+    if (selection.status !== 'selected') return;
+    const previous = claudeWorkspace;
+    setClaudeWorkspace(selection.grant);
+    if (previous && previous.grantId !== selection.grant.grantId) {
+      await window.desky.codexWorkspace.revoke(previous.grantId);
+    }
+  });
+
+  const changeClaudePermissionMode = (mode: 'plan' | 'default') => {
+    if (mode === 'default'
+      && claudeWorkspace
+      && claudeWorkspace.maximumSandbox !== 'workspace-write') {
+      void window.desky.codexWorkspace.revoke(claudeWorkspace.grantId).catch(() => undefined);
+      setClaudeWorkspace(undefined);
+    }
+    setClaudePermissionMode(mode);
+  };
+
+  const connectClaude = () => withBusy(async () => {
+    if (!claudeWorkspace) throw new Error('Choose a Claude workspace first.');
+    const next = await window.desky.adapters.connect({
+      adapterId: selectedAdapterId,
+      configuration: {
+        workspaceGrantId: claudeWorkspace.grantId,
+        apiKey: claudeApiKey || undefined,
+        rememberApiKey: rememberClaudeApiKey,
+        permissionMode: claudePermissionMode,
+      },
+    });
+    setGateway(next);
+    setSelectedAdapterId(next.adapterId);
+    setClaudeApiKey('');
     setShowConnection(next.status !== 'connected');
   });
 
@@ -1229,6 +1271,8 @@ export function App() {
               const label = visualTestExercise === 'codex-ui'
                 || visualTestExercise === 'hermes-ui'
                 || visualTestExercise === 'hermes-ui-saved'
+                || visualTestExercise === 'claude-ui'
+                || visualTestExercise === 'claude-ui-saved'
                 ? `Desky conformance packaged ${new Date().toISOString()}`
                 : 'Desky';
               setGateway(await window.desky.adapters.createSession({ label }));
@@ -1277,7 +1321,9 @@ export function App() {
                   <strong>{descriptor.displayName}</strong>
                   <span>{descriptor.kind === 'codex'
                     ? 'Local app-server'
-                    : descriptor.kind === 'hermes' ? 'API server' : 'Gateway'}</span>
+                    : descriptor.kind === 'hermes'
+                      ? 'API server'
+                      : descriptor.kind === 'claude' ? 'Local Agent SDK' : 'Gateway'}</span>
                 </button>
               ))}
             </div>
@@ -1365,6 +1411,41 @@ export function App() {
               <div className="connection-actions">
                 {selectedAdapterConnected ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
                 <button type="submit" disabled={busy}>{busy ? 'Connecting…' : selectedAdapterConnected ? 'Reconnect' : 'Connect'}</button>
+              </div>
+            </form>
+          ) : null}
+          {adapterMode === 'runtime' && selectedAdapter.kind === 'claude' ? (
+            <form data-provider-form="claude" onSubmit={(event) => { event.preventDefault(); void connectClaude(); }}>
+              <div className="workspace-consent">
+                <div>
+                  <strong>Workspace</strong>
+                  <span>{claudeWorkspace?.label ?? 'No folder selected'}</span>
+                </div>
+                <button type="button" className="secondary" disabled={busy} onClick={() => void selectClaudeWorkspace()}>
+                  {claudeWorkspace ? 'Change' : 'Choose folder'}
+                </button>
+              </div>
+              <p className="connection-note">Folder access is session-only. Claude receives the canonical path only from Desky’s main-process grant broker.</p>
+              <fieldset className="sandbox-options">
+                <legend>Claude permissions</legend>
+                <label className={claudePermissionMode === 'plan' ? 'active' : ''}>
+                  <input type="radio" name="claude-permissions" value="plan" checked={claudePermissionMode === 'plan'} onChange={() => changeClaudePermissionMode('plan')} />
+                  <span><strong>Plan · Recommended</strong><small>Inspect the selected workspace without executing changes.</small></span>
+                </label>
+                <label className={claudePermissionMode === 'default' ? 'active' : ''}>
+                  <input type="radio" name="claude-permissions" value="default" checked={claudePermissionMode === 'default'} onChange={() => changeClaudePermissionMode('default')} />
+                  <span><strong>On request</strong><small>Claude may request tool approval inside the selected workspace.</small></span>
+                </label>
+              </fieldset>
+              <label htmlFor="claude-api-key">Anthropic API key</label>
+              <input id="claude-api-key" type="password" value={claudeApiKey} onChange={(event) => setClaudeApiKey(event.target.value)} placeholder="Leave blank to use saved access" autoComplete="off" />
+              <label className="remember-row"><input id="claude-remember-api-key" type="checkbox" checked={rememberClaudeApiKey} onChange={(event) => setRememberClaudeApiKey(event.target.checked)} /> Store with OS credential encryption after a successful turn</label>
+              <p className="connection-note">Local session discovery does not verify the key. New access is saved, or old access removed, only after the first successful API-key-authenticated turn.</p>
+              <p className="adapter-capability adapter-capability--unsupported">Avatar actions are unavailable. No separate MCP helper is required for Claude chat and tools.</p>
+              {uiError ? <p className="connection-error">{uiError}</p> : null}
+              <div className="connection-actions">
+                {selectedAdapterConnected ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
+                <button type="submit" disabled={busy || !claudeWorkspace}>{busy ? 'Connecting…' : selectedAdapterConnected ? 'Reconnect' : 'Connect'}</button>
               </div>
             </form>
           ) : null}

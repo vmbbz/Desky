@@ -10,8 +10,14 @@ export function agentRuntimesForProfile(
   openClaw: AgentAdapterRuntime,
   createDirectCodex: () => AgentAdapterRuntime,
   createDirectHermes: () => AgentAdapterRuntime,
+  createClaudeAdmissionCandidate?: () => AgentAdapterRuntime,
 ): AgentAdapterRuntime[] {
   return profile === 'direct'
-    ? [openClaw, createDirectCodex(), createDirectHermes()]
+    ? [
+        openClaw,
+        createDirectCodex(),
+        createDirectHermes(),
+        ...(createClaudeAdmissionCandidate ? [createClaudeAdmissionCandidate()] : []),
+      ]
     : [openClaw];
 }

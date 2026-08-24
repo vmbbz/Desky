@@ -15,6 +15,7 @@
     "build:animation-converter": "webpack --config webpack.animation-converter.config.mjs",
     "animation:converter": "npm run build:animation-converter --silent && node out/tools/desky-animation-converter.cjs",
     "package": "electron-forge package",
+    "package:claude:admission": "node scripts/package-claude-admission.mjs",
     "make": "electron-forge make",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
