@@ -106,6 +106,23 @@ describe('HermesApiClient', () => {
     expect(isHermesReconnectableError(networkError)).toBe(true);
     expect(String(networkError)).not.toContain('private');
 
+    const certificateCause = Object.assign(new Error('self signed private-certificate'), {
+      code: 'DEPTH_ZERO_SELF_SIGNED_CERT',
+    });
+    const invalidCertificate = new HermesApiClient(
+      'https://hermes.example', 'token', vi.fn(async () => {
+        throw new TypeError('fetch failed', { cause: certificateCause });
+      }) as typeof fetch,
+    );
+    const certificateError = await invalidCertificate.listSessions().catch(
+      (error: unknown) => error,
+    );
+    expect(certificateError).toEqual(
+      new HermesApiError('Hermes TLS certificate validation failed.', false),
+    );
+    expect(isHermesReconnectableError(certificateError)).toBe(false);
+    expect(String(certificateError)).not.toContain('private-certificate');
+
     for (const [status, reconnectable] of [[503, true], [401, false]] as const) {
       const client = new HermesApiClient(
         'https://hermes.example', 'token',

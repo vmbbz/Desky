@@ -416,6 +416,8 @@ F5b.1-F5b.4 admit Hermes on Windows direct builds against official source revisi
 
 F5b.2-F5b.4 evidence is recorded in `docs/verification/F5B2-HERMES-AUTHENTICATED-MATRIX-2026-08-24.md`, `docs/verification/F5B3-HERMES-RESILIENCE-2026-08-24.md`, and `docs/verification/F5B4-HERMES-DIRECT-ADMISSION-2026-08-24.md`.
 
+F5b.5 source disposition confirms that remote Hermes is not a direct public bind: the pinned aiohttp API Server has no TLS listener, while Desky requires HTTPS for every non-loopback endpoint and never exposes a certificate bypass. Known certificate trust/name/expiry failures are terminal and sanitized. Hermes's stable `/v1/capabilities` and `/v1/toolsets` routes are read-only; actual third-party tools are process-wide MCP configuration owned by Hermes. Because there is no API-client callback registration surface, typed Desky actions remain unsupported until a separately signed/authenticated MCP helper has explicit install, IPC, upgrade, and removal contracts. See `docs/verification/F5B5-HERMES-TRANSPORT-ACTION-DISPOSITION-2026-08-24.md`.
+
 F5c.1 Claude foundation is implemented with exact production dependency `@anthropic-ai/claude-agent-sdk 0.3.241`: typed partial streaming, SDK session list/resume, API-key-only init admission, reviewed environment and setting isolation, opaque workspace grants, plan/default permission mapping, SDK approval callbacks, cancellation, redaction, and exactly-once terminal fixtures pass. It is direct-only, unregistered, and `production: false`. Anthropic's documented restriction against unapproved third-party Claude.ai login reuse is enforced architecturally. An authorized API-key source/package matrix, effective-policy adversarial proof, lifecycle/crash evidence, vault integration, and typed Desky MCP action remain open.
 
 Order:
@@ -468,7 +470,7 @@ These decisions are deliberately not guessed:
 
 1. Complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix; live motion-envelope framing now passes on both admitted representative VRM 0.x companions.
 2. Complete the remaining local-VRMA interruption and separate live Wave evidence; Milk/Astronaut runtime motion and the full corrupt/restart matrix are proved, while expansive-action visual admission remains open.
-3. Extend the admitted direct Hermes adapter with remote TLS deployment evidence and determine a stable typed Desky-action surface; repeat its credential/package matrix on macOS. Hermes remains excluded from Store builds. Then return to the Claude Agent SDK authenticated matrix; keep commerce capability separate.
+3. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture the remote lifecycle/certificate matrix; separately design the signed MCP action helper before changing typed-action availability. Repeat the credential/package matrix on macOS. Hermes remains excluded from Store builds. Then return to the Claude Agent SDK authenticated matrix; keep commerce capability separate.
 4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
 5. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
 
