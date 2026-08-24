@@ -82,7 +82,7 @@ and research downloads remain ignored and uncommitted.
 
 ## Remaining gates
 
-- Run a separate real model-issued Wave turn.
+- Rerun the separate real model-issued Wave turn after provider capacity returns. The 2026-08-24 attempt reached OpenClaw 2026.8.1 and passed the pre-model live matrix, but the configured Codex provider rejected the final turn at its subscription usage limit; see `F3B10-EXECUTABLE-MOTION-CLOSURE-2026-08-24.md`.
 - Repeat the packaged motion/state matrix on representative licensed binary VRM
   0.x and 1.0 avatars and on macOS.
 - Obtain explicit rights before admitting any exact gallery animation binary.

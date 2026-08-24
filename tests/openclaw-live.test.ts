@@ -19,6 +19,10 @@ const liveEnabled = process.env.DESKY_OPENCLAW_LIVE === '1'
   || process.env.npm_lifecycle_event === 'test:openclaw:live';
 const gatewayUrl = process.env.DESKY_OPENCLAW_LIVE_URL ?? 'ws://127.0.0.1:19001';
 const credential = process.env.DESKY_OPENCLAW_LIVE_CREDENTIAL;
+const requestedLiveAction = process.env.DESKY_OPENCLAW_LIVE_ACTION ?? 'jump';
+const liveAction = requestedLiveAction === 'wave' || requestedLiveAction === 'jump'
+  ? requestedLiveAction
+  : undefined;
 
 const liveEncryption: EncryptionProvider = {
   isEncryptionAvailable: () => true,
@@ -170,6 +174,8 @@ async function requestExecApproval(input: {
 describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
   it('covers capabilities, approval lifecycle, active reconnect/cancellation, and streaming', async () => {
     expect(credential, 'DESKY_OPENCLAW_LIVE_CREDENTIAL is required for live verification').toBeTruthy();
+    expect(liveAction, 'DESKY_OPENCLAW_LIVE_ACTION must be wave or jump').toBeTruthy();
+    if (!liveAction) throw new Error('Invalid live action.');
     const directory = mkdtempSync(join(tmpdir(), 'desky-openclaw-live-'));
     const relay = new LiveGatewayRelay(gatewayUrl);
     const relayedGatewayUrl = await relay.start();
@@ -429,19 +435,19 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
         (event) => event.type === 'turn.completed' || event.type === 'turn.failed',
         120_000,
       );
-      const jumpCommand = waitForAction(
+      const actionCommand = waitForAction(
         host,
-        (command) => command.payload.action === 'jump',
+        (command) => command.payload.action === liveAction,
         120_000,
       );
       await host.send([
-        'Use the desky_avatar_action tool exactly once with action jump.',
+        `Use the desky_avatar_action tool exactly once with action ${liveAction}.`,
         'After the tool succeeds, reply with exactly DESKY_ACTION_OK and no other text.',
       ].join(' '));
-      const [action, actionResult] = await Promise.all([jumpCommand, actionTerminal]);
-      expect(action.payload).toEqual({ action: 'jump' });
+      const [action, actionResult] = await Promise.all([actionCommand, actionTerminal]);
+      expect(action.payload).toEqual({ action: liveAction });
       expect(actionResult.type).toBe('turn.completed');
-      process.stdout.write('[desky-live] typed desky_avatar_action Jump passed\n');
+      process.stdout.write(`[desky-live] typed desky_avatar_action ${liveAction} passed\n`);
     } finally {
       requester.close('Desky live verification complete');
       await host.disconnect();

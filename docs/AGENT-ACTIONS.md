@@ -94,6 +94,6 @@ This decision never licenses prompt parsing as a shortcut. No user instruction-f
 ## Release gates
 
 - OpenClaw plugin manifest, runtime definition, action enum, and Desky parser remain contract-tested for drift.
-- Live OpenClaw 2026.8.1 evidence now proves capability discovery and a real model-issued Jump through the installed plugin. Wave still needs a separate live invocation; duplicate, wrong-session, malformed, terminal-turn, and unavailable-client cases remain contract-tested.
+- Live OpenClaw 2026.8.1 evidence proves capability discovery and a real model-issued Jump through the installed plugin. The separate Wave harness reached the same gateway and passed its pre-model lifecycle matrix on 2026-08-24, but the configured Codex provider rejected the final turn at its subscription limit. Wave remains capacity-deferred rather than falsely marked passed; duplicate, wrong-session, malformed, terminal-turn, and unavailable-client cases remain contract-tested.
 - `AgentAdapterCapabilities` is now executable and provider-neutral. F5a still promotes the remaining host, connection, session, and command surfaces out of the OpenClaw-specific bridge.
 - Rate limiting, pause-motion controls, occlusion suspension, and packaged Windows/macOS evidence remain required before Store release.

@@ -417,6 +417,39 @@ describe('AvatarMotionController', () => {
     expect(controller.playPreviewClip(clip, observer)).toMatchObject({ accepted: false });
   });
 
+  it.each(['approval', 'cancelled', 'disconnected', 'error'] as const)(
+    'interrupts an active local preview when %s becomes authoritative',
+    (mode) => {
+      const fixture = createVrmFixture();
+      const controller = new AvatarMotionController(fixture.vrm, fixture.root);
+      const head = fixture.bones.get(VRMHumanBoneName.Head)!;
+      const baseline = head.quaternion.clone();
+      const halfAngle = 0.2;
+      const clip = new AnimationClip('local-preview', 10, [
+        new QuaternionKeyframeTrack(
+          `${head.name}.quaternion`,
+          [0, 10],
+          [0, 0, 0, 1, 0, Math.sin(halfAngle), 0, Math.cos(halfAngle)],
+        ),
+      ]);
+      const lifecycle: string[] = [];
+
+      expect(controller.playPreviewClip(clip, {
+        onStarted: () => lifecycle.push('started'),
+        onEnded: (result) => lifecycle.push(result),
+      })).toEqual({ accepted: true });
+      controller.update(1, 1);
+      expect(head.quaternion.angleTo(baseline)).toBeGreaterThan(0.001);
+
+      controller.setMode(mode);
+
+      expect(lifecycle).toEqual(['started', 'interrupted']);
+      expect(controller.currentPlan.mode).toBe(mode);
+      expect(head.quaternion.angleTo(baseline)).toBeLessThan(1e-8);
+      expect(fixture.root.position.y).toBe(0);
+    },
+  );
+
   it('allows an explicit local preview from a stable offline state', () => {
     const fixture = createVrmFixture();
     const controller = new AvatarMotionController(fixture.vrm, fixture.root);

@@ -46,4 +46,4 @@ The packaged `out/Desky-win32-x64/Desky.exe` was exercised against the live brok
 
 The local files prove runtime compatibility and rejection behavior only. They are not admitted distributable assets and make no release-rights claim.
 
-Still required: live interruption during an active preview by a newly entered authoritative companion state, macOS packaged evidence, and the representative rights-reviewed VRM 0.x/1.0 binary suite.
+Active-preview interruption is now closed by the direct approval/cancellation/disconnection/error matrix and a packaged real-VRMA playback-to-interruption run recorded in `F3B10-EXECUTABLE-MOTION-CLOSURE-2026-08-24.md`. Still required: macOS packaged evidence and the representative rights-reviewed VRM 0.x/1.0 binary suite.

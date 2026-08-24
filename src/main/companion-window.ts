@@ -691,6 +691,74 @@ async function captureVisualTest(
       visualExerciseError = String(error);
     }
   }
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'vrma-interruption') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 30000;
+        const waitFor = async (predicate, message) => {
+          while (Date.now() < deadline) {
+            const result = predicate();
+            if (result) return result;
+            await wait(25);
+          }
+          throw new Error(message);
+        };
+        const root = await waitFor(
+          () => document.querySelector('.control-center'),
+          'Control Center did not become available',
+        );
+        const card = await waitFor(
+          () => document.querySelector('.animation-preview-card'),
+          'Local animation preview controls did not become available',
+        );
+        const findButton = (label) => [...card.querySelectorAll('button')]
+          .find((button) => button.textContent?.trim() === label);
+
+        const full = await waitFor(
+          () => findButton('Full'),
+          'Full motion control did not become available',
+        );
+        full.click();
+        await waitFor(
+          () => findButton('Full')?.getAttribute('aria-pressed') === 'true',
+          'Full motion preference was not applied',
+        );
+
+        const choose = await waitFor(
+          () => findButton('Choose .vrma'),
+          'Local animation chooser did not become available',
+        );
+        choose.click();
+        const playing = await waitFor(() => {
+          const status = card.querySelector('.animation-preview-card__status');
+          return status?.classList.contains('animation-preview-card__status--playing')
+            ? status
+            : undefined;
+        }, 'The selected VRM Animation did not begin playing');
+        root.dataset.vrmaInterruption = 'playing';
+        root.dataset.vrmaInterruptionStatus = playing.textContent?.trim() ?? '';
+
+        const reduced = await waitFor(
+          () => findButton('Reduced'),
+          'Reduced motion control did not become available',
+        );
+        reduced.click();
+        const interrupted = await waitFor(() => {
+          const status = card.querySelector('.animation-preview-card__status');
+          return status?.classList.contains('animation-preview-card__status--blocked')
+            && status.textContent?.toLowerCase().includes('interrupted')
+            ? status
+            : undefined;
+        }, 'Active VRM Animation did not report interruption');
+        root.dataset.vrmaInterruption = 'passed';
+        root.dataset.vrmaInterruptionStatus = interrupted.textContent?.trim() ?? '';
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
   const waitMs = Number.isSafeInteger(requestedWaitMs)
     ? Math.max(0, Math.min(requestedWaitMs, 60_000))
@@ -1093,6 +1161,8 @@ async function captureVisualTest(
     hermesUiExercise: document.querySelector('.control-center')?.dataset.hermesUiExercise ?? null,
     hermesTokenLeak: document.querySelector('.control-center')?.dataset.hermesTokenLeak ?? null,
     claudeUiExercise: document.querySelector('.control-center')?.dataset.claudeUiExercise ?? null,
+    vrmaInterruption: document.querySelector('.control-center')?.dataset.vrmaInterruption ?? null,
+    vrmaInterruptionStatus: document.querySelector('.control-center')?.dataset.vrmaInterruptionStatus ?? null,
     adapterOptions: [...document.querySelectorAll('[data-adapter-id]')].map((button) => ({
       adapterId: button.dataset.adapterId,
       selected: button.dataset.adapterSelected

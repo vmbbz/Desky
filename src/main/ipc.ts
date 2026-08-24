@@ -38,6 +38,7 @@ import {
   LocalAnimationPreviewHost,
   validateLocalAnimationAsset,
 } from './local-animation-preview';
+import { readScopedLocalAnimationVisualTestFile } from './local-animation-visual-test';
 import {
   ambientAvatarYawChannel,
   ambientDragChannel,
@@ -388,15 +389,26 @@ export function registerIpc(
     if (windows.surfaceFor(event.sender) !== 'control-center') {
       throw new Error('Local animations can only be selected from the control center.');
     }
-    const parent = BrowserWindow.fromWebContents(event.sender);
-    const options: OpenDialogOptions = {
-      title: 'Choose a VRM Animation',
-      properties: ['openFile'],
-      filters: [{ name: 'VRM Animation', extensions: ['vrma'] }],
-    };
-    const result = parent
-      ? await dialog.showOpenDialog(parent, options)
-      : await dialog.showOpenDialog(options);
+    const visualTestFile = readScopedLocalAnimationVisualTestFile({
+      exercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
+      capturePath: process.env.DESKY_VISUAL_TEST_PATH,
+      userDataPath: process.env.DESKY_VISUAL_TEST_USER_DATA,
+      animationPath: process.env.DESKY_VRMA_UI_TEST_FILE,
+      temporaryRoot: tmpdir(),
+    });
+    const result = visualTestFile
+      ? { canceled: false, filePaths: [visualTestFile] }
+      : await (() => {
+          const parent = BrowserWindow.fromWebContents(event.sender);
+          const options: OpenDialogOptions = {
+            title: 'Choose a VRM Animation',
+            properties: ['openFile'],
+            filters: [{ name: 'VRM Animation', extensions: ['vrma'] }],
+          };
+          return parent
+            ? dialog.showOpenDialog(parent, options)
+            : dialog.showOpenDialog(options);
+        })();
     if (result.canceled || result.filePaths.length !== 1) {
       return { cancelled: true, state: animation.getState() };
     }
