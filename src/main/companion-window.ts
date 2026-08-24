@@ -4,6 +4,7 @@ import { extname, join, normalize, sep } from 'node:path';
 import {
   app,
   BrowserWindow,
+  powerMonitor,
   protocol,
   screen,
   session,
@@ -90,6 +91,7 @@ async function captureVisualTest(
   window: BrowserWindow,
   surface: SurfaceKind,
   outputPath: string,
+  powerLifecycle?: { suspend: () => void; resume: () => void },
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
   let visualExerciseError: string | null = null;
@@ -214,7 +216,7 @@ async function captureVisualTest(
       10,
     );
     const switchCount = Number.isSafeInteger(requestedSwitchCount)
-      ? Math.max(1, Math.min(requestedSwitchCount, 40))
+      ? Math.max(1, Math.min(requestedSwitchCount, 100))
       : 20;
     try {
       await window.webContents.executeJavaScript(`(async () => {
@@ -229,7 +231,7 @@ async function captureVisualTest(
       const ids = [...document.querySelectorAll('[data-avatar-id]')]
         .map((button) => button.getAttribute('data-avatar-id'))
         .filter((value) => typeof value === 'string' && value.length > 0);
-      if (ids.length < 3) throw new Error('Twenty-switch soak requires three admitted avatars');
+      if (ids.length < 3) throw new Error('Avatar-switch soak requires three admitted avatars');
       const completed = [];
       for (let index = 0; index < ${switchCount}; index += 1) {
         const active = root.dataset.activeAvatarId ?? '';
@@ -331,6 +333,113 @@ async function captureVisualTest(
       visualExerciseError = String(error);
     }
   }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-unrecoverable') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 10000;
+        let canvas;
+        while (Date.now() < deadline) {
+          canvas = document.querySelector('.avatar-stage canvas');
+          if (canvas instanceof HTMLCanvasElement
+            && canvas.dataset.motionFrame
+            && canvas.dataset.webglState === 'ready') break;
+          await wait(50);
+        }
+        if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Avatar WebGL canvas is unavailable');
+        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+        const extension = context?.getExtension('WEBGL_lose_context');
+        if (!extension) throw new Error('WEBGL_lose_context is unavailable');
+        extension.loseContext();
+        const failureDeadline = Date.now() + 5000;
+        while (Date.now() < failureDeadline && canvas.dataset.webglState !== 'unrecoverable') {
+          await wait(50);
+        }
+        if (canvas.dataset.webglState !== 'unrecoverable') {
+          throw new Error('Unrecoverable WebGL fallback was not reached');
+        }
+        const retry = document.querySelector('[data-webgl-retry]');
+        if (!(retry instanceof HTMLButtonElement)) throw new Error('Graphics retry control is unavailable');
+        retry.click();
+        const retryDeadline = Date.now() + 10000;
+        let replacement;
+        while (Date.now() < retryDeadline) {
+          replacement = document.querySelector('.avatar-stage canvas');
+          if (replacement instanceof HTMLCanvasElement
+            && replacement !== canvas
+            && replacement.dataset.webglState === 'ready'
+            && Number.parseInt(replacement.dataset.motionFrame ?? '0', 10) > 0
+            && document.querySelector('.avatar-stage')?.dataset.avatarState === 'ready') break;
+          await wait(50);
+        }
+        if (!(replacement instanceof HTMLCanvasElement) || replacement === canvas) {
+          throw new Error('Graphics retry did not create a fresh rendering surface');
+        }
+        replacement.dataset.webglUnrecoverableRetryVerified = 'true';
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'render-lifecycle') {
+    try {
+      const readLoop = async () => window.webContents.executeJavaScript(`(() => {
+        const canvas = document.querySelector('.avatar-stage canvas');
+        return {
+          frame: Number.parseInt(canvas?.dataset.motionFrame ?? '0', 10),
+          suspended: canvas?.dataset.renderSuspended ?? null,
+          reason: canvas?.dataset.renderSuspensionReason ?? null,
+        };
+      })()`) as Promise<{ frame: number; suspended: string | null; reason: string | null }>;
+      const readyDeadline = Date.now() + 10000;
+      let initial = await readLoop();
+      while (Date.now() < readyDeadline && initial.frame < 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        initial = await readLoop();
+      }
+      window.hide();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const hiddenA = await readLoop();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const hiddenB = await readLoop();
+      window.showInactive();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const visible = await readLoop();
+      if (hiddenA.suspended !== 'true'
+        || !['native-hidden', 'document-hidden'].includes(hiddenA.reason ?? '')
+        || hiddenB.frame !== hiddenA.frame
+        || visible.frame <= hiddenB.frame) {
+        throw new Error('Native hidden-surface rendering did not suspend and resume cleanly');
+      }
+      if (!powerLifecycle) throw new Error('Power lifecycle harness is unavailable');
+      powerLifecycle.suspend();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const asleepA = await readLoop();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const asleepB = await readLoop();
+      powerLifecycle.resume();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const awake = await readLoop();
+      if (asleepA.suspended !== 'true'
+        || asleepA.reason !== 'power-suspend'
+        || asleepB.frame !== asleepA.frame
+        || awake.frame <= asleepB.frame) {
+        throw new Error('Power lifecycle rendering did not suspend and resume cleanly');
+      }
+      await window.webContents.executeJavaScript(`(() => {
+        const canvas = document.querySelector('.avatar-stage canvas');
+        if (canvas instanceof HTMLCanvasElement) {
+          canvas.dataset.renderLifecycleVerified = 'true';
+          canvas.dataset.hiddenSuspendedFrame = ${hiddenA.frame.toString()};
+          canvas.dataset.powerSuspendedFrame = ${asleepA.frame.toString()};
+        }
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+      if (!window.isVisible()) window.showInactive();
+      powerLifecycle?.resume();
+    }
+  }
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'manipulation') {
     await window.webContents.executeJavaScript(`(async () => {
       const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -420,6 +529,12 @@ async function captureVisualTest(
     webglLossCount: document.querySelector('.avatar-stage canvas')?.dataset.webglLossCount ?? null,
     webglRestoreCount: document.querySelector('.avatar-stage canvas')?.dataset.webglRestoreCount ?? null,
     webglRecoveryVerified: document.querySelector('.avatar-stage canvas')?.dataset.webglRecoveryVerified ?? null,
+    webglUnrecoverableRetryVerified: document.querySelector('.avatar-stage canvas')?.dataset.webglUnrecoverableRetryVerified ?? null,
+    renderSuspended: document.querySelector('.avatar-stage canvas')?.dataset.renderSuspended ?? null,
+    renderSuspensionReason: document.querySelector('.avatar-stage canvas')?.dataset.renderSuspensionReason ?? null,
+    renderLifecycleVerified: document.querySelector('.avatar-stage canvas')?.dataset.renderLifecycleVerified ?? null,
+    hiddenSuspendedFrame: document.querySelector('.avatar-stage canvas')?.dataset.hiddenSuspendedFrame ?? null,
+    powerSuspendedFrame: document.querySelector('.avatar-stage canvas')?.dataset.powerSuspendedFrame ?? null,
     motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
     visualExerciseError: ${JSON.stringify(visualExerciseError)},
@@ -468,6 +583,9 @@ function rendererUrl(surface: SurfaceKind): string {
   url.searchParams.set('surface', surface);
   const visualTestState = process.env.DESKY_VISUAL_TEST_STATE;
   if (visualTestState) url.searchParams.set('visualState', visualTestState);
+  if (process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-unrecoverable') {
+    url.searchParams.set('webglRecoveryTimeoutMs', '1200');
+  }
   return url.toString();
 }
 
@@ -483,6 +601,10 @@ export class DeskyWindowManager {
   private fullClickThrough = false;
 
   private pointerRegion: AmbientPointerRegion = 'transparent';
+
+  private powerSuspended = false;
+
+  private resumeEpoch = 0;
 
   private moveSaveTimer?: NodeJS.Timeout;
 
@@ -538,6 +660,8 @@ export class DeskyWindowManager {
     screen.on('display-added', this.handleDisplayChange);
     screen.on('display-removed', this.handleDisplayChange);
     screen.on('display-metrics-changed', this.handleDisplayChange);
+    powerMonitor.on('suspend', this.handlePowerSuspend);
+    powerMonitor.on('resume', this.handlePowerResume);
     const ambient = this.openAmbient();
     if (process.env.DESKY_VISUAL_TEST_EDGE === 'top-left') {
       const primary = screen.getPrimaryDisplay().workArea;
@@ -606,9 +730,11 @@ export class DeskyWindowManager {
       displayKey: arrangement,
       fullClickThrough: this.fullClickThrough,
       horizontalPlacement: edgeLayout.horizontalPlacement,
+      powerSuspended: this.powerSuspended,
       recoveryAvailable: this.desktopControls.hasRecoverySurface,
       recoveryShortcut: this.desktopControls.recoveryShortcut,
       recoveryShortcutRegistered: this.desktopControls.isShortcutRegistered,
+      resumeEpoch: this.resumeEpoch,
       trayAvailable: this.desktopControls.isTrayAvailable,
       visible: Boolean(
         this.ambient
@@ -721,6 +847,8 @@ export class DeskyWindowManager {
     screen.removeListener('display-added', this.handleDisplayChange);
     screen.removeListener('display-removed', this.handleDisplayChange);
     screen.removeListener('display-metrics-changed', this.handleDisplayChange);
+    powerMonitor.removeListener('suspend', this.handlePowerSuspend);
+    powerMonitor.removeListener('resume', this.handlePowerResume);
     this.desktopControls.dispose();
   }
 
@@ -761,7 +889,10 @@ export class DeskyWindowManager {
       const visualTestPath = process.env.DESKY_VISUAL_TEST_PATH;
       const visualTestSurface = process.env.DESKY_VISUAL_TEST_SURFACE ?? 'ambient';
       if (visualTestPath && visualTestSurface === surface) {
-        void captureVisualTest(window, surface, visualTestPath);
+        void captureVisualTest(window, surface, visualTestPath, {
+          suspend: this.handlePowerSuspend,
+          resume: this.handlePowerResume,
+        });
       }
     });
     if (process.env.DESKY_OPEN_DEVTOOLS === '1') {
@@ -786,6 +917,20 @@ export class DeskyWindowManager {
     }
     this.activeDisplayArrangement = nextArrangement;
     this.persistAmbientPlacement(displays, nextArrangement);
+    this.publishAmbientState();
+  };
+
+  private readonly handlePowerSuspend = (): void => {
+    if (this.powerSuspended) return;
+    this.powerSuspended = true;
+    this.publishAmbientState();
+  };
+
+  private readonly handlePowerResume = (): void => {
+    if (!this.powerSuspended) return;
+    this.powerSuspended = false;
+    this.resumeEpoch += 1;
+    this.clampAmbientToWorkArea();
     this.publishAmbientState();
   };
 

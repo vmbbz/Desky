@@ -101,11 +101,11 @@ A separate additive controller uses the avatar capability inventory before drivi
 
 ### F3d — resilience, accessibility, and performance
 
-Status: in progress. System reduced-motion detection exists; F4.4 now pauses on WebGL context loss and resumes the admitted scene after restoration with packaged Windows evidence. Unrecoverable-context fallback, hidden/occluded suspension, sleep/wake, long GPU plateau, accessibility, and macOS evidence remain open.
+Status: in progress. System reduced-motion detection exists. F4.4 proves restoration of the admitted scene after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability, adds a bounded fresh-renderer retry, and package-proves the shared lifecycle path plus 80 avatar switches on Windows. Real sleep/wake, full-screen suppression, unreported overlap occlusion, timed reference-device CPU/GPU budgets, accessibility, and macOS evidence remain open.
 
-- Add explicit pause-motion and reduced-motion overrides.
-- Suspend rendering when hidden, occluded, or full-screen suppressed.
-- Recover from WebGL loss and avatar replacement without leaking GPU resources.
+- Retain the implemented Paused/System/Full/Reduced policy through accessibility and lifecycle validation.
+- Suspend rendering when hidden or Chromium-reported occluded; add explicit full-screen suppression policy.
+- Recover from WebGL loss and avatar replacement without leaking GPU resources. The restoration and terminal-retry paths are implemented; reference-device plateau evidence remains.
 - Complete keyboard, screen-reader, contrast, scaling, idle CPU, active CPU, and memory evidence.
 - Run the packaged state matrix on reference Windows and macOS systems.
 
@@ -122,7 +122,7 @@ This lane does not block F3c because deterministic procedural state fallbacks al
 
 ### F4 marketplace foundation
 
-Status: motion personality, three real free admitted revisions, exact model/thumbnail provenance, content-addressed cache, transactional activation/rollback, saved selection, and the first-class Companions route are implemented. CoolBanana and Astronaut activation are package-verified on Windows. A qualifying VRM 1.0 binary, final-build network-denied restart, bounded eviction/detail preview, signed production catalog, macOS, and the twenty-switch matrix remain open.
+Status: motion personality, three real free admitted revisions, exact model/thumbnail provenance, content-addressed cache, transactional activation/rollback, saved selection, and the first-class Companions route are implemented. All three activate and restore from verified cache in packaged Windows; bounded eviction/detail preview, user-facing removal, corrupt-cache repair, and 20/40/80-switch matrices are proved. A qualifying VRM 1.0 binary, signed production catalog, macOS, and final reference-device performance remain open.
 
 - Add user-facing `Paused`, `Quiet`, `Balanced`, `Lively`, and category-based `Custom` motion policy without exposing clip filenames.
 - Define strict admitted-avatar revision and signed presentation-catalog contracts; the upstream Open Source Avatars registry remains untrusted candidate input.

@@ -59,6 +59,9 @@ interface AvatarStageProps {
   motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
   onHitTestReady?: (hitTest: AvatarHitTest | undefined) => void;
+  powerSuspended?: boolean;
+  resumeEpoch?: number;
+  surfaceVisible?: boolean;
   viewYawDegrees?: number;
 }
 
@@ -94,6 +97,9 @@ export function AvatarStage({
   motionCue,
   onVisibleBounds,
   onHitTestReady,
+  powerSuspended = false,
+  resumeEpoch = 0,
+  surfaceVisible = true,
   viewYawDegrees = 0,
 }: AvatarStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -105,8 +111,13 @@ export function AvatarStage({
   const motionCueRef = useRef(motionCue);
   const motionPreferenceRef = useRef(motionPreference);
   const motionPersonalityRef = useRef(motionPersonality);
+  const powerSuspendedRef = useRef(powerSuspended);
+  const surfaceVisibleRef = useRef(surfaceVisible);
+  const renderLoopControlRef = useRef<(() => void) | undefined>(undefined);
   const viewYawDegreesRef = useRef(viewYawDegrees);
   const admittedMotionCueIdRef = useRef<string>(undefined);
+  const [graphicsRetryAvailable, setGraphicsRetryAvailable] = useState(false);
+  const [graphicsRetryGeneration, setGraphicsRetryGeneration] = useState(0);
   const [loadState, setLoadState] = useState<LoadState>({
     kind: 'loading',
     message: 'Finding a licensed CC0 avatar…',
@@ -129,6 +140,16 @@ export function AvatarStage({
   useEffect(() => {
     viewYawDegreesRef.current = viewYawDegrees;
   }, [viewYawDegrees]);
+
+  useEffect(() => {
+    surfaceVisibleRef.current = surfaceVisible;
+    renderLoopControlRef.current?.();
+  }, [surfaceVisible]);
+
+  useEffect(() => {
+    powerSuspendedRef.current = powerSuspended;
+    renderLoopControlRef.current?.();
+  }, [powerSuspended, resumeEpoch]);
 
   useEffect(() => {
     motionCueRef.current = motionCue;
@@ -172,6 +193,8 @@ export function AvatarStage({
     let appliedViewYawDegrees: number | undefined;
     let lastBoundsSignature = '';
     let webglContextLost = false;
+    let webglContextUnrecoverable = false;
+    let webglRecoveryTimer: ReturnType<typeof setTimeout> | undefined;
     let readySnapshot: Extract<LoadState, { kind: 'ready' }> | undefined;
     const reportPreview = (
       requestId: string,
@@ -259,6 +282,14 @@ export function AvatarStage({
     canvas.dataset.webglLossCount = '0';
     canvas.dataset.webglRestoreCount = '0';
 
+    const requestedRecoveryTimeout = Number.parseInt(
+      new URLSearchParams(window.location.search).get('webglRecoveryTimeoutMs') ?? '',
+      10,
+    );
+    const webglRecoveryTimeoutMs = Number.isSafeInteger(requestedRecoveryTimeout)
+      ? Math.max(1000, Math.min(requestedRecoveryTimeout, 30_000))
+      : 8_000;
+
     const handleContextLost = (event: Event) => {
       event.preventDefault();
       webglContextLost = true;
@@ -266,17 +297,35 @@ export function AvatarStage({
       canvas.dataset.webglLossCount = String(
         Number.parseInt(canvas.dataset.webglLossCount ?? '0', 10) + 1,
       );
+      if (webglRecoveryTimer) clearTimeout(webglRecoveryTimer);
+      webglRecoveryTimer = setTimeout(() => {
+        if (disposed || !webglContextLost) return;
+        webglContextUnrecoverable = true;
+        canvas.dataset.webglState = 'unrecoverable';
+        setGraphicsRetryAvailable(true);
+        setLoadState({
+          kind: 'error',
+          message: 'Graphics recovery timed out. Retry the companion renderer.',
+        });
+        renderLoopControlRef.current?.();
+      }, webglRecoveryTimeoutMs);
       setLoadState({ kind: 'loading', message: 'Graphics paused · recovering the companion…' });
+      renderLoopControlRef.current?.();
     };
     const handleContextRestored = () => {
+      if (webglRecoveryTimer) clearTimeout(webglRecoveryTimer);
+      webglRecoveryTimer = undefined;
       webglContextLost = false;
+      webglContextUnrecoverable = false;
       canvas.dataset.webglState = 'recovered';
       canvas.dataset.webglRestoreCount = String(
         Number.parseInt(canvas.dataset.webglRestoreCount ?? '0', 10) + 1,
       );
       renderer.resetState();
       resize();
+      setGraphicsRetryAvailable(false);
       if (readySnapshot) setLoadState(readySnapshot);
+      renderLoopControlRef.current?.();
     };
     canvas.addEventListener('webglcontextlost', handleContextLost);
     canvas.addEventListener('webglcontextrestored', handleContextRestored);
@@ -346,11 +395,44 @@ export function AvatarStage({
     resize();
 
     const clock = new Clock();
+    let motionElapsed = 0;
     let motionFrame = 0;
+    let loopActive = false;
+    const renderSuspensionReason = () => {
+      if (webglContextUnrecoverable) return 'webgl-unrecoverable';
+      if (webglContextLost) return 'webgl-lost';
+      if (powerSuspendedRef.current) return 'power-suspend';
+      if (!surfaceVisibleRef.current) return 'native-hidden';
+      if (document.hidden) return 'document-hidden';
+      return '';
+    };
+    const syncRenderLoop = () => {
+      if (disposed) return;
+      const reason = renderSuspensionReason();
+      canvas.dataset.renderSuspended = String(Boolean(reason));
+      canvas.dataset.renderSuspensionReason = reason;
+      if (reason) {
+        if (loopActive) cancelAnimationFrame(frameId);
+        loopActive = false;
+        return;
+      }
+      if (loopActive) return;
+      clock.start();
+      loopActive = true;
+      frameId = requestAnimationFrame(animate);
+    };
     const animate = () => {
       if (disposed) return;
+      const suspensionReason = renderSuspensionReason();
+      if (suspensionReason) {
+        canvas.dataset.renderSuspended = 'true';
+        canvas.dataset.renderSuspensionReason = suspensionReason;
+        loopActive = false;
+        return;
+      }
       const delta = Math.min(clock.getDelta(), 0.1);
-      const elapsed = clock.elapsedTime;
+      motionElapsed += delta;
+      const elapsed = motionElapsed;
       const motionController = motionControllerRef.current;
       motionController?.update(delta, elapsed);
       motionFrame += 1;
@@ -373,9 +455,12 @@ export function AvatarStage({
         reportVisibleBounds();
       }
 
-      if (!webglContextLost) renderer.render(scene, camera);
+      renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
+    const handleVisibilityChange = () => syncRenderLoop();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    renderLoopControlRef.current = syncRenderLoop;
 
     let loadedRevisionId: string | undefined;
     const load = async () => {
@@ -531,15 +616,19 @@ export function AvatarStage({
     };
 
     void load();
-    animate();
+    syncRenderLoop();
 
     return () => {
       disposed = true;
       cancelAnimationFrame(frameId);
+      loopActive = false;
+      if (webglRecoveryTimer) clearTimeout(webglRecoveryTimer);
+      if (renderLoopControlRef.current === syncRenderLoop) renderLoopControlRef.current = undefined;
       activePreviewRequestId = undefined;
       removeAnimationCommand();
       resizeObserver.disconnect();
       reducedMotionQuery.removeEventListener('change', updateReducedMotion);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       motionControllerRef.current?.dispose();
@@ -553,7 +642,7 @@ export function AvatarStage({
       onVisibleBoundsRef.current?.(undefined);
       onHitTestReadyRef.current?.(undefined);
     };
-  }, [avatarRevisionId]);
+  }, [avatarRevisionId, graphicsRetryGeneration]);
 
   return (
     <section
@@ -562,9 +651,23 @@ export function AvatarStage({
       data-avatar-state={loadState.kind}
       data-avatar-texture-count={loadState.kind === 'ready' ? loadState.textureCount : undefined}
     >
-      <canvas ref={canvasRef} />
+      <canvas key={graphicsRetryGeneration} ref={canvasRef} />
       <div className={`asset-status asset-status--${loadState.kind}`} role="status">
         {loadState.message}
+        {graphicsRetryAvailable ? (
+          <button
+            type="button"
+            data-webgl-retry
+            data-desky-interactive="true"
+            onClick={() => {
+              setGraphicsRetryAvailable(false);
+              setLoadState({ kind: 'loading', message: 'Restarting the companion renderer…' });
+              setGraphicsRetryGeneration((value) => value + 1);
+            }}
+          >
+            Retry graphics
+          </button>
+        ) : null}
       </div>
     </section>
   );

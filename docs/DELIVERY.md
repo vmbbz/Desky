@@ -156,7 +156,7 @@ Still open in F3b/F3d:
 - Run the approved 84-clip Quaternius candidate library through the full packaged VRM 0.x/1.0 visual, interruption, transition, reduced-motion, and performance matrix; keep context-sensitive catalogue candidates disabled until reviewed.
 - Live-verify the implemented normalized agent-action command through the installed OpenClaw plugin, then extend richer reviewed gesture selection. The queue currently supports speaking emphasis plus explicit user and typed agent Wave/Jump requests.
 - Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
-- Add an in-product pause/reduced-motion override, occlusion suspension, WebGL recovery, and packaged Windows/macOS visual/performance evidence.
+- Complete full-screen suppression, real sleep/wake, reference-device performance, accessibility, and macOS lifecycle evidence. Motion controls, native/document hiding, WebGL restoration, and terminal renderer retry are implemented on Windows.
 
 The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
 
@@ -330,7 +330,17 @@ Evidence: `docs/verification/F4-PREVIEW-CACHE-DURABILITY-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-STORAGE-WEBGL-RECOVERY-2026-08-24.md`.
 
-Next: representative full-motion Milk/Astronaut captures, a rights-clear real VRM 1.0 admission, macOS equivalence, longer GPU/sleep-wake lifecycle evidence, hidden/occluded render suspension, and an unrecoverable-context fallback route. Signed production catalog work follows; F4x remains blocked.
+### F4.5 render lifecycle and representative motion — 2026-08-24
+
+- Stopped the animation-frame loop for native-hidden, Chromium document-hidden/occluded, Electron power-suspended, WebGL-lost, and WebGL-unrecoverable states; motion time now advances only while active.
+- Wired real Electron suspend/resume events into typed main-owned ambient state without focusing or reopening an intentionally hidden companion.
+- Added an eight-second production WebGL recovery deadline and persistent **Retry graphics** route that replaces the canvas/renderer before re-admitting the selected asset.
+- Package-proved native hide/show suspension, the shared power lifecycle path, withheld WebGL restoration followed by successful retry, and 80 serialized avatar switches.
+- Captured Full-motion Jump on Milk and Astronaut. Runtime binding and texture admission pass, but visual review found expansive limbs/antenna at the frame edge, so per-avatar motion-envelope visual admission remains open.
+
+Evidence: `docs/verification/F4-RENDER-LIFECYCLE-2026-08-24.md`.
+
+Next: motion-envelope framing/tuning for the representative VRM 0.x pair, a rights-clear real VRM 1.0 admission, real Windows sleep/wake and timed performance, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 
@@ -429,8 +439,8 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete the real rights-clear VRM 1.0, Mac package, user-facing cache controls, and longer GPU/lifecycle portions of the F4 compatibility matrix.
-2. Complete the remaining local-VRMA interruption, live Wave, representative Milk/Astronaut full-motion evidence, and corrupt/restart matrix.
+1. Add motion-envelope framing/tuning, then complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix.
+2. Complete the remaining local-VRMA interruption and separate live Wave evidence; Milk/Astronaut runtime motion and the full corrupt/restart matrix are proved, while expansive-action visual admission remains open.
 3. Start F5a generic adapter-host extraction before a second production adapter or final connection UX; keep commerce capability separate and make OpenClaw the first action/discovery conformance implementation.
 4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
 5. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.

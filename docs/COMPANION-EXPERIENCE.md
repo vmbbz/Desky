@@ -269,13 +269,15 @@ F3c.3 makes the resting ambient surface avatar-first. Status, drag, settings, cl
 
 F3c.4 makes the avatar directly manipulable without exposing Electron primitives to the renderer. A validated typed IPC command moves only the ambient surface, the main process owns starting bounds and work-area clamping, and position persistence still uses the display-arrangement store. View rotation stays a renderer motion transform but its bounded angle is persisted by main. The renderer mirrors the audited OSA viewer interaction: a Three.js raycast distinguishes direct mesh contact from transparent space. Mesh drags rotate without a modifier; transparent-space drags move the native surface. Pointer capture and click suppression separate manipulation from composer focus, while the focused grip, Shift/Alt, wheel, and keyboard affordances provide deterministic alternatives. Decorative autonomous motion remains lower priority than every meaningful companion state.
 
-Manual pointer pass-through at every required display scale, equivalent macOS behavior, full-screen policy, assistive-technology validation, and sleep/wake/display-reconnect evidence remain F3/F3d gates.
+Manual pointer pass-through at every required display scale, equivalent macOS behavior, full-screen policy, assistive-technology validation, and real sleep/wake/display-reconnect evidence remain F3/F3d gates.
 
 ### F3d — resilience and evidence
 
 - Add reduced-motion, paused, WebGL-loss, missing-clip, and avatar-load fallbacks.
 - Capture a packaged visual/state matrix on reference Windows and macOS devices.
 - Enforce idle/active/hidden performance budgets and verify GPU cleanup.
+
+The Windows implementation now stops the animation-frame loop for main-reported native hiding, Chromium-reported document hiding/occlusion, Electron power suspension, and WebGL loss. It uses active-only motion time so hidden intervals do not skip autonomous programs. A bounded unrecoverable-WebGL state keeps ordinary UI available and offers a fresh-canvas **Retry graphics** route. Packaged evidence proves native hide/show, the shared power state path, a real withheld WebGL restoration followed by retry, and 80 transactional avatar changes. Real hardware sleep/wake, arbitrary overlap occlusion where Chromium does not report it, full-screen suppression, timed reference-device budgets, accessibility, and macOS remain open.
 
 F4 completes the standard control center, full transcript, settings, approval history, avatar browser, and daily management workflows.
 

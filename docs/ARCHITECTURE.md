@@ -155,7 +155,8 @@ An agent-facing commerce capability is read-mostly and provider-neutral. Agents 
 - Fail-closed core humanoid and embedded usage-permission checks before a model enters the scene.
 - SHA-256 provenance over the exact downloaded model bytes, joined to reviewed catalog licence metadata and retained with the loaded scene.
 - Fixed timestep where animation correctness requires it; render interpolation for display refresh.
-- Pause or reduce work when hidden, occluded, on battery-saving mode, or reduced-motion is enabled.
+- Stop the animation-frame loop when the native surface is hidden, Chromium reports the document hidden/occluded, Electron reports OS power suspend, or WebGL is unavailable. Motion time advances only while rendering is active.
+- Pause or reduce work when battery-saving mode or reduced-motion is enabled.
 - Dispose geometries, materials, textures, mixers, and object URLs on replacement.
 - Measure the character's projected visible bounds for safe bubble/composer placement without treating the full transparent canvas as occupied.
 
@@ -208,7 +209,7 @@ Windows Store may support more than the least-common `store` profile. Platform c
 - Gateway loss enters `disconnected`, preserves unsent user input, and offers explicit reconnect.
 - Malformed events are quarantined and reported without crashing the render loop.
 - Avatar failure displays an accessible status and permits catalog replacement.
-- WebGL loss attempts one controlled renderer reconstruction.
+- WebGL loss pauses the loop while restoration remains possible. After a bounded deadline it exposes an accessible terminal fallback; explicit retry replaces the canvas and renderer before re-admitting the selected avatar.
 - Adapter crashes use bounded exponential restart with a visible stop option.
 - Approval events never auto-resolve after reconnection.
 

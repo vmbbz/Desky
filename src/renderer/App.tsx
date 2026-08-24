@@ -621,6 +621,9 @@ export function App() {
             motionCue={motionCue}
             onVisibleBounds={setAvatarBounds}
             onHitTestReady={acceptAvatarHitTest}
+            powerSuspended={ambientState?.powerSuspended ?? false}
+            resumeEpoch={ambientState?.resumeEpoch ?? 0}
+            surfaceVisible={ambientState?.visible ?? true}
             viewYawDegrees={avatarYawDegrees}
           />
           {avatarBounds ? (

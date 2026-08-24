@@ -153,7 +153,23 @@ button { cursor: pointer; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.asset-status--error { color: #ff9aab; }
+.asset-status--error {
+  z-index: 12;
+  color: #ff9aab;
+  text-align: center;
+  white-space: normal;
+}
+.asset-status--error button {
+  display: block;
+  margin: 5px auto 0;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 154, 171, 0.45);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(5, 8, 14, 0.9);
+  font: inherit;
+  cursor: pointer;
+}
 
 .speech-bubble {
   position: relative;
@@ -478,6 +494,7 @@ body[data-desky-surface="control-center"] {
 .ambient-avatar .asset-status { opacity: 0; transition: opacity 140ms ease; }
 .ambient-avatar:hover .asset-status,
 .ambient-companion[data-composer-expanded="true"] .asset-status { opacity: 0.8; }
+.ambient-avatar .asset-status--error { opacity: 1; }
 
 .ambient-avatar-hitbox {
   -webkit-app-region: no-drag;

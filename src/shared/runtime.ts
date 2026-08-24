@@ -53,9 +53,11 @@ export interface AmbientSurfaceState {
   displayKey: string;
   fullClickThrough: boolean;
   horizontalPlacement: HorizontalPlacement;
+  powerSuspended: boolean;
   recoveryAvailable: boolean;
   recoveryShortcut: string;
   recoveryShortcutRegistered: boolean;
+  resumeEpoch: number;
   trayAvailable: boolean;
   visible: boolean;
   workArea: DesktopRectangle;
