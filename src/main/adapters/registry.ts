@@ -9,6 +9,11 @@ import type {
   AdapterResolveApprovalInput,
 } from '../../shared/agent-adapter';
 import type { AgentAdapterRuntime } from './runtime';
+import {
+  assertAdapterConnectionState,
+  assertAdapterDescriptor,
+  assertAdapterEvent,
+} from './contract';
 
 type StateListener = (state: AdapterConnectionState) => void;
 type EventListener = (event: AdapterEvent) => void;
@@ -56,16 +61,20 @@ export class AgentAdapterRegistry {
   ) {
     if (runtimes.length === 0) throw new Error('At least one agent adapter runtime is required.');
     for (const runtime of runtimes) {
+      assertAdapterDescriptor(runtime.descriptor);
+      assertAdapterConnectionState(runtime.getState(), runtime.descriptor);
       const id = runtime.descriptor.adapterId;
       if (!id || this.runtimes.has(id)) throw new Error(`Duplicate or invalid adapter id: ${id}`);
       this.runtimes.set(id, runtime);
       this.unsubscribeRuntimeListeners.push(
         runtime.onState((state) => {
           if (id !== this.activeAdapterId) return;
+          assertAdapterConnectionState(state, runtime.descriptor);
           for (const listener of this.stateListeners) listener(cloneConnectionState(state));
         }),
         runtime.onEvent((event) => {
           if (id !== this.activeAdapterId) return;
+          assertAdapterEvent(event);
           for (const listener of this.eventListeners) listener(event);
         }),
         runtime.onAction((command) => {
@@ -90,7 +99,10 @@ export class AgentAdapterRegistry {
   }
 
   getState(): AdapterConnectionState {
-    return cloneConnectionState(this.activeRuntime().getState());
+    const runtime = this.activeRuntime();
+    const state = runtime.getState();
+    assertAdapterConnectionState(state, runtime.descriptor);
+    return cloneConnectionState(state);
   }
 
   async connect(command: AdapterConnectCommand): Promise<AdapterConnectionState> {
@@ -186,9 +198,16 @@ export class AgentAdapterRegistry {
     operationInput?: unknown,
   ): Promise<T> {
     try {
-      return await operation();
+      const result = await operation();
+      if (isConnectionState(result)) assertAdapterConnectionState(result, runtime.descriptor);
+      return result;
     } catch (error) {
       throw new Error(runtime.rendererSafeError(error, operationInput));
     }
   }
+}
+
+function isConnectionState(value: unknown): value is AdapterConnectionState {
+  return typeof value === 'object' && value !== null && 'schemaVersion' in value
+    && 'adapterId' in value && 'status' in value && 'capabilities' in value;
 }

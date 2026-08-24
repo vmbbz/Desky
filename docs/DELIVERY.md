@@ -410,13 +410,13 @@ The security and protocol authority is `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ## F5 — additional runtimes
 
-F5a.1 is implemented: the executable generic contracts, active-runtime registry, `desky:adapter:*` IPC/preload surface, and provider-neutral renderer state sit above the unchanged OpenClaw transport host. F5a.2 is complete: Codex is a production direct-profile adapter behind explicit provider selection, while Store-profile construction contains only OpenClaw. The bounded stdio peer, executable/version/schema admission, opaque workspace grants, read-only-first sandbox disclosure, consumed-field validation, bounded full-readmission reconnect, shell-free process-tree termination and awaited shutdown all remain main-owned. Typed actions are truthfully unsupported because the only client-local registration surface is experimental. Both source and packaged authenticated matrices pass real model streaming, write approval deny/allow, descendant cancellation, same-session recovery and reconnect; the packaged filesystem oracle independently confirms exact allow bytes and denied/cancelled absence. The next F5 gate is stabilizing the shared adapter conformance/SDK surface against these two production implementations before Claude admission research.
+F5a.1 is implemented: the executable generic contracts, active-runtime registry, `desky:adapter:*` IPC/preload surface, and provider-neutral renderer state sit above the unchanged OpenClaw transport host. F5a.2 is complete: Codex is a production direct-profile adapter behind explicit provider selection, while Store-profile construction contains only OpenClaw. The bounded stdio peer, executable/version/schema admission, opaque workspace grants, read-only-first sandbox disclosure, consumed-field validation, bounded full-readmission reconnect, shell-free process-tree termination and awaited shutdown all remain main-owned. Typed actions are truthfully unsupported because the only client-local registration surface is experimental. Both source and packaged authenticated matrices pass real model streaming, write approval deny/allow, descendant cancellation, same-session recovery and reconnect; the packaged filesystem oracle independently confirms exact allow bytes and denied/cancelled absence. F5a.3 has frozen executable Adapter Contract v1 invariants across both production implementations: descriptors, normalized state, capabilities, sessions, agent-action claims, and bounded events now fail closed at the registry boundary. Public third-party SDK packaging remains a later gate, not an implied promise from internal interfaces.
 
 Order:
 
-1. Codex direct adapter using app-server stdio.
-2. Claude supported structured interface.
-3. Hermes after supported protocol discovery.
+1. Codex direct adapter using app-server stdio. Complete.
+2. Hermes authenticated API-server adapter, prioritized after official structured-protocol discovery.
+3. Claude supported Agent SDK adapter for direct builds; consumer Claude login cannot be reused by third-party products without Anthropic approval.
 
 Exit gate per adapter:
 
@@ -461,7 +461,7 @@ These decisions are deliberately not guessed:
 
 1. Complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix; live motion-envelope framing now passes on both admitted representative VRM 0.x companions.
 2. Complete the remaining local-VRMA interruption and separate live Wave evidence; Milk/Astronaut runtime motion and the full corrupt/restart matrix are proved, while expansive-action visual admission remains open.
-3. Stabilize the F5a adapter conformance/SDK boundary now that OpenClaw and direct-profile Codex are both admitted; then research Claude and Hermes only through supported structured transports. Keep commerce capability separate.
+3. Implement the Hermes API-server adapter against executable Contract v1, then the Claude Agent SDK direct adapter. Keep both unadmitted until authenticated source and packaged matrices pass; keep commerce capability separate.
 4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
 5. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
 

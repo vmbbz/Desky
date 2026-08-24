@@ -4,7 +4,7 @@
 
 Adapters translate a runtime's native protocol into Desky events and commands. They do not select animations, manipulate UI, or silently grant permissions.
 
-The initial protocol is internal while semantics stabilize. A public adapter SDK begins only after two substantially different production adapters pass the same contract suite.
+Adapter Contract v1 is now an executable internal boundary. `src/main/adapters/contract.ts` validates every registered descriptor and initial state, every state returned through the registry, and every forwarded normalized event before it can cross IPC. OpenClaw and Codex both pass the same invariant suite. This freezes semantic identity, bounds, capability consistency, session uniqueness, finite agent-action claims, and the 16 KiB normalized-event payload ceiling without freezing provider-native wire formats. A separately versioned public adapter SDK remains gated on extracted author documentation and a third independently implemented adapter; internal TypeScript interfaces alone are not a supported extension API.
 
 The provider-neutral platform is executable in `src/shared/agent-adapter.ts`, `src/main/adapters/runtime.ts`, and `src/main/adapters/registry.ts`. It owns safe descriptors, connection/session state, lifecycle commands, normalized events, and the separate typed agent-action lane. `AgentAdapterCapabilities` records sessions, streaming, tools, approvals, cancellation, reconnect, and typed agent-action availability. OpenClaw discovers its Desky action tool through a read-scoped plugin method; later runtimes must translate their supported native discovery surfaces into the same shape. Generic tool streaming alone never implies that the Desky action schema is installed.
 
@@ -121,7 +121,7 @@ Adapters may expose this only when their runtime provides a registered structure
 
 ## Contract tests
 
-Every adapter must pass fixtures for:
+Every adapter must first pass the executable descriptor/state/event invariants and then fixtures for:
 
 1. successful connection and clean disconnect;
 2. authentication failure without token leakage;
@@ -139,6 +139,6 @@ The simulation adapter is a UI/state-machine harness only. It is always labeled 
 
 ## Adapter-platform extraction timing
 
-OpenClaw is the first production conformance runtime behind the generic platform, not the application-level bridge. `OpenClawRuntime` validates its exact token/password payload, maps native gateway/session/run names into the shared state, preserves redaction, and delegates transport behavior to the already-proven `OpenClawAdapterHost`. The renderer and preload expose only `desky.adapters` over `desky:adapter:*` channels. Codex is the next substantially different adapter; the public adapter SDK stabilizes only after both pass.
+OpenClaw is the first production conformance runtime behind the generic platform, not the application-level bridge. `OpenClawRuntime` validates its exact token/password payload, maps native gateway/session/run names into the shared state, preserves redaction, and delegates transport behavior to the already-proven `OpenClawAdapterHost`. The renderer and preload expose only `desky.adapters` over `desky:adapter:*` channels. Codex is the second substantially different production adapter and both now pass executable Contract v1 invariants.
 
-Claude then uses a supported structured interface, and Hermes proceeds only after supported programmatic transport discovery. Neither integration may scrape terminal presentation text. The desktop companion can proceed independently because it consumes only normalized `AdapterEvent` values.
+Hermes is prioritized next through its authenticated API-server resources and run-event SSE contract; Claude follows through the supported Agent SDK in direct builds. Neither integration may scrape terminal presentation text, inherit consumer login without explicit upstream permission, or become `production: true` before its authenticated source and packaged matrices pass. The desktop companion can proceed independently because it consumes only normalized `AdapterEvent` values.
