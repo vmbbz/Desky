@@ -101,6 +101,8 @@ The contextual composer uses a separate typed companion bridge. Main holds one b
 
 The companion surfaces now use the executable provider-neutral adapter contract. `AgentAdapterRegistry` owns active-runtime selection and forwards only the selected runtime's safe state, events, actions, and lifecycle commands. Shared descriptors and connection/session/turn state use generic identifiers; provider authentication remains an opaque configuration envelope until the selected main-process runtime validates it. Preload exposes only `desky.adapters` over `desky:adapter:*` channels. The renderer-local Simulation harness remains visibly separate and cannot satisfy a production adapter gate.
 
+The second-adapter candidate is deliberately behind the registry admission line. `CodexRuntime` supervises the official stdio app-server surface, but its descriptor remains `production: false` and no production registry includes it. Its provider layer owns executable/version admission, account state, threads/turns, approval request correlation, native decision mapping, private-reasoning rejection, redacted tool lifecycle, terminal deduplication, and process failure. This validates the shared contract against a substantially different provider without exposing incomplete UI or Store capability.
+
 ### OpenClaw adapter host
 
 The first production adapter is owned entirely by the main process:

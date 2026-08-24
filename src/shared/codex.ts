@@ -23,7 +23,7 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
   tools: true,
   approvals: true,
   cancellation: true,
-  reconnect: true,
+  reconnect: false,
   agentActions: {
     availability: 'unsupported',
     transport: 'none',

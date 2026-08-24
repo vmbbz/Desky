@@ -151,7 +151,10 @@ function readAdapterConnectCommand(value: unknown): AdapterConnectCommand {
 function readApprovalInput(value: unknown): AdapterResolveApprovalInput {
   if (!isRecord(value)
     || typeof value.requestId !== 'string'
-    || (value.kind !== 'exec' && value.kind !== 'plugin' && value.kind !== 'system-agent')
+    || (value.kind !== 'exec'
+      && value.kind !== 'file-change'
+      && value.kind !== 'plugin'
+      && value.kind !== 'system-agent')
     || (value.decision !== 'allow-once' && value.decision !== 'allow-always' && value.decision !== 'deny')) {
     throw new Error('Invalid approval decision.');
   }

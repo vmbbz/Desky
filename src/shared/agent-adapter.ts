@@ -16,7 +16,7 @@ export const adapterConnectionStatuses = [
 
 export type AdapterConnectionStatus = (typeof adapterConnectionStatuses)[number];
 export type ApprovalDecision = 'allow-once' | 'allow-always' | 'deny';
-export type ApprovalKind = 'exec' | 'plugin' | 'system-agent';
+export type ApprovalKind = 'exec' | 'file-change' | 'plugin' | 'system-agent';
 
 export interface AdapterAuthenticationMethod {
   id: string;

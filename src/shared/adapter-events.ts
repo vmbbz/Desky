@@ -35,7 +35,7 @@ export type AdapterEvent = EventContext & (
       type: 'approval.requested';
       payload: {
         requestId: string;
-        kind: 'exec' | 'plugin' | 'system-agent';
+        kind: 'exec' | 'file-change' | 'plugin' | 'system-agent';
         action: string;
         safeTarget: string;
         allowedDecisions: Array<'allow-once' | 'allow-always' | 'deny'>;

@@ -108,7 +108,14 @@ export class OpenClawRuntime implements AgentAdapterRuntime {
   }
 
   resolveApproval(input: AdapterResolveApprovalInput): Promise<void> {
-    return this.host.resolveApproval(input);
+    if (input.kind === 'file-change') {
+      return Promise.reject(new Error('OpenClaw does not support file-change approvals.'));
+    }
+    return this.host.resolveApproval({
+      requestId: input.requestId,
+      kind: input.kind,
+      decision: input.decision,
+    });
   }
 
   onState(listener: (state: AdapterConnectionState) => void): () => void {
