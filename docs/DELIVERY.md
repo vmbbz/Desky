@@ -400,6 +400,8 @@ F4x is downstream of the free marketplace foundation and can progress beside lat
 
 Exit: adversarial contract suite and clean-device restore pass; JWT is demonstrably not the durable ledger.
 
+F4x.1a is implemented: exact versioned product/offer/order/payment/event parsers, positive atomic-string amounts, forward-only idempotent state machines, append-only entitlement projection, and dependency-free main-process Ed25519 access-JWT verification pass 33 focused adversarial tests. Runtime policy maps Windows/macOS direct/store profiles while keeping every paid provider, external checkout, and production payment unreachable. The durable service, quote/asset-grant contracts, transactional storage, JWKS/refresh/vault rotation, offline lease, restore/reconciliation, and clean-device evidence remain F4x.1 exits; no x402 payment path or paid UI exists yet.
+
 ### F4x.2 x402 Base direct-build pilot
 
 - Pin and audit x402 v2; pass Base Sepolia exact-USDC success/failure/replay/expiry/duplicate/callback-loss tests.

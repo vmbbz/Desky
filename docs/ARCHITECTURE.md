@@ -170,6 +170,8 @@ verified offer -> human approval -> commerce provider -> durable order
 
 Free, StoreKit, Microsoft commerce, x402 Base/Solana, promotion, and support grants project into the same product entitlement model. Payment settlement never writes access directly, and a JWT is never the durable purchase record. The entitlement service owns idempotent orders, reconciliation, refunds/revocations, restore, key rotation, and bounded offline leases. Main owns OS-vault credentials and release-profile enforcement; the renderer receives only typed catalog, quote, order, and install projections.
 
+F4x.1a makes the contract boundary executable without enabling commerce. Strict shared parsers admit products, offers, atomic-string orders, payment attempts, and append-only entitlement events; pure state machines reject skipped/backwards transitions and projections apply grant, expiry, refund/revoke, and support-restore events in ledger order. Main has a dependency-free Ed25519 compact-token verifier with pinned algorithm/type/key/issuer/audience, short lifetime, narrow scope/grants, canonical base64url, and signature-before-claims handling. The four release policies still expose only the free provider. Durable service storage, JWKS/refresh/offline lease, quote/reconciliation, and all payment routes remain outside the executable application until their later gates pass.
+
 An agent-facing commerce capability is read-mostly and provider-neutral. Agents may search the catalog, inspect entitlement status, and prepare a trusted checkout deep link. They cannot supply price/network/asset/recipient authority, sign a wallet transaction, or bypass the local human approval surface. See `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ### Avatar renderer

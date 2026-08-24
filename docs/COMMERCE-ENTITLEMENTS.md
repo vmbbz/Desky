@@ -6,6 +6,20 @@ Desky needs one durable answer to a simple question: “May this account/device 
 
 Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
 
+## Implemented foundation — F4x.1a, 2026-08-24
+
+The first executable slice is deliberately provider-disabled:
+
+- `src/shared/commerce.ts` defines and strictly parses versioned product, offer, order, payment-attempt, and entitlement-event contracts. Unknown fields, unsafe identifiers/timestamps, duplicate arrays, floating/zero/negative/oversized atomic amounts, invalid provider/source combinations, and backwards state transitions fail closed.
+- The pure order and payment state machines permit only explicit forward transitions and make an exact repeated transition idempotent.
+- Entitlement events append without mutation. Exact event replay is idempotent; event-ID collisions and duplicate source/type references fail. Projection handles time-bounded grants, refunds/revocations/expiry, and explicit support restoration without treating payment or a JWT as the ledger.
+- `src/main/commerce/access-token.ts` verifies compact Ed25519 JWS tokens with exact `alg=EdDSA`, `typ=desky-access+jwt`, admitted `kid`, issuer, audience, numeric-date, maximum-lifetime, scope, grant, and claim-field policy. Signature verification occurs before claims are interpreted. Unknown claims, algorithm confusion, wrong keys, tampering, future/expired/overlong tokens, duplicate scopes/grants, and oversized encodings fail closed.
+- The runtime commerce policy resolves the four Windows/macOS direct/store release profiles but enables only `free`. StoreKit, Microsoft, x402 Base, x402 Solana, support mutation, external checkout, and production payments remain unreachable.
+
+This is not yet the durable network service. JWKS retrieval/rotation, refresh credentials in the OS vault, durable storage/transactions, clean-device restore, offline leases, quotes, reconciliation, asset grants, and every payment provider remain open. No checkout or paid UI is exposed.
+
+The current protocol authority is x402 v2. Its HTTP transport uses `PAYMENT-REQUIRED` and `PAYMENT-SIGNATURE`; `PaymentRequirements.amount` is an atomic-unit string, networks use CAIP-2, and verify/settle are distinct facilitator operations. Desky will admit only the exact Base pair selected by server and release policy after F4x.1 completes; it will not infer v2 from legacy v1 headers or wallet callbacks.
+
 ## Trust boundaries
 
 ```text

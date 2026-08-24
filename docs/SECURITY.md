@@ -27,6 +27,7 @@ Desky processes untrusted agent text, tool metadata, avatar files, catalog JSON,
 - Agent-originated commerce is recommendation/preparation only. The trusted offer is reloaded independently of model text; price, stablecoin, network, recipient, expiry, and grant scope come only from the commerce service and require explicit human approval.
 - Payment settlement, durable entitlement, short-lived JWT authorization, and asset delivery are separate trust decisions. JWTs never replace the append-only order/entitlement ledger.
 - Release profiles fail closed: a commerce provider disabled for Mac App Store, Microsoft Store, region, or runtime eligibility has no renderer route or main-process command, not merely a hidden button.
+- The first commerce contracts and Ed25519 access-token verifier are executable but unreachable from renderer IPC. Exact schemas reject unknown fields and unsafe atomic amounts; order/payment transitions cannot skip settlement; append-only entitlement replay/collision rules fail closed. Access JWTs require canonical compact encoding, `EdDSA`, `desky-access+jwt`, an admitted `kid`, exact issuer/audience, bounded times, narrow scopes/grants, and a valid signature before claims are parsed. All paid-provider capability flags remain false.
 - Visual-only actions are reversible and local. Any future action with external side effects must use the runtime's ordinary tool and approval authority instead of this lane.
 
 ## Local process supervision
