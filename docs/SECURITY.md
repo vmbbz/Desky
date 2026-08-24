@@ -73,6 +73,14 @@ The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_T
 - Saved vault records contain base64-encoded ciphertext. Connection state contains URL, auth kind, server version, and redacted status only.
 - URLs containing user-info, query parameters, or fragments are rejected to keep credentials out of logs and diagnostics.
 - Every adapter operation rejection is bounded and provider-redacted before reaching the renderer. OpenClaw authentication and protocol failures additionally remove token/password/authorization patterns, the submitted credential, and any saved device token.
+
+## Hermes foundation security
+
+- The first Hermes topology is an external API server: tools execute on the Hermes server host, not in Desky. Capability admission requires Hermes to report `runtime.mode=server_agent`, server-side tool execution, no split runtime, bearer authentication required, and the exact run/session/approval/stop endpoints Desky consumes.
+- Non-loopback endpoints require HTTPS. Plain HTTP is accepted only for literal localhost, IPv4 loopback, or IPv6 loopback and is surfaced as insecure-local state. URL user-info, query parameters, and fragments are rejected.
+- The bearer token is held only by the unregistered main-process client and is redacted from errors. Durable OS credential storage is deliberately not implemented yet; the runtime cannot be registered until it uses the existing vault-grade persistence policy or an equivalent provider-specific store.
+- JSON responses are capped at 512 KiB and individual SSE frames at 256 KiB. Malformed JSON, incomplete/oversized SSE, capability drift, cross-run events, invalid approval choices, and a stream that closes without a terminal event fail closed.
+- Approval scope is never broadened: `allow-always` is offered only when Hermes includes `always`; every local approval route is bound to one run and expires on terminal state or disconnect. Stop remains pending until Hermes emits `run.cancelled`; disconnect records a local cancelled terminal and aborts transport after requesting server stop.
 - Runtime switching disconnects the active adapter before selecting another. State, events, and typed actions from inactive registered runtimes are not forwarded through IPC.
 
 ## Avatar parser safety

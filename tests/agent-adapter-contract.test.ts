@@ -9,12 +9,14 @@ import {
 import { codexAdapterDescriptor, codexFoundationCapabilities } from '../src/shared/codex';
 import { openClawCapabilities } from '../src/shared/adapter-capabilities';
 import { openClawAdapterDescriptor } from '../src/shared/openclaw';
+import { hermesAdapterDescriptor, hermesFoundationCapabilities } from '../src/shared/hermes';
 
 describe('agent adapter contract v1', () => {
   it('admits the two production descriptors and their normalized states', () => {
     expect(agentAdapterContractVersion).toBe(1);
     assertAdapterDescriptor(openClawAdapterDescriptor);
     assertAdapterDescriptor(codexAdapterDescriptor);
+    assertAdapterDescriptor(hermesAdapterDescriptor);
     expect(() => assertAdapterConnectionState({
       schemaVersion: 1,
       adapterId: 'openclaw',
@@ -41,6 +43,19 @@ describe('agent adapter contract v1', () => {
       sessions: [],
       capabilities: codexFoundationCapabilities,
     }, codexAdapterDescriptor)).not.toThrow();
+    expect(() => assertAdapterConnectionState({
+      schemaVersion: 1,
+      adapterId: 'hermes',
+      descriptor: hermesAdapterDescriptor,
+      status: 'disconnected',
+      endpoint: '',
+      authenticationMethod: 'bearer-token',
+      insecureLocal: false,
+      message: 'Disconnected',
+      reconnectAttempt: 0,
+      sessions: [],
+      capabilities: hermesFoundationCapabilities,
+    }, hermesAdapterDescriptor)).not.toThrow();
   });
 
   it('fails closed on identity, capability, and action contradictions', () => {

@@ -412,6 +412,8 @@ The security and protocol authority is `docs/COMMERCE-ENTITLEMENTS.md`.
 
 F5a.1 is implemented: the executable generic contracts, active-runtime registry, `desky:adapter:*` IPC/preload surface, and provider-neutral renderer state sit above the unchanged OpenClaw transport host. F5a.2 is complete: Codex is a production direct-profile adapter behind explicit provider selection, while Store-profile construction contains only OpenClaw. The bounded stdio peer, executable/version/schema admission, opaque workspace grants, read-only-first sandbox disclosure, consumed-field validation, bounded full-readmission reconnect, shell-free process-tree termination and awaited shutdown all remain main-owned. Typed actions are truthfully unsupported because the only client-local registration surface is experimental. Both source and packaged authenticated matrices pass real model streaming, write approval deny/allow, descendant cancellation, same-session recovery and reconnect; the packaged filesystem oracle independently confirms exact allow bytes and denied/cancelled absence. F5a.3 has frozen executable Adapter Contract v1 invariants across both production implementations: descriptors, normalized state, capabilities, sessions, agent-action claims, and bounded events now fail closed at the registry boundary. Public third-party SDK packaging remains a later gate, not an implied promise from internal interfaces.
 
+F5b.1 Hermes foundation is implemented against official source revision `057dcdf236f8a6a26721c10fcc6ccb72726e272a`: authenticated capability and version admission, strict endpoint policy, bounded structured HTTP/SSE, sessions, streaming, tool/subagent lifecycle, per-run approvals, truthful stop, disconnect, redaction, and exactly-once terminal fixtures pass. It is not registered or production-admitted because this machine has no installed/authenticated Hermes server. The live and packaged matrices, bounded reconnect, credential persistence, and typed Desky-action discovery remain open.
+
 Order:
 
 1. Codex direct adapter using app-server stdio. Complete.
@@ -423,6 +425,7 @@ Exit gate per adapter:
 - Shared contract suite passes.
 - Auth and permission UX is runtime-specific but state behavior is consistent.
 - Runtime versions and unsupported modes are reported clearly.
+- Fixture-only foundations remain unregistered and `production: false` until authenticated source and packaged matrices pass.
 
 ## F6 — store-ready beta
 

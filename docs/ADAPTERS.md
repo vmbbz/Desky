@@ -116,8 +116,12 @@ Adapters may expose this only when their runtime provides a registered structure
 
 ### Hermes
 
-- Transport remains a discovery item until its current supported programmatic interface is inspected.
-- No terminal text scraping will be accepted as a production integration.
+- Supported transport selected: Hermes API Server HTTP resources plus structured run-event SSE. Official Hermes also exposes ACP and a richer TUI Gateway, but the API Server is the first Desky topology because it is language-neutral, explicitly intended for external UIs, authenticated, remotely deployable, and does not require terminal parsing or ownership of a local interactive process.
+- Source admission pin: official `NousResearch/hermes-agent` revision `057dcdf236f8a6a26721c10fcc6ccb72726e272a`. The implementation was derived from `gateway/platforms/api_server.py`, its run/session tests, and the official programmatic-integration/API-server guides. A future Hermes version must still pass live capability admission rather than relying on this research snapshot.
+- Current foundation: `HermesApiClient` requires HTTPS except for explicit loopback HTTP, rejects URL credentials/query/fragment material, sends bearer auth only from main, caps JSON at 512 KiB and each SSE frame at 256 KiB, requires the server-owned execution topology and the exact stable run/session/capability surface, and admits a canonical `/health` runtime version. Its SSE decoder tolerates fragmentation/comments but fails closed on malformed or incomplete frames.
+- `HermesRuntime` implements session list/create/select, one active run, ordered assistant/tool/subagent events, per-run command approvals, server-acknowledged Stop, exactly-once terminal handling, disconnect cancellation and renderer-safe redaction behind Adapter Contract v1. Approval IDs are local and per-run because the Hermes endpoint resolves the current approval in the run's isolated authorization queue; unsupported permanent scope is rejected rather than widened.
+- Admission status: descriptor remains `production: false`, direct-only, and unregistered. `reconnect` and agent actions are truthfully unsupported in this foundation. No installed/authenticated Hermes API server is available on this development machine, so fixture conformance cannot substitute for the required real-model source and packaged matrices. Store eligibility and automatic reconnect are later gates.
+- No terminal text scraping is used or accepted.
 
 ## Contract tests
 
