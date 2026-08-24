@@ -43,4 +43,4 @@ For a deliberate CLI upgrade, first review the upstream protocol and edit the ma
 
 ## Next gate
 
-Main-owned workspace selection and explicit sandbox disclosure, followed by bounded restart/reconnect. Codex remains unregistered and `production: false` until the packaged authenticated model/tool/approval/cancellation matrix passes.
+Main-owned workspace selection and explicit sandbox disclosure are complete. Next is bounded restart/reconnect and process-tree termination evidence. Codex remains unregistered and `production: false` until the packaged authenticated model/tool/approval/cancellation matrix passes.

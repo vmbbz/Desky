@@ -42,6 +42,11 @@ import type {
   CompanionDraftSnapshot,
   CompanionSnapshot,
 } from '../shared/companion-state';
+import type {
+  CodexSandboxMode,
+  CodexWorkspaceBridge,
+  CodexWorkspaceSelectionResult,
+} from '../shared/codex-workspace';
 
 const channels = {
   state: 'desky:adapter:state',
@@ -79,6 +84,18 @@ const adapters: AgentAdapterBridge = Object.freeze({
     ipcRenderer.on(channels.event, handler);
     return () => ipcRenderer.removeListener(channels.event, handler);
   },
+});
+
+const codexWorkspaceChannels = {
+  select: 'desky:codex-workspace:select',
+  revoke: 'desky:codex-workspace:revoke',
+} as const;
+
+const codexWorkspace: CodexWorkspaceBridge = Object.freeze({
+  select: (sandbox: CodexSandboxMode) => (
+    ipcRenderer.invoke(codexWorkspaceChannels.select, sandbox) as Promise<CodexWorkspaceSelectionResult>
+  ),
+  revoke: (grantId: string) => ipcRenderer.invoke(codexWorkspaceChannels.revoke, grantId) as Promise<void>,
 });
 
 const companionChannels = {
@@ -207,6 +224,7 @@ const api = Object.freeze({
   marketplace,
   animation,
   adapters,
+  codexWorkspace,
 });
 
 contextBridge.exposeInMainWorld('desky', api);

@@ -14,6 +14,7 @@ import { SecureVault } from './openclaw/secure-vault';
 import { AgentAdapterRegistry } from './adapters/registry';
 import { OpenClawRuntime } from './adapters/openclaw-runtime';
 import { getDistributionProfile } from './capabilities';
+import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 
 let windows: DeskyWindowManager | undefined;
 
@@ -42,12 +43,16 @@ void app.whenReady().then(() => {
   const windowManager = new DeskyWindowManager(
     new DesktopStateStore(join(app.getPath('userData'), 'desktop-state.json')),
   );
+  const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
+    protectedWritableRoots: [app.getPath('home')],
+  });
   windows = windowManager;
-  registerIpc(adapters, windowManager);
+  registerIpc(adapters, windowManager, codexWorkspaceGrants);
   windowManager.createInitialWindows();
 
   app.on('before-quit', () => {
     windows?.dispose();
+    codexWorkspaceGrants.clear();
     void adapters.dispose();
   });
 

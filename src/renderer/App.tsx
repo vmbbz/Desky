@@ -28,6 +28,11 @@ import type { AgentActionCommand } from '../shared/agent-actions';
 import { openClawCapabilities } from '../shared/adapter-capabilities';
 import type { AdapterConnectionState } from '../shared/agent-adapter';
 import {
+  codexSandboxDisclosures,
+  type CodexSandboxMode,
+  type CodexWorkspaceGrantSummary,
+} from '../shared/codex-workspace';
+import {
   initialLocalAnimationPreviewState,
   type LocalAnimationPreviewState,
 } from '../shared/local-animation';
@@ -118,6 +123,8 @@ export function App() {
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
   const [rememberCredential, setRememberCredential] = useState(true);
+  const [codexWorkspace, setCodexWorkspace] = useState<CodexWorkspaceGrantSummary>();
+  const [codexSandbox, setCodexSandbox] = useState<CodexSandboxMode>('read-only');
   const [busy, setBusy] = useState(false);
   const [uiError, setUiError] = useState('');
   const [animationBusy, setAnimationBusy] = useState(false);
@@ -365,7 +372,7 @@ export function App() {
     }
   };
 
-  const connect = () => withBusy(async () => {
+  const connectOpenClaw = () => withBusy(async () => {
     const next = await window.desky.adapters.connect({
       adapterId: gateway.adapterId,
       configuration: {
@@ -377,6 +384,39 @@ export function App() {
     });
     setGateway(next);
     setCredential('');
+    setShowConnection(next.status !== 'connected');
+  });
+
+  const selectCodexWorkspace = () => withBusy(async () => {
+    const selection = await window.desky.codexWorkspace.select(codexSandbox);
+    if (selection.status !== 'selected') return;
+    const previous = codexWorkspace;
+    setCodexWorkspace(selection.grant);
+    if (previous && previous.grantId !== selection.grant.grantId) {
+      await window.desky.codexWorkspace.revoke(previous.grantId);
+    }
+  });
+
+  const changeCodexSandbox = (mode: CodexSandboxMode) => {
+    if (mode === 'workspace-write'
+      && codexWorkspace
+      && codexWorkspace.maximumSandbox !== 'workspace-write') {
+      void window.desky.codexWorkspace.revoke(codexWorkspace.grantId).catch(() => undefined);
+      setCodexWorkspace(undefined);
+    }
+    setCodexSandbox(mode);
+  };
+
+  const connectCodex = () => withBusy(async () => {
+    if (!codexWorkspace) throw new Error('Choose a Codex workspace first.');
+    const next = await window.desky.adapters.connect({
+      adapterId: gateway.adapterId,
+      configuration: {
+        workspaceGrantId: codexWorkspace.grantId,
+        sandbox: codexSandbox,
+      },
+    });
+    setGateway(next);
     setShowConnection(next.status !== 'connected');
   });
 
@@ -1161,7 +1201,7 @@ export function App() {
             <button type="button" className={adapterMode === 'simulation' ? 'active' : ''} onClick={() => { setAdapterMode('simulation'); setShowConnection(false); }}>Simulation</button>
           </div>
           {adapterMode === 'runtime' && gateway.descriptor.kind === 'openclaw' ? (
-            <form onSubmit={(event) => { event.preventDefault(); void connect(); }}>
+            <form onSubmit={(event) => { event.preventDefault(); void connectOpenClaw(); }}>
               <label htmlFor="gateway-url">Gateway URL</label>
               <input id="gateway-url" value={gatewayUrl} onChange={(event) => setGatewayUrl(event.target.value)} autoCapitalize="none" spellCheck={false} />
               <label htmlFor="auth-kind">Authentication</label>
@@ -1185,6 +1225,41 @@ export function App() {
               <div className="connection-actions">
                 {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
                 <button type="submit" disabled={busy}>{busy ? 'Connecting…' : gateway.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
+              </div>
+            </form>
+          ) : null}
+          {adapterMode === 'runtime' && gateway.descriptor.kind === 'codex' ? (
+            <form onSubmit={(event) => { event.preventDefault(); void connectCodex(); }}>
+              <div className="workspace-consent">
+                <div>
+                  <strong>Workspace</strong>
+                  <span>{codexWorkspace?.label ?? 'No folder selected'}</span>
+                </div>
+                <button type="button" className="secondary" disabled={busy} onClick={() => void selectCodexWorkspace()}>
+                  {codexWorkspace ? 'Change' : 'Choose folder'}
+                </button>
+              </div>
+              <p className="connection-note">Folder access is session-only. The renderer sends only an opaque approval; Desky’s main process resolves the canonical folder for Codex.</p>
+              <fieldset className="sandbox-options">
+                <legend>Codex permissions</legend>
+                {(['read-only', 'workspace-write'] as const).map((mode) => {
+                  const disclosure = codexSandboxDisclosures[mode];
+                  return (
+                    <label key={mode} className={codexSandbox === mode ? 'active' : ''}>
+                      <input type="radio" name="codex-sandbox" value={mode} checked={codexSandbox === mode} onChange={() => changeCodexSandbox(mode)} />
+                      <span>
+                        <strong>{disclosure.label}{disclosure.recommended ? ' · Recommended' : ''}</strong>
+                        <small>{disclosure.summary} {disclosure.approvalBehavior}</small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </fieldset>
+              <p className="connection-warning">Approval policy remains On request. Desky never offers unrestricted filesystem access.</p>
+              {uiError ? <p className="connection-error">{uiError}</p> : null}
+              <div className="connection-actions">
+                {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
+                <button type="submit" disabled={busy || !codexWorkspace}>{busy ? 'Connecting…' : gateway.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
               </div>
             </form>
           ) : null}

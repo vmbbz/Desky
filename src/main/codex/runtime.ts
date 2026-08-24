@@ -3,6 +3,7 @@ import { isAbsolute } from 'node:path';
 
 import type { AdapterEvent } from '../../shared/adapter-events';
 import type { AgentActionCommand } from '../../shared/agent-actions';
+import type { CodexSandboxMode } from '../../shared/codex-workspace';
 import type {
   AdapterConnectionState,
   AdapterCreateSessionInput,
@@ -35,11 +36,13 @@ import {
   type CodexApprovalRoute,
 } from './protocol';
 
-export type CodexSandboxMode = 'read-only' | 'workspace-write';
-
 export interface CodexRuntimeConfiguration {
-  workspaceDirectory: string;
+  workspaceGrantId: string;
   sandbox: CodexSandboxMode;
+}
+
+interface ResolvedCodexRuntimeConfiguration extends CodexRuntimeConfiguration {
+  workspaceDirectory: string;
 }
 
 export interface CodexClientPort {
@@ -60,6 +63,7 @@ export interface CodexRuntimeDependencies {
   discover?: () => Promise<CodexExecutableAdmission>;
   createClient?: (admission: CodexExecutableAdmission) => CodexClientPort;
   createConnectionId?: () => string;
+  resolveWorkspaceGrant?: (grantId: string, sandbox: CodexSandboxMode) => Promise<string>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -68,14 +72,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function readCodexRuntimeConfiguration(value: unknown): CodexRuntimeConfiguration {
   if (!isRecord(value)
-    || typeof value.workspaceDirectory !== 'string'
-    || value.workspaceDirectory.length === 0
-    || value.workspaceDirectory.length > 2_048
-    || !isAbsolute(value.workspaceDirectory)
+    || typeof value.workspaceGrantId !== 'string'
+    || value.workspaceGrantId.length === 0
+    || value.workspaceGrantId.length > 160
     || (value.sandbox !== 'read-only' && value.sandbox !== 'workspace-write')) {
     throw new Error('Invalid Codex runtime configuration.');
   }
-  return { workspaceDirectory: value.workspaceDirectory, sandbox: value.sandbox };
+  return { workspaceGrantId: value.workspaceGrantId, sandbox: value.sandbox };
 }
 
 function safeError(error: unknown, secrets: Array<string | undefined> = []): string {
@@ -121,9 +124,13 @@ export class CodexRuntime implements AgentAdapterRuntime {
   private readonly discover: () => Promise<CodexExecutableAdmission>;
   private readonly createClient: (admission: CodexExecutableAdmission) => CodexClientPort;
   private readonly createConnectionId: () => string;
+  private readonly resolveWorkspaceGrant?: (
+    grantId: string,
+    sandbox: CodexSandboxMode,
+  ) => Promise<string>;
   private client?: CodexClientPort;
   private normalizer = new CodexProtocolNormalizer();
-  private configuration?: CodexRuntimeConfiguration;
+  private configuration?: ResolvedCodexRuntimeConfiguration;
   private connectionId?: string;
   private intentionalClose = false;
   private state: AdapterConnectionState = {
@@ -150,17 +157,32 @@ export class CodexRuntime implements AgentAdapterRuntime {
       dependencies.appVersion,
     ));
     this.createConnectionId = dependencies.createConnectionId ?? randomUUID;
+    this.resolveWorkspaceGrant = dependencies.resolveWorkspaceGrant;
   }
 
   getState(): AdapterConnectionState { return cloneState(this.state); }
 
   async connect(configurationValue: unknown): Promise<AdapterConnectionState> {
-    const configuration = readCodexRuntimeConfiguration(configurationValue);
+    const requestedConfiguration = readCodexRuntimeConfiguration(configurationValue);
     await this.disconnectClient(false);
-    this.configuration = configuration;
     this.intentionalClose = false;
     this.patchState({ status: 'connecting', message: 'Starting Codex app-server' });
     try {
+      if (!this.resolveWorkspaceGrant) {
+        throw new Error('Codex workspace selection is unavailable.');
+      }
+      const workspaceDirectory = await this.resolveWorkspaceGrant(
+        requestedConfiguration.workspaceGrantId,
+        requestedConfiguration.sandbox,
+      );
+      if (!workspaceDirectory || workspaceDirectory.length > 2_048 || !isAbsolute(workspaceDirectory)) {
+        throw new Error('Codex workspace approval returned an invalid directory.');
+      }
+      const configuration: ResolvedCodexRuntimeConfiguration = {
+        ...requestedConfiguration,
+        workspaceDirectory,
+      };
+      this.configuration = configuration;
       const admission = await this.discover();
       const client = this.createClient(admission);
       this.client = client;
@@ -191,10 +213,12 @@ export class CodexRuntime implements AgentAdapterRuntime {
       await this.refreshSessions();
       return this.getState();
     } catch (error) {
+      const safeMessage = safeError(error, [this.configuration?.workspaceDirectory]);
       await this.disconnectClient(false);
       this.connectionId = undefined;
-      this.patchState({ status: 'error', message: safeError(error) });
-      throw error;
+      this.configuration = undefined;
+      this.patchState({ status: 'error', message: safeMessage });
+      throw new Error(safeMessage);
     }
   }
 
@@ -424,7 +448,7 @@ export class CodexRuntime implements AgentAdapterRuntime {
     return this.client;
   }
 
-  private requireConfiguration(): CodexRuntimeConfiguration {
+  private requireConfiguration(): ResolvedCodexRuntimeConfiguration {
     if (!this.configuration) throw new Error('Codex runtime is not configured.');
     return this.configuration;
   }

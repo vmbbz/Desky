@@ -77,17 +77,23 @@ function fixtureRuntime(client = new FixtureClient()) {
     }),
     createClient: () => client,
     createConnectionId: () => 'connection-1',
+    resolveWorkspaceGrant: async (grantId, sandbox) => {
+      expect(grantId).toBe(workspaceGrantId);
+      expect(sandbox).toBe('read-only');
+      return workspaceDirectory;
+    },
   });
   return { runtime, client };
 }
 
 const workspaceDirectory = resolve('workspace');
-const configuration = { workspaceDirectory, sandbox: 'read-only' as const };
+const workspaceGrantId = 'codex-workspace:test-grant';
+const configuration = { workspaceGrantId, sandbox: 'read-only' as const };
 
 describe('CodexRuntime', () => {
   it('validates configuration and connects through account and thread discovery', async () => {
     expect(readCodexRuntimeConfiguration(configuration)).toEqual(configuration);
-    expect(() => readCodexRuntimeConfiguration({ workspaceDirectory: 'relative', sandbox: 'read-only' }))
+    expect(() => readCodexRuntimeConfiguration({ workspaceDirectory, sandbox: 'read-only' }))
       .toThrow('Invalid Codex runtime configuration');
     const { runtime, client } = fixtureRuntime();
     const events: string[] = [];
@@ -102,6 +108,24 @@ describe('CodexRuntime', () => {
       { method: 'account/read', params: { refreshToken: false } },
       { method: 'thread/list', params: expect.objectContaining({ limit: 100 }) },
     ]);
+  });
+
+  it('requires a main-owned workspace resolver and redacts resolved paths on admission failure', async () => {
+    const discoverWithoutGrant = vi.fn();
+    const unavailable = new CodexRuntime({
+      appVersion: '0.1.0',
+      discover: discoverWithoutGrant,
+    });
+    await expect(unavailable.connect(configuration)).rejects.toThrow('selection is unavailable');
+    expect(discoverWithoutGrant).not.toHaveBeenCalled();
+
+    const rejected = new CodexRuntime({
+      appVersion: '0.1.0',
+      resolveWorkspaceGrant: async () => workspaceDirectory,
+      discover: async () => { throw new Error(`Admission failed for ${workspaceDirectory}`); },
+    });
+    await expect(rejected.connect(configuration)).rejects.not.toThrow(workspaceDirectory);
+    expect(rejected.getState().message).not.toContain(workspaceDirectory);
   });
 
   it('creates/selects threads and streams one normalized turn to completion', async () => {

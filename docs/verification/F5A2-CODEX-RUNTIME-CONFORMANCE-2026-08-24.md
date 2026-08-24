@@ -38,7 +38,6 @@ This round implements and tests the provider runtime behind the generic port, bu
 
 ## Remaining admission gates
 
-- Main-owned workspace folder picker and explicit read-only/workspace-write disclosure; no raw renderer path trust.
 - Bounded automatic restart/reconnect and process-tree termination evidence.
 - Stable structured Desky action discovery or truthful continued unsupported status.
 - Direct-profile connection UI and registry admission only after the above.

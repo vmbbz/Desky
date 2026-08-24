@@ -45,6 +45,7 @@ import {
   type DeskyWindowManager,
 } from './companion-window';
 import type { AgentAdapterRegistry } from './adapters/registry';
+import type { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -74,6 +75,10 @@ const adapterChannels = {
   send: 'desky:adapter:send',
   cancel: 'desky:adapter:cancel',
   resolveApproval: 'desky:adapter:resolve-approval',
+} as const;
+const codexWorkspaceChannels = {
+  select: 'desky:codex-workspace:select',
+  revoke: 'desky:codex-workspace:revoke',
 } as const;
 const companionChannels = {
   state: 'desky:companion:state',
@@ -205,6 +210,7 @@ function readAvatarLoadReport(value: unknown): AvatarLoadReport {
 export function registerIpc(
   adapters: AgentAdapterRegistry,
   windows: DeskyWindowManager,
+  codexWorkspaceGrants: CodexWorkspaceGrantBroker,
 ): void {
   const companion = new CompanionStateHost();
   const animation = new LocalAnimationPreviewHost();
@@ -488,6 +494,61 @@ export function registerIpc(
   ipcMain.handle(adapterChannels.resolveApproval, (_event, input: unknown) => {
     const approval = readApprovalInput(input);
     return adapters.resolveApproval(approval);
+  });
+  ipcMain.handle(codexWorkspaceChannels.select, async (event, sandbox: unknown) => {
+    if (getDistributionProfile() !== 'direct'
+      || windows.surfaceFor(event.sender) !== 'control-center'
+      || (sandbox !== 'read-only' && sandbox !== 'workspace-write')) {
+      throw new Error('Codex workspace selection is unavailable on this surface.');
+    }
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options: OpenDialogOptions = {
+      title: 'Choose a Codex workspace',
+      buttonLabel: 'Use this folder',
+      properties: ['openDirectory', 'dontAddToRecent'],
+    };
+    const selection = parent
+      ? await dialog.showOpenDialog(parent, options)
+      : await dialog.showOpenDialog(options);
+    if (selection.canceled || selection.filePaths.length !== 1) return { status: 'cancelled' as const };
+    if (sandbox === 'workspace-write') {
+      const confirmation = parent
+        ? await dialog.showMessageBox(parent, {
+            type: 'warning',
+            title: 'Allow Codex to edit this workspace?',
+            message: 'Workspace-write access',
+            detail: 'Codex can read, edit, and run commands inside the folder you selected. Network and outside-workspace access still require approval.',
+            buttons: ['Allow workspace write', 'Cancel'],
+            defaultId: 1,
+            cancelId: 1,
+            noLink: true,
+          })
+        : await dialog.showMessageBox({
+            type: 'warning',
+            title: 'Allow Codex to edit this workspace?',
+            message: 'Workspace-write access',
+            detail: 'Codex can read, edit, and run commands inside the folder you selected. Network and outside-workspace access still require approval.',
+            buttons: ['Allow workspace write', 'Cancel'],
+            defaultId: 1,
+            cancelId: 1,
+            noLink: true,
+          });
+      if (confirmation.response !== 0) return { status: 'cancelled' as const };
+    }
+    return {
+      status: 'selected' as const,
+      grant: await codexWorkspaceGrants.issue(selection.filePaths[0], sandbox),
+    };
+  });
+  ipcMain.handle(codexWorkspaceChannels.revoke, (event, grantId: unknown) => {
+    if (getDistributionProfile() !== 'direct'
+      || windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof grantId !== 'string'
+      || grantId.length === 0
+      || grantId.length > 160) {
+      throw new Error('Invalid Codex workspace grant revocation.');
+    }
+    codexWorkspaceGrants.revoke(grantId);
   });
 
   adapters.onState((state) => {
