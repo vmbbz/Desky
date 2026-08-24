@@ -11,6 +11,11 @@ describe('visual-test avatar network policy', () => {
     expect(shouldDisableAvatarNetwork('1', 'codex-ui')).toBe(false);
   });
 
+  it('does not contaminate authenticated Hermes exercises with an avatar failure', () => {
+    expect(shouldDisableAvatarNetwork('1', 'hermes-ui')).toBe(false);
+    expect(shouldDisableAvatarNetwork('1', 'hermes-ui-saved')).toBe(false);
+  });
+
   it('allows ordinary live avatar acquisition', () => {
     expect(shouldDisableAvatarNetwork(undefined, undefined)).toBe(false);
   });

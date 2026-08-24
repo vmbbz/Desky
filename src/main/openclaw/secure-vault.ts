@@ -25,7 +25,7 @@ export class SecureVault {
     try {
       return JSON.parse(this.encryption.decryptString(Buffer.from(encrypted, 'base64'))) as T;
     } catch {
-      throw new Error('Stored OpenClaw credentials could not be decrypted. Forget the connection and pair again.');
+      throw new Error('Stored connection credentials could not be decrypted. Forget the connection and pair again.');
     }
   }
 
@@ -45,7 +45,7 @@ export class SecureVault {
 
   private assertAvailable(): void {
     if (!this.encryption.isEncryptionAvailable()) {
-      throw new Error('Operating-system credential encryption is unavailable. Desky will not persist gateway secrets.');
+      throw new Error('Operating-system credential encryption is unavailable. Desky will not persist connection secrets.');
     }
   }
 

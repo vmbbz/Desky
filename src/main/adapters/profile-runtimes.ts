@@ -9,8 +9,9 @@ export function agentRuntimesForProfile(
   profile: DistributionProfile,
   openClaw: AgentAdapterRuntime,
   createDirectCodex: () => AgentAdapterRuntime,
+  createDirectHermes: () => AgentAdapterRuntime,
 ): AgentAdapterRuntime[] {
   return profile === 'direct'
-    ? [openClaw, createDirectCodex()]
+    ? [openClaw, createDirectCodex(), createDirectHermes()]
     : [openClaw];
 }

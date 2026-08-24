@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { HermesApiError, type HermesApiClientPort } from '../src/main/hermes/api-client';
 import {
   HermesRuntime,
+  hermesCredentialVaultKey,
   readHermesConfiguration,
+  type HermesCredentialVault,
   type HermesRuntimeDependencies,
 } from '../src/main/hermes/runtime';
 
@@ -54,6 +56,22 @@ class FixtureHermesClient implements HermesApiClientPort {
 
 const configuration = { endpoint: 'http://127.0.0.1:8642/', token: 'secret-token' };
 
+class FixtureVault implements HermesCredentialVault {
+  readonly entries = new Map<string, unknown>();
+  readonly sets: Array<{ key: string; value: unknown }> = [];
+  readonly deletes: string[] = [];
+
+  get<T>(key: string): T | undefined { return this.entries.get(key) as T | undefined; }
+  set(key: string, value: unknown) {
+    this.sets.push({ key, value });
+    this.entries.set(key, value);
+  }
+  delete(key: string) {
+    this.deletes.push(key);
+    this.entries.delete(key);
+  }
+}
+
 function fixtureRuntime(
   client = new FixtureHermesClient(),
   dependencies: HermesRuntimeDependencies = {},
@@ -71,7 +89,7 @@ function fixtureRuntime(
 
 describe('HermesRuntime foundation', () => {
   it('validates configuration and admits the authenticated API server', async () => {
-    expect(readHermesConfiguration(configuration)).toEqual(configuration);
+    expect(readHermesConfiguration(configuration)).toEqual({ ...configuration, rememberToken: false });
     expect(() => readHermesConfiguration({ endpoint: 'http://remote.example', token: 'x' }))
       .toThrow('requires HTTPS');
     expect(() => readHermesConfiguration({ endpoint: 'https://example.com', token: '' }))
@@ -87,6 +105,77 @@ describe('HermesRuntime foundation', () => {
       sessions: [{ id: 'session-1', label: 'Existing' }],
     });
     expect(events).toEqual(['connection.ready']);
+  });
+
+  it('persists only an admitted token and reuses it only for the exact canonical endpoint', async () => {
+    const vault = new FixtureVault();
+    const seenConfigurations: unknown[] = [];
+    const first = new FixtureHermesClient();
+    const second = new FixtureHermesClient();
+    const clients = [first, second];
+    const runtime = new HermesRuntime({
+      vault,
+      createClient: (resolved) => {
+        seenConfigurations.push(resolved);
+        const client = clients.shift();
+        if (!client) throw new Error('No fixture Hermes client available.');
+        return client;
+      },
+      healthCheckIntervalMs: 0,
+    });
+
+    await runtime.connect({ ...configuration, rememberToken: true });
+    expect(vault.entries.get(hermesCredentialVaultKey)).toEqual({
+      version: 1,
+      endpoint: 'http://127.0.0.1:8642',
+      token: 'secret-token',
+    });
+    await runtime.connect({ endpoint: 'http://127.0.0.1:8642', rememberToken: true });
+    expect(seenConfigurations).toEqual([
+      { endpoint: 'http://127.0.0.1:8642', token: 'secret-token' },
+      { endpoint: 'http://127.0.0.1:8642', token: 'secret-token' },
+    ]);
+
+    await expect(runtime.connect({ endpoint: 'http://localhost:8642', rememberToken: true }))
+      .rejects.toThrow('exact endpoint');
+  });
+
+  it('rotates or removes saved access only after successful admission', async () => {
+    const vault = new FixtureVault();
+    vault.entries.set(hermesCredentialVaultKey, {
+      version: 1,
+      endpoint: 'http://127.0.0.1:8642',
+      token: 'old-token',
+    });
+    const rejected = new FixtureHermesClient();
+    rejected.admitError = new Error('authorization=new-token rejected');
+    const admitted = new FixtureHermesClient();
+    const clients = [rejected, admitted];
+    const runtime = new HermesRuntime({
+      vault,
+      createClient: () => {
+        const client = clients.shift();
+        if (!client) throw new Error('No fixture Hermes client available.');
+        return client;
+      },
+      healthCheckIntervalMs: 0,
+    });
+
+    await expect(runtime.connect({ ...configuration, token: 'new-token', rememberToken: true }))
+      .rejects.toThrow('authorization=[redacted] rejected');
+    expect(vault.entries.get(hermesCredentialVaultKey)).toMatchObject({ token: 'old-token' });
+    expect(vault.sets).toHaveLength(0);
+
+    await runtime.connect({ ...configuration, token: 'new-token', rememberToken: false });
+    expect(vault.entries.has(hermesCredentialVaultKey)).toBe(false);
+    expect(vault.deletes).toEqual([hermesCredentialVaultKey]);
+  });
+
+  it('fails closed when persistence is requested without secure storage', async () => {
+    const { runtime } = fixtureRuntime();
+    await expect(runtime.connect({ ...configuration, rememberToken: true }))
+      .rejects.toThrow('Secure Hermes credential storage is unavailable');
+    expect(runtime.getState().status).toBe('error');
   });
 
   it('streams a turn, routes one approval, and completes exactly once', async () => {

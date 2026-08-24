@@ -356,11 +356,16 @@ async function captureVisualTest(
           'the new-session control',
           15000,
         );
+        const previousSession = document.querySelector('#adapter-session')?.value ?? '';
         newSession.click();
         await waitFor(
           () => {
             const select = document.querySelector('#adapter-session');
-            return select instanceof HTMLSelectElement && select.value ? select.value : undefined;
+            return select instanceof HTMLSelectElement
+              && select.value
+              && select.value !== previousSession
+              ? select.value
+              : undefined;
           },
           'the packaged conformance session',
           30000,
@@ -471,6 +476,189 @@ async function captureVisualTest(
       }
     } catch (error) {
       visualExerciseError = String(error);
+    }
+  }
+  const hermesExercise = process.env.DESKY_VISUAL_TEST_EXERCISE;
+  const hermesTestToken = process.env.DESKY_HERMES_UI_TEST_TOKEN;
+  if (surface === 'control-center'
+    && (hermesExercise === 'hermes-ui' || hermesExercise === 'hermes-ui-saved')
+    && (hermesExercise === 'hermes-ui-saved' || hermesTestToken)) {
+    const endpoint = process.env.DESKY_HERMES_UI_TEST_ENDPOINT ?? 'http://127.0.0.1:8642';
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const waitFor = async (read, label, timeoutMs = 120000) => {
+          const deadline = Date.now() + timeoutMs;
+          while (Date.now() < deadline) {
+            const value = read();
+            if (value) return value;
+            await wait(25);
+          }
+          throw new Error('Timed out waiting for ' + label);
+        };
+        const root = await waitFor(
+          () => document.querySelector('.control-center'),
+          'the Control Center',
+          15000,
+        );
+        const testToken = ${JSON.stringify(hermesTestToken ?? '')};
+        const savedOnly = ${JSON.stringify(hermesExercise === 'hermes-ui-saved')};
+        const mark = (phase) => { root.dataset.hermesUiExercise = phase; };
+        const setInput = (input, value) => {
+          if (!(input instanceof HTMLInputElement)) throw new Error('Hermes input is unavailable');
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          setter?.call(input, value);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        };
+        const openConnection = async () => {
+          if (!document.querySelector('[aria-label="Agent connection"]')) {
+            const badge = document.querySelector('.control-center__actions .connection-badge');
+            if (!(badge instanceof HTMLButtonElement)) throw new Error('Connection control is unavailable');
+            badge.click();
+          }
+          return waitFor(
+            () => document.querySelector('[data-provider-form="hermes"]'),
+            'the Hermes provider form',
+            15000,
+          );
+        };
+        const disconnect = async () => {
+          const form = await openConnection();
+          const button = await waitFor(
+            () => {
+              const candidate = [...form.querySelectorAll('.connection-actions button')]
+                .find((entry) => entry.textContent?.trim() === 'Disconnect');
+              return candidate instanceof HTMLButtonElement && !candidate.disabled
+                ? candidate
+                : undefined;
+            },
+            'an enabled Hermes disconnect control',
+            15000,
+          );
+          button.click();
+          await waitFor(() => root.dataset.adapterStatus === 'disconnected', 'Hermes disconnect', 30000);
+        };
+        const connect = async (token, remember) => {
+          const form = await openConnection();
+          setInput(form.querySelector('#hermes-endpoint'), ${JSON.stringify(endpoint)});
+          setInput(form.querySelector('#hermes-token'), token);
+          const checkbox = form.querySelector('#hermes-remember-token');
+          if (!(checkbox instanceof HTMLInputElement)) throw new Error('Hermes storage control is unavailable');
+          if (checkbox.checked !== remember) checkbox.click();
+          await waitFor(
+            () => {
+              const submit = form.querySelector('button[type="submit"]');
+              return submit instanceof HTMLButtonElement && !submit.disabled ? submit : undefined;
+            },
+            'an enabled Hermes connect control',
+            15000,
+          );
+          form.requestSubmit();
+          await waitFor(
+            () => root.dataset.activeAdapterId === 'hermes' && root.dataset.adapterStatus === 'connected',
+            'the authenticated Hermes connection',
+            60000,
+          );
+        };
+        const response = () => document.querySelector('.control-center__bubble p')?.textContent ?? '';
+        const submitPrompt = async (text) => {
+          const input = await waitFor(
+            () => {
+              const candidate = document.querySelector('#control-prompt');
+              return candidate instanceof HTMLInputElement && !candidate.disabled ? candidate : undefined;
+            },
+            'an enabled Hermes prompt',
+          );
+          setInput(input, text);
+          await wait(60);
+          input.closest('form')?.requestSubmit();
+          await waitFor(() => root.dataset.activeTurnId, 'Hermes turn acceptance');
+        };
+        const waitForTurnEnd = () => waitFor(
+          () => !root.dataset.activeTurnId && !document.querySelector('.approval-card'),
+          'Hermes turn completion',
+        );
+
+        const provider = await waitFor(
+          () => document.querySelector('[data-adapter-id="hermes"]'),
+          'the Hermes provider option',
+          15000,
+        );
+        provider.click();
+        mark('provider-selected');
+        await connect(savedOnly ? '' : testToken, true);
+        mark(savedOnly ? 'restart-saved-access-proved' : 'connected');
+
+        if (!savedOnly) {
+          await disconnect();
+          await connect('', true);
+          mark('saved-access-proved');
+        }
+
+        const newSession = await waitFor(
+          () => {
+            const candidate = document.querySelector('[data-session-new="true"]');
+            return candidate instanceof HTMLButtonElement && !candidate.disabled ? candidate : undefined;
+          },
+          'the new-session control',
+          15000,
+        );
+        const previousHermesSession = document.querySelector('#adapter-session')?.value ?? '';
+        newSession.click();
+        await waitFor(
+          () => {
+            const select = document.querySelector('#adapter-session');
+            return select instanceof HTMLSelectElement
+              && select.value
+              && select.value !== previousHermesSession
+              ? select.value
+              : undefined;
+          },
+          'the packaged Hermes session',
+          30000,
+        );
+        mark('session-ready');
+
+        const streamMarker = savedOnly
+          ? 'DESKY_HERMES_PACKAGED_RESTART_OK'
+          : 'DESKY_HERMES_PACKAGED_STREAM_OK';
+        await submitPrompt('Reply with exactly ' + streamMarker + ' and no other text. Do not use tools.');
+        await waitFor(
+          () => response().includes(streamMarker) && !root.dataset.activeTurnId,
+          'the packaged Hermes assistant stream',
+        );
+        mark('stream-proved');
+
+        if (!savedOnly) {
+          await submitPrompt('Use the terminal tool exactly once to run: chmod 777 /tmp/desky-hermes-packaged-cancel; python -c "import time; time.sleep(30)". Do not answer before attempting it.');
+          const allow = await waitFor(
+            () => document.querySelector('[data-approval-decision="allow-once"]'),
+            'Hermes command approval',
+          );
+          allow.click();
+          await wait(1500);
+          const stop = await waitFor(
+            () => {
+              const candidate = document.querySelector('.prompt-bar .cancel-button');
+              return root.dataset.activeTurnId && candidate instanceof HTMLButtonElement
+                && !candidate.disabled ? candidate : undefined;
+            },
+            'the Hermes Stop control',
+          );
+          stop.click();
+          await waitForTurnEnd();
+          mark('stop-proved');
+        }
+        root.dataset.hermesTokenLeak = testToken && document.body.innerText.includes(testToken)
+          ? 'true'
+          : 'false';
+        mark('passed');
+      })()`);
+    } catch (error) {
+      const message = String(error);
+      visualExerciseError = hermesTestToken
+        ? message.replaceAll(hermesTestToken, '[redacted]')
+        : message;
     }
   }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
@@ -872,11 +1060,14 @@ async function captureVisualTest(
     selectedAdapterId: document.querySelector('.control-center')?.dataset.selectedAdapterId ?? null,
     codexUiExercise: document.querySelector('.control-center')?.dataset.codexUiExercise ?? null,
     codexReconnectObserved: document.querySelector('.control-center')?.dataset.codexReconnectObserved ?? null,
+    hermesUiExercise: document.querySelector('.control-center')?.dataset.hermesUiExercise ?? null,
+    hermesTokenLeak: document.querySelector('.control-center')?.dataset.hermesTokenLeak ?? null,
     adapterOptions: [...document.querySelectorAll('[data-adapter-id]')].map((button) => ({
       adapterId: button.dataset.adapterId,
       selected: button.dataset.adapterSelected
     })),
     codexFormVisible: Boolean(document.querySelector('[data-provider-form="codex"]')),
+    hermesFormVisible: Boolean(document.querySelector('[data-provider-form="hermes"]')),
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
     marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
     marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,

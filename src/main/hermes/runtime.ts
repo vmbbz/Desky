@@ -34,13 +34,18 @@ export function readHermesConfiguration(value: unknown): HermesConnectInput {
   if (!isRecord(value)
     || typeof value.endpoint !== 'string'
     || value.endpoint.length > 2_048
-    || typeof value.token !== 'string'
-    || value.token.length === 0
-    || value.token.length > 16_384) {
+    || (value.token !== undefined && (typeof value.token !== 'string'
+      || value.token.length === 0
+      || value.token.length > 16_384))
+    || (value.rememberToken !== undefined && typeof value.rememberToken !== 'boolean')) {
     throw new Error('Invalid Hermes connection configuration.');
   }
   readHermesEndpoint(value.endpoint);
-  return { endpoint: value.endpoint, token: value.token };
+  return {
+    endpoint: value.endpoint,
+    ...(value.token === undefined ? {} : { token: value.token }),
+    rememberToken: value.rememberToken ?? false,
+  };
 }
 
 function cloneState(state: AdapterConnectionState): AdapterConnectionState {
@@ -77,13 +82,44 @@ function safeError(error: unknown, secrets: Array<string | undefined> = []): str
 
 const defaultReconnectDelaysMs = [500, 2_000, 6_500] as const;
 const defaultHealthCheckIntervalMs = 30_000;
+export const hermesCredentialVaultKey = 'hermes:active-profile';
+
+interface ResolvedHermesConfiguration {
+  endpoint: string;
+  token: string;
+}
+
+interface StoredHermesCredential {
+  version: 1;
+  endpoint: string;
+  token: string;
+}
+
+export interface HermesCredentialVault {
+  get<T>(key: string): T | undefined;
+  set(key: string, value: unknown): void;
+  delete(key: string): void;
+}
+
+function readStoredCredential(value: unknown): StoredHermesCredential | undefined {
+  if (!isRecord(value)
+    || value.version !== 1
+    || typeof value.endpoint !== 'string'
+    || typeof value.token !== 'string'
+    || value.token.length === 0
+    || value.token.length > 16_384) return undefined;
+  const endpoint = readHermesEndpoint(value.endpoint).baseUrl;
+  if (endpoint !== value.endpoint) return undefined;
+  return { version: 1, endpoint, token: value.token };
+}
 
 export interface HermesRuntimeDependencies {
-  createClient?: (configuration: HermesConnectInput) => HermesApiClientPort;
+  createClient?: (configuration: ResolvedHermesConfiguration) => HermesApiClientPort;
   createConnectionId?: () => string;
   reconnectDelaysMs?: readonly number[];
   healthCheckIntervalMs?: number;
   wait?: (milliseconds: number) => Promise<void>;
+  vault?: HermesCredentialVault;
 }
 
 export class HermesRuntime implements AgentAdapterRuntime {
@@ -92,13 +128,14 @@ export class HermesRuntime implements AgentAdapterRuntime {
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
   private readonly actionListeners = new Set<(command: AgentActionCommand) => void>();
   private readonly approvals = new Map<string, HermesApprovalRoute>();
-  private readonly createClient: (configuration: HermesConnectInput) => HermesApiClientPort;
+  private readonly createClient: (configuration: ResolvedHermesConfiguration) => HermesApiClientPort;
   private readonly createConnectionId: () => string;
   private readonly reconnectDelaysMs: readonly number[];
   private readonly healthCheckIntervalMs: number;
   private readonly wait: (milliseconds: number) => Promise<void>;
+  private readonly vault?: HermesCredentialVault;
   private client?: HermesApiClientPort;
-  private configuration?: HermesConnectInput;
+  private configuration?: ResolvedHermesConfiguration;
   private admission?: HermesApiAdmission;
   private connectionId?: string;
   private streamAbort?: AbortController;
@@ -129,6 +166,7 @@ export class HermesRuntime implements AgentAdapterRuntime {
     this.healthCheckIntervalMs = dependencies.healthCheckIntervalMs ?? defaultHealthCheckIntervalMs;
     this.wait = dependencies.wait
       ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    this.vault = dependencies.vault;
     if (this.reconnectDelaysMs.length > 3
       || this.reconnectDelaysMs.some((delay) => !Number.isSafeInteger(delay) || delay < 0 || delay > 30_000)) {
       throw new Error('Invalid Hermes reconnect policy.');
@@ -143,12 +181,20 @@ export class HermesRuntime implements AgentAdapterRuntime {
   getState(): AdapterConnectionState { return cloneState(this.state); }
 
   async connect(configurationValue: unknown): Promise<AdapterConnectionState> {
-    const configuration = readHermesConfiguration(configurationValue);
+    const submitted = readHermesConfiguration(configurationValue);
     this.lifecycleGeneration += 1;
     this.reconnectPromise = undefined;
     const generation = this.lifecycleGeneration;
     await this.disconnectInternal(false);
-    const endpoint = readHermesEndpoint(configuration.endpoint);
+    const endpoint = readHermesEndpoint(submitted.endpoint);
+    const saved = submitted.token === undefined
+      ? readStoredCredential(this.vault?.get<unknown>(hermesCredentialVaultKey))
+      : undefined;
+    const token = submitted.token ?? (saved?.endpoint === endpoint.baseUrl ? saved.token : undefined);
+    if (!token) {
+      throw new Error('Hermes API server credential is required. Enter it or reconnect to the exact endpoint that has saved access.');
+    }
+    const configuration: ResolvedHermesConfiguration = { endpoint: endpoint.baseUrl, token };
     this.patchState({
       status: 'connecting',
       endpoint: endpoint.baseUrl,
@@ -160,6 +206,16 @@ export class HermesRuntime implements AgentAdapterRuntime {
       const admission = await client.admit();
       const sessions = await client.listSessions();
       if (generation !== this.lifecycleGeneration) throw new Error('Hermes connection was cancelled.');
+      if (submitted.rememberToken) {
+        if (!this.vault) throw new Error('Secure Hermes credential storage is unavailable.');
+        this.vault.set(hermesCredentialVaultKey, {
+          version: 1,
+          endpoint: endpoint.baseUrl,
+          token,
+        } satisfies StoredHermesCredential);
+      } else {
+        this.vault?.delete(hermesCredentialVaultKey);
+      }
       this.client = client;
       this.configuration = { ...configuration };
       this.admission = admission;

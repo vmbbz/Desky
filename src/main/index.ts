@@ -18,6 +18,7 @@ import { getDistributionProfile } from './capabilities';
 import { CodexRuntime } from './codex/runtime';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { installBoundedApplicationShutdown } from './bounded-shutdown';
+import { HermesRuntime } from './hermes/runtime';
 
 let windows: DeskyWindowManager | undefined;
 
@@ -33,8 +34,12 @@ registerApplicationScheme();
 
 void app.whenReady().then(() => {
   handleApplicationScheme();
+  const connectionsVault = new SecureVault(
+    join(app.getPath('userData'), 'secure-connections.json'),
+    safeStorage,
+  );
   const openClaw = new OpenClawAdapterHost(
-    new SecureVault(join(app.getPath('userData'), 'secure-connections.json'), safeStorage),
+    connectionsVault,
     app.getVersion(),
     process.platform,
   );
@@ -49,6 +54,7 @@ void app.whenReady().then(() => {
       appVersion: app.getVersion(),
       resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
     }),
+    () => new HermesRuntime({ vault: connectionsVault }),
   );
   const adapters = new AgentAdapterRegistry(
     runtimes,

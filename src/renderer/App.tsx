@@ -43,6 +43,7 @@ import {
   openClawAdapterDescriptor,
   type OpenClawAuthKind,
 } from '../shared/openclaw';
+import { hermesAdapterDescriptor } from '../shared/hermes';
 import {
   defaultMotionPersonality,
   motionCategories,
@@ -131,6 +132,9 @@ export function App() {
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
   const [rememberCredential, setRememberCredential] = useState(true);
+  const [hermesEndpoint, setHermesEndpoint] = useState('http://127.0.0.1:8642');
+  const [hermesToken, setHermesToken] = useState('');
+  const [rememberHermesToken, setRememberHermesToken] = useState(true);
   const [codexWorkspace, setCodexWorkspace] = useState<CodexWorkspaceGrantSummary>();
   const [codexSandbox, setCodexSandbox] = useState<CodexSandboxMode>('read-only');
   const [busy, setBusy] = useState(false);
@@ -191,6 +195,9 @@ export function App() {
       setGateway(next);
       setSelectedAdapterId(next.adapterId);
       setGatewayUrl(next.endpoint);
+      if (next.adapterId === hermesAdapterDescriptor.adapterId && next.endpoint) {
+        setHermesEndpoint(next.endpoint);
+      }
       if (next.authenticationMethod === 'token' || next.authenticationMethod === 'password') {
         setAuthKind(next.authenticationMethod);
       }
@@ -429,6 +436,21 @@ export function App() {
     });
     setGateway(next);
     setSelectedAdapterId(next.adapterId);
+    setShowConnection(next.status !== 'connected');
+  });
+
+  const connectHermes = () => withBusy(async () => {
+    const next = await window.desky.adapters.connect({
+      adapterId: selectedAdapterId,
+      configuration: {
+        endpoint: hermesEndpoint,
+        token: hermesToken || undefined,
+        rememberToken: rememberHermesToken,
+      },
+    });
+    setGateway(next);
+    setSelectedAdapterId(next.adapterId);
+    setHermesToken('');
     setShowConnection(next.status !== 'connected');
   });
 
@@ -1205,6 +1227,8 @@ export function App() {
             disabled={busy}
             onClick={() => void withBusy(async () => {
               const label = visualTestExercise === 'codex-ui'
+                || visualTestExercise === 'hermes-ui'
+                || visualTestExercise === 'hermes-ui-saved'
                 ? `Desky conformance packaged ${new Date().toISOString()}`
                 : 'Desky';
               setGateway(await window.desky.adapters.createSession({ label }));
@@ -1251,7 +1275,9 @@ export function App() {
                   }}
                 >
                   <strong>{descriptor.displayName}</strong>
-                  <span>{descriptor.kind === 'codex' ? 'Local app-server' : 'Gateway'}</span>
+                  <span>{descriptor.kind === 'codex'
+                    ? 'Local app-server'
+                    : descriptor.kind === 'hermes' ? 'API server' : 'Gateway'}</span>
                 </button>
               ))}
             </div>
@@ -1325,11 +1351,28 @@ export function App() {
               </div>
             </form>
           ) : null}
+          {adapterMode === 'runtime' && selectedAdapter.kind === 'hermes' ? (
+            <form data-provider-form="hermes" onSubmit={(event) => { event.preventDefault(); void connectHermes(); }}>
+              <label htmlFor="hermes-endpoint">Hermes API server</label>
+              <input id="hermes-endpoint" value={hermesEndpoint} onChange={(event) => setHermesEndpoint(event.target.value)} autoCapitalize="none" spellCheck={false} />
+              <label htmlFor="hermes-token">API server token</label>
+              <input id="hermes-token" type="password" value={hermesToken} onChange={(event) => setHermesToken(event.target.value)} placeholder="Leave blank to use saved access" autoComplete="off" />
+              <label className="remember-row"><input id="hermes-remember-token" type="checkbox" checked={rememberHermesToken} onChange={(event) => setRememberHermesToken(event.target.checked)} /> Store with OS credential encryption</label>
+              <p className="connection-note">Saved access is accepted only for this exact server. To remove it, uncheck storage and connect successfully once.</p>
+              {hermesEndpoint.startsWith('http://') ? <p className="connection-warning">Plain HTTP is accepted only on the loopback interface.</p> : null}
+              <p className="adapter-capability adapter-capability--unsupported">Avatar actions are unavailable until Hermes exposes an admitted typed action transport.</p>
+              {uiError ? <p className="connection-error">{uiError}</p> : null}
+              <div className="connection-actions">
+                {selectedAdapterConnected ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
+                <button type="submit" disabled={busy}>{busy ? 'Connecting…' : selectedAdapterConnected ? 'Reconnect' : 'Connect'}</button>
+              </div>
+            </form>
+          ) : null}
         </section>
       ) : null}
 
       <footer>
-        <span>{gateway.insecureLocal && adapterMode === 'runtime' ? 'Local ws · development only' : `${runtimeInfo.distributionProfile} build`}</span>
+        <span>{gateway.insecureLocal && adapterMode === 'runtime' ? 'Local transport · development only' : `${runtimeInfo.distributionProfile} build`}</span>
         <span>v{runtimeInfo.version}</span>
       </footer>
     </main>

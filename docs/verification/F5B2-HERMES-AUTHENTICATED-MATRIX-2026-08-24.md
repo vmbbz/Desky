@@ -60,6 +60,8 @@ F5b.3 subsequently completed bounded reconnect, selected-session restoration, re
 
 Hermes stays `production: false`, direct-only, and unregistered until all of the following remaining gates pass:
 
+> Historical gate note: F5b.4 subsequently completed the Windows direct credential and packaged lifecycle requirements and promoted Hermes to direct-only production. See `F5B4-HERMES-DIRECT-ADMISSION-2026-08-24.md`; remote TLS, typed actions, and macOS remain open.
+
 1. vault-grade bearer persistence and rotation;
 2. clean packaged Windows UI lifecycle and process ownership evidence;
 3. remote HTTPS/TLS policy and Store-profile eligibility decision;

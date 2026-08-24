@@ -7,5 +7,8 @@ export function shouldDisableAvatarNetwork(
   disableNetwork: string | undefined,
   exercise: string | undefined,
 ): boolean {
-  return disableNetwork === '1' && exercise !== 'codex-ui';
+  return disableNetwork === '1'
+    && exercise !== 'codex-ui'
+    && exercise !== 'hermes-ui'
+    && exercise !== 'hermes-ui-saved';
 }

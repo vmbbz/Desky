@@ -7,7 +7,7 @@ export const hermesAdapterDescriptor: AdapterDescriptor = Object.freeze({
   kind: 'hermes',
   displayName: 'Hermes',
   description: 'Connect to an authenticated Hermes Agent API server.',
-  production: false,
+  production: true,
   distributionProfiles: ['direct'] satisfies AdapterDescriptor['distributionProfiles'],
   sessionSelection: 'required',
   concurrentTurns: false,
@@ -34,5 +34,6 @@ export const hermesFoundationCapabilities: AgentAdapterCapabilities = Object.fre
 
 export interface HermesConnectInput {
   endpoint: string;
-  token: string;
+  token?: string;
+  rememberToken?: boolean;
 }
