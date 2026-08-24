@@ -22,6 +22,7 @@ import {
   type Material,
   type Mesh,
   type Object3D,
+  type SkinnedMesh,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -40,7 +41,11 @@ import {
   admitAnimationLibrary,
   type AdmittedAnimationLibrary,
 } from './animation-library-runtime';
-import { resolveAvatarFramingScale } from './avatar-framing';
+import {
+  resolveAvatarFramingScale,
+  resolveMotionEnvelopeZoom,
+  smoothMotionEnvelopeZoom,
+} from './avatar-framing';
 import { AvatarMotionController } from './avatar-motion-controller';
 import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
@@ -336,6 +341,30 @@ export function AvatarStage({
     camera.lookAt(0, 0, 0);
     const raycaster = new Raycaster();
     const pointer = new Vector2();
+    const motionEnvelopeBounds = new Box3();
+    const motionEnvelopeCorners = Array.from({ length: 8 }, () => new Vector3());
+    const motionEnvelopeSkinnedMeshes: SkinnedMesh[] = [];
+
+    const projectMotionEnvelope = () => {
+      const minimum = motionEnvelopeBounds.min;
+      const maximum = motionEnvelopeBounds.max;
+      motionEnvelopeCorners[0].set(minimum.x, minimum.y, minimum.z);
+      motionEnvelopeCorners[1].set(minimum.x, minimum.y, maximum.z);
+      motionEnvelopeCorners[2].set(minimum.x, maximum.y, minimum.z);
+      motionEnvelopeCorners[3].set(minimum.x, maximum.y, maximum.z);
+      motionEnvelopeCorners[4].set(maximum.x, minimum.y, minimum.z);
+      motionEnvelopeCorners[5].set(maximum.x, minimum.y, maximum.z);
+      motionEnvelopeCorners[6].set(maximum.x, maximum.y, minimum.z);
+      motionEnvelopeCorners[7].set(maximum.x, maximum.y, maximum.z);
+      let maxAbsX = 0;
+      let maxAbsY = 0;
+      for (const corner of motionEnvelopeCorners) {
+        corner.project(camera);
+        maxAbsX = Math.max(maxAbsX, Math.abs(corner.x));
+        maxAbsY = Math.max(maxAbsY, Math.abs(corner.y));
+      }
+      return { maxAbsX, maxAbsY };
+    };
 
     const reportVisibleBounds = () => {
       if (!avatarRoot) return;
@@ -397,6 +426,9 @@ export function AvatarStage({
     const clock = new Clock();
     let motionElapsed = 0;
     let motionFrame = 0;
+    let motionEnvelopeTargetZoom = 1;
+    let motionEnvelopeReady = false;
+    let lastReportedFramingZoom = 1;
     let loopActive = false;
     const renderSuspensionReason = () => {
       if (webglContextUnrecoverable) return 'webgl-unrecoverable';
@@ -455,6 +487,50 @@ export function AvatarStage({
         reportVisibleBounds();
       }
 
+      if (avatarRoot) {
+        const activelyExpansive = Boolean(
+          diagnostics?.activeProgramId || diagnostics?.activeCueId,
+        );
+        const shouldSampleEnvelope = !motionEnvelopeReady
+          || motionFrame <= 2
+          || motionFrame % (activelyExpansive ? 2 : 8) === 0;
+        if (shouldSampleEnvelope) {
+          for (const mesh of motionEnvelopeSkinnedMeshes) mesh.computeBoundingBox();
+          scene.updateMatrixWorld(true);
+          motionEnvelopeBounds.setFromObject(avatarRoot);
+          motionEnvelopeReady = !motionEnvelopeBounds.isEmpty();
+        }
+        if (motionEnvelopeReady) {
+          const before = projectMotionEnvelope();
+          if (shouldSampleEnvelope) {
+            motionEnvelopeTargetZoom = resolveMotionEnvelopeZoom({
+              currentZoom: camera.zoom,
+              projectedMaxAbsX: before.maxAbsX,
+              projectedMaxAbsY: before.maxAbsY,
+            });
+          }
+          const nextZoom = smoothMotionEnvelopeZoom({
+            currentZoom: camera.zoom,
+            targetZoom: motionEnvelopeTargetZoom,
+            deltaSeconds: delta,
+          });
+          if (Math.abs(nextZoom - camera.zoom) > 0.0001) {
+            camera.zoom = nextZoom;
+            camera.updateProjectionMatrix();
+          }
+          const after = projectMotionEnvelope();
+          canvas.dataset.framingZoom = camera.zoom.toFixed(4);
+          canvas.dataset.framingTargetZoom = motionEnvelopeTargetZoom.toFixed(4);
+          canvas.dataset.framingMaxX = after.maxAbsX.toFixed(4);
+          canvas.dataset.framingMaxY = after.maxAbsY.toFixed(4);
+          canvas.dataset.framingConstrained = String(camera.zoom < 0.999);
+          if (Math.abs(camera.zoom - lastReportedFramingZoom) >= 0.003) {
+            lastReportedFramingZoom = camera.zoom;
+            reportVisibleBounds();
+          }
+        }
+      }
+
       renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
@@ -495,6 +571,8 @@ export function AvatarStage({
         vrm.scene.traverse((object) => {
           const mesh = object as Mesh;
           if (!mesh.isMesh) return;
+          const skinnedMesh = mesh as SkinnedMesh;
+          if (skinnedMesh.isSkinnedMesh) motionEnvelopeSkinnedMeshes.push(skinnedMesh);
           const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
           for (const material of materials as Array<Material & { map?: { isTexture?: boolean } }>) {
             if (material.map?.isTexture) textureCount += 1;

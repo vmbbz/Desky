@@ -252,6 +252,8 @@ The candidate library supplies 84 canonical CC0 Quaternius Standard clips plus t
 
 Avatar fitting uses the real perspective-camera frustum rather than fixed world-space target dimensions. The balanced presentation target occupies 98% of the vertical view and 90% of the horizontal view in the relaxed pose: the measured midpoint between the original oversized presentation and the first conservative fit. The window and camera remain stable during motion; animations never resize the native surface or steal focus.
 
+F4.6 adds a live motion envelope above that preferred relaxed fit. It recomputes actual deformed `SkinnedMesh` bounds on an adaptive cadence, derives a provider/avatar/clip-neutral camera target from projected safe regions, contracts quickly for broad poses, and releases slowly. This preserves Milk's preferred idle size while containing its unusually wide Jump arms, and accounts for Astronaut's antenna without per-avatar constants. Projected hit bounds follow the eased zoom.
+
 ### F3c — desktop-presence composition
 
 - Replace the development card as the default companion presentation with the ambient transparent composition.

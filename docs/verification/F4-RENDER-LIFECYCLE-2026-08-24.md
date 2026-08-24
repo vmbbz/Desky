@@ -49,6 +49,8 @@ Milk and Astronaut each loaded from an isolated packaged profile with one mapped
 
 Visual review found that the most expansive Jump frame reaches or crosses the horizontal capture edge for both companions; Astronaut's antenna also reaches the top edge. The representative visual-admission gate therefore remains open for per-avatar motion-envelope framing or clip-specific tuning. The evidence is retained as a detected compatibility issue rather than mislabeled as a visual pass.
 
+Follow-up: F4.6 closes this exact visual failure with generic live skinned-motion framing. See `docs/verification/F4-MOTION-ENVELOPE-2026-08-24.md`.
+
 ## Remaining gates
 
 - Add a legally redistributable, provenance-reviewed real VRM 1.0 fixture and run the same motion/cache/recovery matrix.

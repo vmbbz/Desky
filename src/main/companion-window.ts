@@ -292,6 +292,14 @@ async function captureVisualTest(
       const avatar = document.querySelector('.ambient-avatar-hitbox');
       avatar?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
       await wait(500);
+      const canvas = document.querySelector('.avatar-stage canvas');
+      if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Avatar canvas is unavailable');
+      const maxX = Number.parseFloat(canvas.dataset.framingMaxX ?? 'Infinity');
+      const maxY = Number.parseFloat(canvas.dataset.framingMaxY ?? 'Infinity');
+      canvas.dataset.motionFramingVerified = String(maxX <= 0.985 && maxY <= 0.985);
+      if (canvas.dataset.motionFramingVerified !== 'true') {
+        throw new Error('Expansive motion exceeded the live framing envelope');
+      }
     })()`);
   }
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-loss') {
@@ -525,6 +533,12 @@ async function captureVisualTest(
     motionPendingCues: document.querySelector('.avatar-stage canvas')?.dataset.motionPendingCues ?? null,
     motionReduced: document.querySelector('.avatar-stage canvas')?.dataset.motionReduced ?? null,
     motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
+    framingZoom: document.querySelector('.avatar-stage canvas')?.dataset.framingZoom ?? null,
+    framingTargetZoom: document.querySelector('.avatar-stage canvas')?.dataset.framingTargetZoom ?? null,
+    framingMaxX: document.querySelector('.avatar-stage canvas')?.dataset.framingMaxX ?? null,
+    framingMaxY: document.querySelector('.avatar-stage canvas')?.dataset.framingMaxY ?? null,
+    framingConstrained: document.querySelector('.avatar-stage canvas')?.dataset.framingConstrained ?? null,
+    motionFramingVerified: document.querySelector('.avatar-stage canvas')?.dataset.motionFramingVerified ?? null,
     webglState: document.querySelector('.avatar-stage canvas')?.dataset.webglState ?? null,
     webglLossCount: document.querySelector('.avatar-stage canvas')?.dataset.webglLossCount ?? null,
     webglRestoreCount: document.querySelector('.avatar-stage canvas')?.dataset.webglRestoreCount ?? null,

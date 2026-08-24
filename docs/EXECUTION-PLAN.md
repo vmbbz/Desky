@@ -83,7 +83,7 @@ The packaged surface supports direct manipulation after a five-pixel threshold a
 
 ### Next animation round — expressive motion layers
 
-Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented; representative binary avatars and the full packaged visual matrix remain open.
+Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x; a rights-reviewed real VRM 1.0 and the full state/clip matrix remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink and restrained look-at that work without external animation files and obey reduced-motion/cancellation priority. Keep speaking on its authored state clip rather than interrupting it with a procedural full-body emphasis.
@@ -92,6 +92,8 @@ Status: procedural motion, additive expression, the first semantic agent-action 
 - Keep every state readable and controllable when a clip or avatar capability is absent.
 
 The controller now owns a bounded queue for `emphasis`, `nod`, low-priority autonomous idle gestures, and explicit `wave`/`jump` actions. Higher-priority normalized states interrupt or reject lower-priority cues, an explicit action temporarily replaces any registered state clip as the sole body owner, and the current state plan resumes afterward. Idle uses the exact Looking Around state clip, thinking uses the admitted Search/Interact state, and speaking uses the admitted talk state. Standing state bindings preserve the target avatar's hips position, eliminating retargeted vertical drift; speaking no longer queues an interruption on entry. The focused ambient surface exposes an explicit Wave control and a deliberate character double-click requests Jump; raw prompt or model text is never parsed as an animation selector. Reduced motion retains a small acknowledgement but removes Jump travel and autonomous motion.
+
+Live framing is also file/provider neutral. The renderer samples actual deformed skinned bounds, derives the minimum safe camera contraction, and eases back to the preferred relaxed fit. It does not list avatar IDs or animation names and therefore remains compatible with later adapter runtimes and signed catalog growth.
 
 The next rights-safe slice is also implemented: the control center can select and replay a local `.vrma` as session-only content. Main validates a self-contained bounded VRM Animation, keeps it only in memory, and never exposes its path; the ambient surface loads it with `@pixiv/three-vrm-animation` and runs it through the existing mixer. Packaged Windows has passed real playback/replay/completion, reduced-motion rejection, malformed-humanoid rejection, clear, and restart-reset evidence on Milk. Active-playback interruption and macOS remain manual gates.
 

@@ -159,6 +159,7 @@ An agent-facing commerce capability is read-mostly and provider-neutral. Agents 
 - Pause or reduce work when battery-saving mode or reduced-motion is enabled.
 - Dispose geometries, materials, textures, mixers, and object URLs on replacement.
 - Measure the character's projected visible bounds for safe bubble/composer placement without treating the full transparent canvas as occupied.
+- Preserve the relaxed-pose presentation size while live skinned-vertex bounds remain safe; smoothly contract the perspective-camera envelope only for poses that would cross the transparent surface, then ease back. Framing policy consumes geometry, not avatar or clip names.
 
 ### Animation pipeline
 

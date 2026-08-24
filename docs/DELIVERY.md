@@ -340,7 +340,17 @@ Evidence: `docs/verification/F4-STORAGE-WEBGL-RECOVERY-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-RENDER-LIFECYCLE-2026-08-24.md`.
 
-Next: motion-envelope framing/tuning for the representative VRM 0.x pair, a rights-clear real VRM 1.0 admission, real Windows sleep/wake and timed performance, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
+### F4.6 live motion-envelope framing — 2026-08-24
+
+- Added generic perspective-camera containment driven by current projected geometry rather than avatar or animation identifiers.
+- Rejected the first ordinary-object-bounds attempt after its package diagnostic disagreed with visible skinned-arm clipping; the final path recomputes actual `SkinnedMesh` bounds on an adaptive active/idle cadence.
+- Added fast contraction and slower release, a pathological-pose floor, and updated projected hit bounds without resizing or focusing the native surface.
+- Package-proved Milk at its unchanged `1.0000` preferred idle zoom and its complete wide Jump at `0.6340`; package-proved Astronaut's complete antenna/body and Jump at approximately `0.843`.
+- Both Full-motion Jump captures retain `user-jump-1`, mapped textures, and no clip, preference, framing, or exercise error.
+
+Evidence: `docs/verification/F4-MOTION-ENVELOPE-2026-08-24.md`.
+
+Next: a rights-clear real VRM 1.0 admission, real Windows sleep/wake and timed performance, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 
@@ -439,7 +449,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Add motion-envelope framing/tuning, then complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix.
+1. Complete the real rights-clear VRM 1.0, Mac package, and remaining reference-device lifecycle/performance portions of the F4 compatibility matrix; live motion-envelope framing now passes on both admitted representative VRM 0.x companions.
 2. Complete the remaining local-VRMA interruption and separate live Wave evidence; Milk/Astronaut runtime motion and the full corrupt/restart matrix are proved, while expansive-action visual admission remains open.
 3. Start F5a generic adapter-host extraction before a second production adapter or final connection UX; keep commerce capability separate and make OpenClaw the first action/discovery conformance implementation.
 4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
