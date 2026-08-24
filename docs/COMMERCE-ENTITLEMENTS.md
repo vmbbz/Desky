@@ -6,7 +6,7 @@ Desky needs one durable answer to a simple question: “May this account/device 
 
 Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
 
-## Implemented foundation — F4x.1a–b, 2026-08-24
+## Implemented foundation — F4x.1a–c, 2026-08-25
 
 The first executable slice is deliberately provider-disabled:
 
@@ -18,8 +18,13 @@ The first executable slice is deliberately provider-disabled:
 - F4x.1b adds an exact authoritative quote that binds account, offer/product/catalog revisions, exact avatar revisions, provider, release profile, region, atomic amount, expiry, and provider settlement terms. x402 quotes require network/asset/recipient together; native-store quotes reject those chain fields.
 - An asset grant now binds one entitlement event to exact product/catalog/avatar revisions and an explicit delivery state.
 - `src/service/commerce/sqlite-commerce-ledger.ts` is a service-side conformance repository, not an Electron or production-hosted database adapter. It uses strict tables, foreign/unique constraints, WAL, full synchronization, compare-and-swap transitions, exact idempotent replay, and one transaction for verified payment settlement, order grant, entitlement event, and asset grant. Tests prove rollback and close/reopen durability.
+- F4x.1c adds exact clean-device/session-refresh/reconciliation contracts, a fixed-origin HTTPS main client, a framework-neutral hosted HTTP boundary, and a production repository port. The port stores refresh digests—not credentials—and requires transactional compare-and-swap, current/previous digest rotation, reconciliation snapshots, and append-only audit.
+- Strict Ed25519 JWKS parsing admits only bounded `OKP`/`Ed25519` signing keys. The rotating cache refreshes on expiry or unknown `kid`, admits intentional overlap, supports an emergency release revocation set, and permits stale keys only for a bounded outage window.
+- Refresh material is main-only and OS encrypted through the existing `safeStorage` vault. Clean-device restore requires a one-time code, PKCE verifier, installation identity, and idempotency key. Every refresh rotates the credential/generation and carries a deterministic rotation ID for crash-safe service replay.
+- The distinct `desky-offline-lease+jwt` is installation-bound, revision-exact, and capped at 72 hours. Online verification pins its public key in the encrypted session so offline restart does not require JWKS. Server time and system-monotonic elapsed time detect observed rollback; a monotonic reset/offline reboot or material wall-clock rollback requires reconnection.
+- The recovery coordinator persists nothing until access token, lease, account, installation, refresh generation, catalog, exact active grants, and reconciliation all agree. No access token is persisted and recovery proofs never enter storage.
 
-This is not yet the deployed durable network service. The SQLite adapter proves repository semantics locally; production still requires a hosted transactional database adapter, migrations/backups, authenticated service API, JWKS retrieval/rotation, refresh credentials in the OS vault, clean-device restore, offline leases, reconciliation workers, and operational evidence. Every payment provider remains open. No checkout or paid UI is exposed.
+This is not yet a deployed durable network service. The executable API/repository/recovery boundaries now pass local adversarial tests, but production still requires the hosted database adapter and migrations, real identity-provider PKCE flow, TLS/domain, managed signing-key custody, backups/restore drills, rate limits, reconciliation workers, monitoring, incident evidence, and clean-device hardware verification. Every payment provider remains unreachable. No checkout or paid UI is exposed.
 
 The current protocol authority is x402 v2. Its HTTP transport uses `PAYMENT-REQUIRED` and `PAYMENT-SIGNATURE`; `PaymentRequirements.amount` is an atomic-unit string, networks use CAIP-2, and verify/settle are distinct facilitator operations. Desky will admit only the exact Base pair selected by server and release policy after F4x.1 completes; it will not infer v2 from legacy v1 headers or wallet callbacks.
 
@@ -187,11 +192,23 @@ Production rules:
 
 Refresh/recovery credentials are opaque, rotating, revocable values stored only in the OS credential vault. They are never placed in renderer storage.
 
+`/.well-known/jwks.json` is fetched only from the configured HTTPS service origin without redirects. Unknown/duplicate fields, wrong curves/algorithms/use, non-canonical key material, oversized responses, duplicate `kid`, and explicitly revoked keys fail. An unknown token `kid` triggers one bounded refresh; overlapping old/new keys are accepted only while the authority publishes both or the bounded stale-outage policy remains valid.
+
 ### Offline lease
 
 Installed content may continue through a signed offline lease containing only product/revision grants and a bounded expiry. Initial target: 72 hours, tunable by incident and support evidence. Free avatars do not require a lease. A perpetual purchase should recover automatically when connectivity returns.
 
-Offline leases are not extended by changing the system clock. Main records the last trusted server time and monotonic elapsed time where the platform permits. Clock anomalies produce a clear reconnect-to-verify message, not silent data deletion.
+The verified offline public key is pinned with the encrypted lease so an app restart during an outage does not need JWKS. Main records last trusted server time and expects a system-monotonic clock source. Same-boot elapsed time cannot be reduced by changing wall time. Material wall-clock rollback or a monotonic reset (normally an offline reboot) produces reconnect-to-verify rather than silent deletion. Desky does not claim that an ordinary PC exposes a tamper-proof persistent clock across reboot; this is an explicit limitation of offline access.
+
+## Restore and refresh API
+
+The admitted hosted surface is deliberately narrow:
+
+- `POST /v1/session/restore`: one-time recovery code + PKCE verifier + installation ID + idempotency key;
+- `POST /v1/session/refresh`: session/installation IDs + current refresh credential/generation + deterministic rotation ID + reconciliation cursor;
+- `GET /.well-known/jwks.json`: bounded Ed25519 public signing keys.
+
+Responses return a rotating refresh credential, short access JWT, offline lease, authoritative server time, and a full exact reconciliation snapshot. Requests and responses are `no-store`; redirects, unknown routes/fields, wrong content types, oversized bodies, identity drift, generation skips, credential reuse, and token/snapshot disagreement fail closed. The service stores refresh digests and bounded replay metadata, never plaintext credentials, wallet keys, conversation content, access tokens, or leases.
 
 ## Commerce-provider interface
 

@@ -28,6 +28,13 @@ export interface CommerceAccessTokenPolicy {
 const identifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
 const base64UrlPattern = /^[A-Za-z0-9_-]+$/;
 
+interface ParsedAccessTokenHeader {
+  encodedHeader: string;
+  encodedClaims: string;
+  encodedSignature: string;
+  kid: string;
+}
+
 function exactRecord(value: unknown, fields: readonly string[], name: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error(`Invalid commerce access token ${name}.`);
@@ -113,11 +120,7 @@ function parseClaims(value: unknown): CommerceAccessTokenClaims {
   };
 }
 
-export function verifyCommerceAccessToken(
-  token: string,
-  policy: CommerceAccessTokenPolicy,
-  nowSeconds = Math.floor(Date.now() / 1000),
-): CommerceAccessTokenClaims {
+function parseAccessTokenHeader(token: string): ParsedAccessTokenHeader {
   if (typeof token !== 'string' || token.length === 0 || token.length > 8_192) {
     throw new Error('Invalid commerce access token.');
   }
@@ -132,7 +135,24 @@ export function verifyCommerceAccessToken(
   if (header.alg !== 'EdDSA' || header.typ !== commerceAccessTokenType) {
     throw new Error('Commerce access token algorithm or type is not admitted.');
   }
-  const kid = readIdentifier(header.kid, 'key ID');
+  return {
+    encodedHeader,
+    encodedClaims,
+    encodedSignature,
+    kid: readIdentifier(header.kid, 'key ID'),
+  };
+}
+
+export function readCommerceAccessTokenKeyId(token: string): string {
+  return parseAccessTokenHeader(token).kid;
+}
+
+export function verifyCommerceAccessToken(
+  token: string,
+  policy: CommerceAccessTokenPolicy,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): CommerceAccessTokenClaims {
+  const { encodedHeader, encodedClaims, encodedSignature, kid } = parseAccessTokenHeader(token);
   const configuredKey = policy.keys.get(kid);
   if (!configuredKey) throw new Error('Commerce access token key is not admitted.');
   const signature = decodeSegment(encodedSignature, 'signature', 128);
