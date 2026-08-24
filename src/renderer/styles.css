@@ -272,6 +272,10 @@ footer { display: flex; justify-content: space-between; padding: 0 12px; color: 
 .connection-error { background: rgba(255, 125, 145, 0.1); color: #ff9aaa; }
 .pairing-id { background: rgba(104, 207, 255, 0.1); color: #a9e4ff; }
 .pairing-id code { user-select: text; }
+.adapter-capability { margin: 3px 0; padding: 8px 9px; border-radius: 9px; font-size: 10px; line-height: 1.35; }
+.adapter-capability--available { background: rgba(114, 238, 158, 0.1); color: #9ff0ba; }
+.adapter-capability--setup-required,
+.adapter-capability--unsupported { background: rgba(255, 197, 107, 0.1); color: #e9c98c; }
 .connection-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 8px; }
 .connection-actions button { padding: 9px 13px; border: 0; border-radius: 10px; background: #75e6d7; color: #081018; font-size: 11px; font-weight: 750; }
 .connection-actions button.secondary { margin-right: auto; border: 1px solid rgba(255, 255, 255, 0.12); background: transparent; color: #d7deea; }

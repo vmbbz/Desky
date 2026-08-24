@@ -17,6 +17,7 @@ import {
   type CompanionSnapshot,
 } from '../shared/companion-state';
 import type { AgentActionCommand } from '../shared/agent-actions';
+import { openClawCapabilities } from '../shared/adapter-capabilities';
 import {
   initialLocalAnimationPreviewState,
   type LocalAnimationPreviewState,
@@ -41,6 +42,7 @@ const initialGateway: OpenClawConnectionState = {
   message: 'Connect to an OpenClaw Gateway',
   reconnectAttempt: 0,
   sessions: [],
+  capabilities: openClawCapabilities(false),
 };
 const visualTestState = new URLSearchParams(window.location.search).get('visualState');
 
@@ -765,6 +767,13 @@ export function App() {
               <input id="gateway-credential" type="password" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Leave blank to use saved access" autoComplete="off" />
               <label className="remember-row"><input type="checkbox" checked={rememberCredential} onChange={(event) => setRememberCredential(event.target.checked)} /> Store with OS credential encryption</label>
               {gateway.insecureLoopback ? <p className="connection-warning">Plain WebSocket is accepted only because this is a loopback address.</p> : null}
+              {gateway.status === 'connected' ? (
+                <p className={`adapter-capability adapter-capability--${gateway.capabilities.agentActions.availability}`}>
+                  Avatar actions: {gateway.capabilities.agentActions.availability === 'available'
+                    ? 'typed Jump and Wave ready'
+                    : 'Gateway plugin setup required'}
+                </p>
+              ) : null}
               {gateway.pairingRequestId ? <p className="pairing-id">Pairing request: <code>{gateway.pairingRequestId}</code></p> : null}
               {uiError ? <p className="connection-error">{uiError}</p> : null}
               <div className="connection-actions">

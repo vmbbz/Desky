@@ -201,15 +201,13 @@ describe('AvatarMotionController', () => {
     expect(controller.currentPlan.mode).toBe('listening');
   });
 
-  it('queues one conversational emphasis when speaking begins', () => {
+  it('keeps speaking on its authored state clip without a procedural interruption', () => {
     const fixture = createVrmFixture();
     const controller = new AvatarMotionController(fixture.vrm, fixture.root);
 
     controller.setMode('speaking');
-    expect(controller.pendingMotionCueCount).toBe(1);
+    expect(controller.pendingMotionCueCount).toBe(0);
     controller.update(0.016, 0.1);
-    expect(controller.activeMotionCue?.kind).toBe('emphasis');
-    controller.update(0.1, 1.3);
     expect(controller.activeMotionCue).toBeUndefined();
     expect(controller.currentPlan.mode).toBe('speaking');
   });

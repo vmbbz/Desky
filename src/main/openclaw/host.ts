@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { AdapterEvent } from '../../shared/adapter-events';
 import type { AgentActionCommand } from '../../shared/agent-actions';
+import { openClawCapabilities } from '../../shared/adapter-capabilities';
 import type {
   OpenClawConnectInput,
   OpenClawConnectionState,
@@ -44,9 +45,44 @@ interface AbortAcknowledgement {
 
 const profileIndexKey = 'openclaw:active-profile';
 const identityKey = 'openclaw:device-identity';
+const actionCapabilitiesMethod = 'desky.actions.capabilities';
 
 function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
-  return { ...state, sessions: state.sessions.map((session) => ({ ...session })) };
+  return {
+    ...state,
+    sessions: state.sessions.map((session) => ({ ...session })),
+    capabilities: {
+      ...state.capabilities,
+      agentActions: {
+        ...state.capabilities.agentActions,
+        actions: [...state.capabilities.agentActions.actions],
+      },
+    },
+  };
+}
+
+function hasDeskyActionCapabilities(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return record.schemaVersion === 1
+    && record.toolName === 'desky_avatar_action'
+    && Array.isArray(record.actions)
+    && record.actions.includes('wave')
+    && record.actions.includes('jump');
+}
+
+async function discoverDeskyActionCapabilities(
+  client: GatewayClientPort,
+  methods: readonly string[],
+): Promise<boolean> {
+  if (!methods.includes(actionCapabilitiesMethod)) return false;
+  try {
+    return hasDeskyActionCapabilities(await client.request(actionCapabilitiesMethod, {}));
+  } catch {
+    // Action discovery is optional. Fail this capability closed without
+    // discarding an otherwise valid Gateway connection.
+    return false;
+  }
 }
 
 export function redactOpenClawError(error: unknown, secrets: Array<string | undefined> = []): string {
@@ -149,6 +185,7 @@ export class OpenClawAdapterHost {
     message: 'Connect to an OpenClaw Gateway',
     reconnectAttempt: 0,
     sessions: [],
+    capabilities: openClawCapabilities(false),
   };
 
   constructor(
@@ -364,6 +401,10 @@ export class OpenClawAdapterHost {
       const hello = await client.connect();
       if (generation !== this.generation) return;
       this.assertRequiredFeatures(hello.features.methods);
+      const actionCapabilitiesAvailable = await discoverDeskyActionCapabilities(
+        client,
+        hello.features.methods,
+      );
       if (hello.auth.deviceToken) {
         profile.deviceToken = hello.auth.deviceToken;
         this.persistProfile(this.rememberCredential);
@@ -373,6 +414,7 @@ export class OpenClawAdapterHost {
         serverVersion: hello.server.version,
         message: 'Connected — choose a session',
         reconnectAttempt: 0,
+        capabilities: openClawCapabilities(actionCapabilitiesAvailable),
       });
       this.emitEvent({
         protocolVersion: 1,

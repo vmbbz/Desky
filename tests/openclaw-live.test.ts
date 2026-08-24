@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import WebSocket, { WebSocketServer } from 'ws';
 
 import type { AdapterEvent } from '../src/shared/adapter-events';
+import type { AgentActionCommand } from '../src/shared/agent-actions';
 import type { OpenClawConnectionState } from '../src/shared/openclaw';
 import { OpenClawGatewayClient } from '../src/main/openclaw/gateway-client';
 import { OpenClawAdapterHost } from '../src/main/openclaw/host';
@@ -112,6 +113,25 @@ function waitForState(
       clearTimeout(timer);
       unsubscribe();
       resolve(state);
+    });
+  });
+}
+
+function waitForAction(
+  host: OpenClawAdapterHost,
+  predicate: (command: AgentActionCommand) => boolean,
+  timeoutMs: number,
+): Promise<AgentActionCommand> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      unsubscribe();
+      reject(new Error('Timed out waiting for a live Desky agent action.'));
+    }, timeoutMs);
+    const unsubscribe = host.onAction((command) => {
+      if (!predicate(command)) return;
+      clearTimeout(timer);
+      unsubscribe();
+      resolve(command);
     });
   });
 }
@@ -398,6 +418,30 @@ describe.runIf(liveEnabled)('OpenClaw live Gateway', () => {
         .map((event) => event.payload.text)
         .join('');
       expect(streamedText).toContain('DESKY_LIVE_OK');
+
+      expect(host.getState().capabilities.agentActions).toMatchObject({
+        availability: 'available',
+        transport: 'typed-tool-event',
+        actions: ['wave', 'jump'],
+      });
+      const actionTerminal = waitForEvent(
+        host,
+        (event) => event.type === 'turn.completed' || event.type === 'turn.failed',
+        120_000,
+      );
+      const jumpCommand = waitForAction(
+        host,
+        (command) => command.payload.action === 'jump',
+        120_000,
+      );
+      await host.send([
+        'Use the desky_avatar_action tool exactly once with action jump.',
+        'After the tool succeeds, reply with exactly DESKY_ACTION_OK and no other text.',
+      ].join(' '));
+      const [action, actionResult] = await Promise.all([jumpCommand, actionTerminal]);
+      expect(action.payload).toEqual({ action: 'jump' });
+      expect(actionResult.type).toBe('turn.completed');
+      process.stdout.write('[desky-live] typed desky_avatar_action Jump passed\n');
     } finally {
       requester.close('Desky live verification complete');
       await host.disconnect();

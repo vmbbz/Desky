@@ -29,6 +29,9 @@ interface BuildSource {
   expectedClipCount: number;
   sourceRigProfile: SourceRigProfile;
   excludedClips: string[];
+  creator?: string;
+  licenseId?: string;
+  attribution?: string;
 }
 
 interface ClipOverride {
@@ -37,6 +40,7 @@ interface ClipOverride {
   intent: MotionIntent;
   layer: MotionLayer;
   playback: PlaybackKind;
+  label?: string;
   tags?: string[];
 }
 
@@ -50,7 +54,7 @@ interface LibraryBuildPlan {
   libraryId: string;
   label: string;
   creator: string;
-  licenseId: 'CC0-1.0';
+  licenseId: 'CC0-1.0' | 'MIXED';
   sourceUrl: string;
   generatedAt: string;
   convertedAt: string;
@@ -64,6 +68,7 @@ interface LibraryBuildPlan {
     clip: ClipReference;
     order: number;
     crossFadeMs: number;
+    hipsTranslation?: 'authored' | 'preserve-target';
   }>;
   programs: Array<{
     programId: string;
@@ -126,7 +131,9 @@ function readPlan(value: unknown): LibraryBuildPlan {
       !Array.isArray(value.states) || !Array.isArray(value.programs)) {
     throw new Error('Animation library build plan is incomplete');
   }
-  if (value.licenseId !== 'CC0-1.0') throw new Error('Built-in animation plan must be CC0-1.0');
+  if (value.licenseId !== 'CC0-1.0' && value.licenseId !== 'MIXED') {
+    throw new Error('Built-in animation plan must use an admitted library licence');
+  }
   if (!Number.isSafeInteger(value.sampleRate) || Number(value.sampleRate) < 1 || Number(value.sampleRate) > 120) {
     throw new Error('Animation library sample rate is invalid');
   }
@@ -165,6 +172,13 @@ export async function buildAnimationLibrary(input: {
   const planPath = validatePathInside(workspaceRoot, input.planPath, 'Animation plan path');
   const outputPath = validatePathInside(workspaceRoot, input.outputPath, 'Animation output path');
   const plan = readPlan(JSON.parse(await readFile(planPath, 'utf8')));
+  const sourceLicenses = new Set(plan.sources.map((source) => source.licenseId ?? plan.licenseId));
+  if (plan.licenseId === 'CC0-1.0' && [...sourceLicenses].some((license) => license !== 'CC0-1.0')) {
+    throw new Error('CC0 animation plans cannot contain a differently licensed source');
+  }
+  if (plan.licenseId === 'MIXED' && sourceLicenses.size < 2) {
+    throw new Error('Mixed animation plans require multiple source licences');
+  }
   const overrideByClip = new Map(plan.clipOverrides.map((override) => [clipKey(override), override]));
   if (overrideByClip.size !== plan.clipOverrides.length) {
     throw new Error('Animation plan contains duplicate clip overrides');
@@ -180,6 +194,10 @@ export async function buildAnimationLibrary(input: {
       throw new Error(`Animation source ${source.sourceId} has invalid identity or hashes`);
     }
     const sourcePath = validatePathInside(workspaceRoot, source.inputPath, 'Animation source path');
+    const sourceCreator = source.creator ?? plan.creator;
+    const sourceLicenseId = source.licenseId ?? plan.licenseId;
+    const sourceAttribution = source.attribution
+      ?? `${sourceCreator}; ${source.label}; ${sourceLicenseId}`;
     const sourceBytes = await readFile(sourcePath);
     const sourceBuffer = exactArrayBuffer(sourceBytes);
     const actualSourceHash = await sha256Hex(sourceBuffer);
@@ -202,6 +220,9 @@ export async function buildAnimationLibrary(input: {
       archiveSha256: source.archiveSha256,
       animationSourceSha256: source.animationSourceSha256,
       clipCount: inventory.length,
+      creator: sourceCreator,
+      licenseId: sourceLicenseId,
+      attribution: sourceAttribution,
     });
 
     for (const animation of inventory) {
@@ -229,9 +250,9 @@ export async function buildAnimationLibrary(input: {
         kind: 'animation',
         sourceUrl: source.sourceUrl,
         sourceProject: `${source.label} / ${animation.name}`,
-        creator: plan.creator,
-        licenseId: plan.licenseId,
-        attribution: `${plan.creator}; ${source.label}; ${animation.name}; CC0-1.0`,
+        creator: sourceCreator,
+        licenseId: sourceLicenseId,
+        attribution: `${sourceAttribution}; ${animation.name}`,
         bytes: sourceBuffer,
         fetchedAt: new Date(source.fetchedAt),
       });
@@ -240,9 +261,9 @@ export async function buildAnimationLibrary(input: {
         kind: 'animation',
         sourceUrl: `desky-asset://animations/${plan.libraryId}/${identity}.json`,
         sourceProject: plan.label,
-        creator: plan.creator,
-        licenseId: plan.licenseId,
-        attribution: `${plan.creator}; ${source.label}; ${animation.name}; CC0-1.0`,
+        creator: sourceCreator,
+        licenseId: sourceLicenseId,
+        attribution: `${sourceAttribution}; ${animation.name}`,
         bytes: exactArrayBuffer(canonicalBytes),
         fetchedAt: new Date(plan.convertedAt),
       });
@@ -275,7 +296,7 @@ export async function buildAnimationLibrary(input: {
       });
       clips.push({
         clipId: identity,
-        label: animation.name.split('|').at(-1)!.replace(/_/g, ' '),
+        label: override?.label ?? animation.name.split('|').at(-1)!.replace(/_/g, ' '),
         tags: sourceTags(source.sourceId, animation.name, override?.tags),
         canonical,
         manifest,
@@ -294,6 +315,7 @@ export async function buildAnimationLibrary(input: {
     clipId: clipId(state.clip),
     order: state.order,
     crossFadeMs: state.crossFadeMs,
+    hipsTranslation: state.hipsTranslation ?? 'authored',
   }));
   const programs = plan.programs.map((program) => ({
     programId: program.programId,

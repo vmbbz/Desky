@@ -30,16 +30,20 @@ function targetVrm(metaVersion: '0' | '1'): VRM {
   } as VRM;
 }
 
-describe('built-in CC0 animation library', () => {
-  it('contains the complete reviewed Standard inventories without authoring poses', () => {
+describe('built-in admitted animation library', () => {
+  it('contains the complete reviewed Standard inventories and the exact look-around idle', () => {
     const library = parseAnimationLibrary(builtInAnimationLibrary);
 
-    expect(library.sourceArchives.map((source) => source.clipCount)).toEqual([43, 43]);
-    expect(library.clips).toHaveLength(84);
+    expect(library.licenseId).toBe('MIXED');
+    expect(library.sourceArchives.map((source) => source.clipCount)).toEqual([43, 43, 1]);
+    expect(library.clips).toHaveLength(85);
     expect(library.clips.some((clip) => clip.label === 'A TPose')).toBe(false);
-    expect(library.states.map((state) => state.mode)).toEqual(['idle', 'speaking', 'working']);
+    expect(library.states.map((state) => state.mode)).toEqual(['idle', 'thinking', 'speaking', 'working']);
     expect(library.states.find((state) => state.mode === 'idle')?.clipId)
-      .toBe('uam2-idle-fold-arms-loop-v1');
+      .toBe('mixamo-look-around-mixamo-com-v1');
+    const lookingAround = library.clips.find((clip) => clip.label === 'Looking Around');
+    expect(lookingAround?.canonical.durationSeconds).toBe(11.4);
+    expect(lookingAround?.manifest.source.licenseId).toBe('LicenseRef-Adobe-Mixamo');
     expect(library.programs).toHaveLength(15);
   });
 
@@ -68,14 +72,14 @@ describe('built-in CC0 animation library', () => {
     expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
       program.trigger.modes.includes('idle') &&
       program.trigger.modes.includes('disconnected'))).toBe(true);
-    expect(ambient.map((program) => program.programId)).toEqual([
+    expect(ambient.map((program) => program.programId).sort()).toEqual([
       'dance-break',
       'formal-walk',
-      'search-high',
-    ]);
+      'phone-check',
+    ].sort());
     expect(ambient.every((program) => program.trigger.kind === 'ambient' &&
       program.trigger.cycle === undefined)).toBe(true);
-    expect(library.programs.find((program) => program.programId === 'long-look-around')?.trigger.kind)
+    expect(library.programs.find((program) => program.programId === 'head-shake-candidate')?.trigger.kind)
       .toBe('catalog');
     expect(library.programs.find((program) => program.programId === 'celebration-fist-pump')?.trigger.kind)
       .toBe('catalog');
@@ -110,16 +114,30 @@ describe('built-in CC0 animation library', () => {
     expect(() => parseAnimationLibrary(mixed)).toThrow('mixes cycled and weighted programs');
   });
 
+  it('rejects a false single-licence label for the mixed built-in sources', () => {
+    const mislabeled = structuredClone(builtInAnimationLibrary) as unknown as {
+      licenseId: string;
+    };
+    mislabeled.licenseId = 'CC0-1.0';
+    expect(() => parseAnimationLibrary(mislabeled)).toThrow(
+      'cannot contain a differently licensed source',
+    );
+  });
+
   it('cryptographically admits every clip and resolves Jump as a two-file action program', async () => {
     const library = await admitAnimationLibrary(builtInAnimationLibrary);
     const jump = selectActionProgram(library, 'jump');
 
-    expect(library.clipCount).toBe(84);
-    expect(library.stateRegistrations).toHaveLength(3);
+    expect(library.clipCount).toBe(85);
+    expect(library.stateRegistrations).toHaveLength(4);
+    expect(library.stateRegistrations.find((binding) => binding.mode === 'thinking')).toMatchObject({
+      hipsTranslation: 'preserve-target',
+      playback: 'loop',
+    });
     expect(jump?.steps.map((step) => step.clip.label)).toEqual(['Jump Start', 'Jump Land']);
   });
 
-  it('binds all 84 canonical clips to structural VRM 0.x and 1.0 targets', async () => {
+  it('binds all 85 canonical clips to structural VRM 0.x and 1.0 targets', async () => {
     const library = await admitAnimationLibrary(builtInAnimationLibrary);
     for (const version of ['0', '1'] as const) {
       const vrm = targetVrm(version);
@@ -128,6 +146,19 @@ describe('built-in CC0 animation library', () => {
         expect(clip.duration, `${version}:${definition.clipId}`).toBeGreaterThan(0);
         expect(clip.tracks.length, `${version}:${definition.clipId}`).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it('keeps standing state clips on the target avatar floor plane', async () => {
+    const library = await admitAnimationLibrary(builtInAnimationLibrary);
+    const vrm = targetVrm('1');
+    for (const mode of ['idle', 'thinking', 'speaking'] as const) {
+      const registration = library.stateRegistrations.find((candidate) => candidate.mode === mode);
+      expect(registration?.hipsTranslation).toBe('preserve-target');
+      const clip = createVrmAnimationClip(registration!.canonical, vrm, {
+        hipsTranslation: registration!.hipsTranslation,
+      });
+      expect(clip.tracks.some((track) => track.name.endsWith('.position')), mode).toBe(false);
     }
   });
 

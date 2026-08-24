@@ -18,6 +18,7 @@ const requiredMethods = [
   'sessions.list', 'sessions.subscribe', 'sessions.messages.subscribe',
   'sessions.messages.unsubscribe', 'sessions.create', 'chat.send', 'chat.history',
   'sessions.abort', 'approval.resolve',
+  'desky.actions.capabilities',
 ];
 
 const encryption: EncryptionProvider = {
@@ -68,6 +69,14 @@ class FixtureClient implements GatewayClientPort {
       value = this.resolveApproval(params);
     } else if (method === 'sessions.abort') {
       value = this.abortResult;
+    } else if (method === 'desky.actions.capabilities') {
+      value = {
+        schemaVersion: 1,
+        pluginId: 'desky-actions',
+        toolName: 'desky_avatar_action',
+        actions: ['wave', 'jump'],
+        transport: 'session-tool-stream',
+      };
     }
     return Promise.resolve(value as T);
   }
@@ -91,6 +100,15 @@ class FixtureClient implements GatewayClientPort {
 class RejectingClient extends FixtureClient {
   override connect(): Promise<never> {
     return Promise.reject(new Error('unauthorized token=bootstrap-token raw bootstrap-token'));
+  }
+}
+
+class RejectingActionDiscoveryClient extends FixtureClient {
+  override request<T>(method: string, params: unknown = {}): Promise<T> {
+    if (method === 'desky.actions.capabilities') {
+      return Promise.reject(new Error('optional action plugin request failed'));
+    }
+    return super.request<T>(method, params);
   }
 }
 
@@ -166,6 +184,30 @@ describe('OpenClawAdapterHost contract fixture', () => {
     expect(attempts[1]).toMatchObject({ deviceToken: 'saved-device-token' });
   });
 
+  it('keeps the core Gateway connected when optional action discovery fails closed', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new RejectingActionDiscoveryClient(options),
+    );
+
+    const connected = await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+
+    expect(connected.status).toBe('connected');
+    expect(connected.capabilities.agentActions).toMatchObject({
+      availability: 'setup-required',
+      actions: [],
+    });
+  });
+
   it('covers sessions, streaming, approvals, cancellation, and reconnect', async () => {
     vi.useFakeTimers();
     const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
@@ -195,6 +237,11 @@ describe('OpenClawAdapterHost contract fixture', () => {
       rememberCredential: false,
     });
     expect(connected).toMatchObject({ status: 'connected', serverVersion: '2026.8.22' });
+    expect(connected.capabilities.agentActions).toMatchObject({
+      availability: 'available',
+      transport: 'typed-tool-event',
+      actions: ['wave', 'jump'],
+    });
     expect(connected.sessions).toEqual([{ key: 'agent:main:desky', label: 'Desky session', updatedAt: 10 }]);
     const stored = vault.get<{ credential?: string; deviceToken?: string }>('openclaw:active-profile');
     expect(stored?.credential).toBeUndefined();

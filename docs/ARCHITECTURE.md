@@ -80,7 +80,7 @@ Each renderer consumes that snapshot through the UI and motion arbiter. The impl
 
 Blink, gaze, and expressions are an additive capability-gated controller rather than another body owner. It manipulates only advertised presets/look-at, follows a deterministic bounded schedule, neutralizes gaze under reduced motion, and restores authored baselines on disposal. Missing optional capabilities are no-ops. Speech visemes remain open.
 
-Agent actions use a separate ephemeral command because an action must not replay when a renderer opens or reconnects. OpenClaw's exact `desky_avatar_action` tool-start event is reduced in main to a versioned Wave/Jump command, filtered to the selected session/live turn, deduplicated by tool-call identity, then sent through narrow preload IPC. Only the normalized enum reaches the renderer. Runtime setup and the cross-provider policy are specified in `docs/AGENT-ACTIONS.md`.
+Agent actions use a separate ephemeral command because an action must not replay when a renderer opens or reconnects. OpenClaw's exact `desky_avatar_action` tool-start event is reduced in main to a versioned Wave/Jump command, filtered to the selected session/live turn, deduplicated by tool-call identity, then sent through narrow preload IPC. Only the normalized enum reaches the renderer. `AgentAdapterCapabilities` separately normalizes discovery of sessions, streaming, tools, approvals, cancellation, reconnect, and typed action availability. OpenClaw fills it through negotiated methods plus `desky.actions.capabilities`; future Claude/Hermes adapters must map supported native discovery into the same object. Runtime setup and the cross-provider policy are specified in `docs/AGENT-ACTIONS.md`.
 
 ### Companion window composition
 
@@ -99,7 +99,7 @@ The ambient renderer reports only `interactive` or `transparent` pointer intent 
 
 The contextual composer uses a separate typed companion bridge. Main holds one bounded, revisioned draft in memory, broadcasts changes to existing windows, and returns it to windows opened later. It is cleared only after an accepted send or explicit user deletion; collapsing, reconnecting, or recreating a renderer does not discard it. The draft is intentionally absent from `desktop-state.json`, the secure credential vault, and transcript persistence. Main also broadcasts the revisioned companion snapshot after every normalized adapter event, while the renderer uses a concise response preview and routes the bounded live response to the control center.
 
-Surface separation does not make the OpenClaw bridge the generic adapter contract. F5a will put an executable adapter registry and shared connection/session/capability types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
+Surface separation does not make the OpenClaw bridge the generic adapter contract. The capability slice is now shared and executable; F5a will put an adapter registry and shared host/connection/session/command types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
 
 ### OpenClaw adapter host
 

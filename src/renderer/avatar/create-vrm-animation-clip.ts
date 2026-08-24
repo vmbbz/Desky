@@ -9,10 +9,12 @@ import {
   parseCanonicalAnimationClip,
   type CanonicalAnimationClip,
 } from '../../shared/canonical-animation';
+import type { HipsTranslationPolicy } from './motion-arbiter';
 
 export function createVrmAnimationClip(
   canonical: CanonicalAnimationClip,
   vrm: VRM,
+  options: { hipsTranslation?: HipsTranslationPolicy } = {},
 ): AnimationClip {
   const parsed = parseCanonicalAnimationClip(canonical);
   const hipsHeight = vrm.humanoid.normalizedRestPose[VRMHumanBoneName.Hips]?.position?.[1];
@@ -21,6 +23,8 @@ export function createVrmAnimationClip(
   }
 
   const tracks = parsed.tracks.flatMap((track) => {
+    if (track.bone === VRMHumanBoneName.Hips && track.property === 'position'
+      && options.hipsTranslation === 'preserve-target') return [];
     const node = vrm.humanoid.getNormalizedBoneNode(track.bone);
     if (!node) return [];
     if (track.property === 'quaternion') {

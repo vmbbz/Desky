@@ -11,6 +11,7 @@ import {
 import { sha256Hex } from '../../shared/asset-provenance';
 
 export type MotionPlayback = 'loop' | 'once';
+export type HipsTranslationPolicy = 'authored' | 'preserve-target';
 
 const admittedMotionClip = Symbol('admittedMotionClip');
 
@@ -35,6 +36,7 @@ export interface MotionClipRegistration {
   readonly crossFadeMs?: number;
   /** Lower values win. Ties are resolved by canonical clipId. */
   readonly order?: number;
+  readonly hipsTranslation: HipsTranslationPolicy;
 }
 
 export interface AdmitMotionClipInput {
@@ -43,6 +45,7 @@ export interface AdmitMotionClipInput {
   manifest: unknown;
   crossFadeMs?: number;
   order?: number;
+  hipsTranslation?: HipsTranslationPolicy;
 }
 
 export interface MotionPlan {
@@ -224,6 +227,7 @@ export async function admitMotionClip(
     playback: manifest.playback === 'one-shot' ? 'once' : 'loop',
     crossFadeMs: safeCrossFade(input.crossFadeMs, rules[input.mode].crossFadeMs),
     order: input.order,
+    hipsTranslation: input.hipsTranslation ?? 'authored',
   });
 }
 

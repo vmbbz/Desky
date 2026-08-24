@@ -52,7 +52,7 @@ Wave and Jump are local, reversible visual effects and do not need a reviewer ap
 
 ## OpenClaw integration
 
-OpenClaw receives the tool through the bundled source package at `integrations/openclaw-desky-actions`. The package declares one `defineToolPlugin` tool named `desky_avatar_action`; its TypeBox input schema is the same finite Wave/Jump enum. OpenClaw publishes tool-start arguments in the selected session's structured `agent` stream, which the adapter normalizes before IPC.
+OpenClaw receives the tool through the bundled source package at `integrations/openclaw-desky-actions`. The package declares one `defineToolPlugin` tool named `desky_avatar_action`; its TypeBox input schema is the same finite Wave/Jump enum. It also registers the read-scoped `desky.actions.capabilities` Gateway method. Desky queries that method after protocol negotiation and maps the answer into the provider-neutral `AgentAdapterCapabilities` contract. OpenClaw publishes tool-start arguments in the selected session's structured `agent` stream, which the adapter normalizes before IPC.
 
 This requires one operator setup step on the Gateway:
 
@@ -63,7 +63,7 @@ This requires one operator setup step on the Gateway:
 
 It does **not** require users to edit a system prompt, `AGENTS.md`, `CLAUDE.md`, workspace instructions, or each conversation. OpenClaw's tool catalog supplies the name, schema, and model-facing usage description. Optional instructions such as “gesture sparingly” may tune personality, but correctness cannot depend on them.
 
-Desky must not silently change an external Gateway's plugin policy. F4 onboarding should detect or explain missing action capability and offer an explicit, reviewable install path. Store builds may connect to a remote Gateway where only its operator can install the plugin.
+Desky must not silently change an external Gateway's plugin policy. The control center now reports either **typed Jump and Wave ready** or **Gateway plugin setup required** from negotiated discovery, rather than guessing from generic tool-event support. F4 onboarding must add an explicit, reviewable install path. Store builds may connect to a remote Gateway where only its operator can install the plugin.
 
 ## Other runtimes
 
@@ -81,6 +81,6 @@ If a runtime cannot register or expose structured tools, agent-originated action
 ## Release gates
 
 - OpenClaw plugin manifest, runtime definition, action enum, and Desky parser remain contract-tested for drift.
-- A live OpenClaw turn must invoke Wave and Jump through the installed plugin; duplicate, wrong-session, malformed, terminal-turn, and unavailable-client cases must be observed.
-- F5a must promote action capability into `AdapterDescriptor` so the control center can report it without provider-specific guesses.
+- Live OpenClaw 2026.8.1 evidence now proves capability discovery and a real model-issued Jump through the installed plugin. Wave still needs a separate live invocation; duplicate, wrong-session, malformed, terminal-turn, and unavailable-client cases remain contract-tested.
+- `AgentAdapterCapabilities` is now executable and provider-neutral. F5a still promotes the remaining host, connection, session, and command surfaces out of the OpenClaw-specific bridge.
 - Rate limiting, pause-motion controls, occlusion suspension, and packaged Windows/macOS evidence remain required before Store release.

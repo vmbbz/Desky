@@ -1,6 +1,12 @@
 # Open Source Avatars animation audit — 2026-08-23
 
-## Decision
+## Decision update — 2026-08-24
+
+The project owner approved the exact `LookingAround.fbx` as Desky's integrated idle after the file identified its source clip as `mixamo.com`, its Mixamo humanoid structure was verified, and Adobe's official FAQ was checked for commercial-project use. Desky converts it to the canonical VRM-neutral runtime format, records its exact source/output identity under `LicenseRef-Adobe-Mixamo`, and does not commit or expose the source FBX. `LookingAround.fbx` is the only gallery file admitted by this update; the other ten remain research-only.
+
+Reference: [Adobe Mixamo FAQ](https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html).
+
+## Original audit decision — 2026-08-23
 
 Desky will not bundle the animation files currently served by the Open Source Avatars gallery. Their runtime behavior is technically understood and compatible with Desky's existing retargeting design, but the public repositories do not establish modification and commercial/store redistribution rights for those specific binaries.
 
@@ -17,7 +23,7 @@ The safe implementation split is:
 - Avatar registry: <https://github.com/ToxSam/open-source-avatars>, commit `0f9a1b2fd99894736563d55b2c9dc9125700d081`
 - Toothpaste VRM fetched from the registry-backed live gallery and inspected as binary glTF.
 
-Downloaded research files and repository clones stayed under ignored `out/upstream/`; none is a release input or committed asset.
+Downloaded research files and repository clones stay under ignored `out/upstream/`. The Looking Around FBX is now a reviewed local build input, but no raw FBX is committed or shipped.
 
 ## What the gallery actually does
 

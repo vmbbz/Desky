@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "libraryId": "quaternius-uam-standard-v1",
-  "label": "Quaternius Universal Animation Libraries Standard",
-  "creator": "Quaternius",
-  "licenseId": "CC0-1.0",
-  "sourceUrl": "https://quaternius.com/packs/universalanimationlibrary.html",
+  "label": "Desky Standard Motion Library",
+  "creator": "Multiple creators",
+  "licenseId": "MIXED",
+  "sourceUrl": "https://www.opensourceavatars.com/en/gallery?avatar=toothpaste",
   "generatedAt": "2026-08-23T14:24:45.712Z",
   "convertedAt": "2026-08-23T14:24:45.712Z",
   "rightsReviewer": "project-owner",
@@ -21,7 +21,10 @@
       "fetchedAt": "2026-08-23T05:43:25.000Z",
       "expectedClipCount": 43,
       "sourceRigProfile": "quaternius-uam-v1",
-      "excludedClips": ["Armature|A_TPose"]
+      "excludedClips": ["Armature|A_TPose"],
+      "creator": "Quaternius",
+      "licenseId": "CC0-1.0",
+      "attribution": "Quaternius; Universal Animation Library Standard v3; CC0-1.0"
     },
     {
       "sourceId": "uam2",
@@ -33,7 +36,25 @@
       "fetchedAt": "2026-08-23T05:45:00.000Z",
       "expectedClipCount": 43,
       "sourceRigProfile": "quaternius-uam-v1",
-      "excludedClips": ["Armature|A_TPose"]
+      "excludedClips": ["Armature|A_TPose"],
+      "creator": "Quaternius",
+      "licenseId": "CC0-1.0",
+      "attribution": "Quaternius; Universal Animation Library 2 Standard v2.1; CC0-1.0"
+    },
+    {
+      "sourceId": "mixamo-look-around",
+      "label": "Looking Around",
+      "inputPath": "out/upstream/gallery-animations/LookingAround.fbx",
+      "sourceUrl": "https://www.opensourceavatars.com/en/gallery?avatar=toothpaste",
+      "archiveSha256": "fa3822ddd0f3eb9510d3079d5cc2c21e95481e44fc7c026c5586215211fb258e",
+      "animationSourceSha256": "fa3822ddd0f3eb9510d3079d5cc2c21e95481e44fc7c026c5586215211fb258e",
+      "fetchedAt": "2026-08-23T02:54:37.000Z",
+      "expectedClipCount": 1,
+      "sourceRigProfile": "mixamo",
+      "excludedClips": [],
+      "creator": "Adobe Mixamo",
+      "licenseId": "LicenseRef-Adobe-Mixamo",
+      "attribution": "Adobe Mixamo; Looking Around; integrated project use; source FBX redistribution prohibited"
     }
   ],
   "clipOverrides": [
@@ -72,10 +93,10 @@
     {
       "sourceId": "uam2",
       "sourceClip": "Armature|Idle_FoldArms_Loop",
-      "intent": "idle",
-      "layer": "state",
+      "intent": "action",
+      "layer": "gesture",
       "playback": "loop",
-      "tags": ["baseline", "animated-idle", "folded-arms"]
+      "tags": ["catalog", "bored", "folded-arms"]
     },
     {
       "sourceId": "uam2",
@@ -192,10 +213,10 @@
     {
       "sourceId": "uam1",
       "sourceClip": "Armature|Interact",
-      "intent": "action",
-      "layer": "gesture",
-      "playback": "one-shot",
-      "tags": ["ambient", "interact", "search"]
+      "intent": "thinking",
+      "layer": "state",
+      "playback": "loop",
+      "tags": ["thinking", "interact", "searching-files"]
     },
     {
       "sourceId": "uam2",
@@ -220,37 +241,55 @@
       "layer": "action",
       "playback": "one-shot",
       "tags": ["jump", "transition"]
+    },
+    {
+      "sourceId": "mixamo-look-around",
+      "sourceClip": "mixamo.com",
+      "label": "Looking Around",
+      "intent": "idle",
+      "layer": "state",
+      "playback": "loop",
+      "tags": ["baseline", "idle", "look-around", "reference-match"]
     }
   ],
   "states": [
     {
       "mode": "idle",
-      "clip": { "sourceId": "uam2", "sourceClip": "Armature|Idle_FoldArms_Loop" },
+      "clip": { "sourceId": "mixamo-look-around", "sourceClip": "mixamo.com" },
       "order": 0,
-      "crossFadeMs": 220
+      "crossFadeMs": 220,
+      "hipsTranslation": "preserve-target"
+    },
+    {
+      "mode": "thinking",
+      "clip": { "sourceId": "uam1", "sourceClip": "Armature|Interact" },
+      "order": 0,
+      "crossFadeMs": 220,
+      "hipsTranslation": "preserve-target"
     },
     {
       "mode": "speaking",
       "clip": { "sourceId": "uam1", "sourceClip": "Armature|Idle_Talking_Loop" },
       "order": 0,
-      "crossFadeMs": 180
+      "crossFadeMs": 180,
+      "hipsTranslation": "preserve-target"
     },
     {
       "mode": "working",
       "clip": { "sourceId": "uam1", "sourceClip": "Armature|Fixing_Kneeling" },
       "order": 0,
-      "crossFadeMs": 180
+      "crossFadeMs": 180,
+      "hipsTranslation": "authored"
     }
   ],
   "programs": [
     {
-      "programId": "long-look-around",
-      "label": "Long look around",
-      "tags": ["catalog", "idle", "look-around"],
-      "fallbackCue": "look-around",
+      "programId": "head-shake-candidate",
+      "label": "No / head shake candidate",
+      "tags": ["catalog", "rejected", "head-shake"],
       "trigger": { "kind": "catalog" },
       "steps": [
-        { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 3, "reverse": false, "holdSeconds": 0 }
+        { "sourceId": "uam2", "sourceClip": "Armature|Idle_No_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
     },
     {
@@ -268,7 +307,7 @@
       "label": "Phone check",
       "tags": ["ambient", "phone", "texting-adjacent", "osa-near-match"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "catalog" },
+      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 4, "minimumQuietSeconds": 5, "maximumQuietSeconds": 9, "cooldownSeconds": 24 },
       "steps": [
         { "sourceId": "uam2", "sourceClip": "Armature|Idle_TalkingPhone_Loop", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]
@@ -364,7 +403,7 @@
       "label": "Search and interact",
       "tags": ["ambient", "search", "interact", "osa-near-match"],
       "fallbackCue": "look-around",
-      "trigger": { "kind": "ambient", "modes": ["idle", "disconnected"], "weight": 5, "minimumQuietSeconds": 3, "maximumQuietSeconds": 6, "cooldownSeconds": 16 },
+      "trigger": { "kind": "catalog" },
       "steps": [
         { "sourceId": "uam1", "sourceClip": "Armature|Interact", "repetitions": 1, "reverse": false, "holdSeconds": 0 }
       ]

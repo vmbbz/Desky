@@ -58,6 +58,7 @@ export interface AnimationStateBinding {
   clipId: string;
   order: number;
   crossFadeMs: number;
+  hipsTranslation: 'authored' | 'preserve-target';
 }
 
 export interface AnimationLibrary {
@@ -65,7 +66,7 @@ export interface AnimationLibrary {
   libraryId: string;
   label: string;
   creator: string;
-  licenseId: 'CC0-1.0';
+  licenseId: 'CC0-1.0' | 'MIXED';
   sourceUrl: string;
   generatedAt: string;
   sourceArchives: Array<{
@@ -75,6 +76,9 @@ export interface AnimationLibrary {
     archiveSha256: string;
     animationSourceSha256: string;
     clipCount: number;
+    creator: string;
+    licenseId: string;
+    attribution: string;
   }>;
   clips: AnimationLibraryClip[];
   states: AnimationStateBinding[];
@@ -266,8 +270,8 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
   if (!isRecord(value) || value.schemaVersion !== 1) {
     throw new Error('Unsupported animation library schema');
   }
-  if (value.licenseId !== 'CC0-1.0') {
-    throw new Error('Built-in animation libraries must be CC0-1.0');
+  if (value.licenseId !== 'CC0-1.0' && value.licenseId !== 'MIXED') {
+    throw new Error('Built-in animation libraries must use an admitted library licence');
   }
   if (!Array.isArray(value.sourceArchives) || value.sourceArchives.length === 0) {
     throw new Error('Animation library source archives are required');
@@ -279,6 +283,9 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
     if (!sha256Pattern.test(archiveSha256) || !sha256Pattern.test(animationSourceSha256)) {
       throw new Error('Invalid animation library source archive hash');
     }
+    const creator = source.creator ?? value.creator;
+    const licenseId = source.licenseId ?? value.licenseId;
+    const attribution = source.attribution ?? `${creator}; ${source.label}; ${licenseId}`;
     return {
       sourceId: readId(source.sourceId, `sourceArchives[${index}].sourceId`),
       label: readString(source.label, `sourceArchives[${index}].label`),
@@ -286,10 +293,20 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
       archiveSha256,
       animationSourceSha256,
       clipCount: readNumber(source.clipCount, 'source clip count', 1, 10_000, true),
+      creator: readString(creator, 'source creator'),
+      licenseId: readString(licenseId, 'source license', 120),
+      attribution: readString(attribution, 'source attribution', 2_000),
     };
   });
   if (new Set(sourceArchives.map((source) => source.sourceId)).size !== sourceArchives.length) {
     throw new Error('Animation library source IDs must be unique');
+  }
+  const sourceLicenses = new Set(sourceArchives.map((source) => source.licenseId));
+  if (value.licenseId === 'CC0-1.0' && [...sourceLicenses].some((license) => license !== 'CC0-1.0')) {
+    throw new Error('CC0 animation libraries cannot contain a differently licensed source');
+  }
+  if (value.licenseId === 'MIXED' && sourceLicenses.size < 2) {
+    throw new Error('Mixed animation libraries require multiple source licences');
   }
 
   if (!Array.isArray(value.clips) || value.clips.length === 0 || value.clips.length > 1_000) {
@@ -322,11 +339,17 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
     if (!isRecord(state)) throw new Error('Invalid animation library state binding');
     const clipId = readId(state.clipId, 'state clipId');
     if (!clipIds.has(clipId)) throw new Error(`Animation library state references missing clip ${clipId}`);
+    const hipsTranslation = state.hipsTranslation ?? 'authored';
+    if (hipsTranslation !== 'authored' && hipsTranslation !== 'preserve-target') {
+      throw new Error('Invalid animation state hips translation policy');
+    }
+    const admittedHipsTranslation = hipsTranslation as AnimationStateBinding['hipsTranslation'];
     return {
       mode: readMode(state.mode, 'state mode'),
       clipId,
       order: readNumber(state.order, 'state order', 0, 10_000, true),
       crossFadeMs: readNumber(state.crossFadeMs, 'state cross-fade', 0, 1_000, true),
+      hipsTranslation: admittedHipsTranslation,
     };
   });
 
@@ -372,7 +395,7 @@ export function parseAnimationLibrary(value: unknown): AnimationLibrary {
     libraryId: readId(value.libraryId, 'libraryId'),
     label: readString(value.label, 'label'),
     creator: readString(value.creator, 'creator'),
-    licenseId: 'CC0-1.0',
+    licenseId: value.licenseId,
     sourceUrl: readUrl(value.sourceUrl, 'sourceUrl'),
     generatedAt: readTimestamp(value.generatedAt, 'generatedAt'),
     sourceArchives,

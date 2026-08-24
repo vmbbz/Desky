@@ -1,4 +1,5 @@
 import type { AdapterEvent } from './adapter-events';
+import type { AgentAdapterCapabilities } from './adapter-capabilities';
 
 export const OPENCLAW_PROTOCOL_VERSION = 4 as const;
 
@@ -38,6 +39,7 @@ export interface OpenClawConnectionState {
   activeRunId?: string;
   reconnectAttempt: number;
   sessions: OpenClawSessionSummary[];
+  capabilities: AgentAdapterCapabilities;
 }
 
 export interface OpenClawCreateSessionInput {

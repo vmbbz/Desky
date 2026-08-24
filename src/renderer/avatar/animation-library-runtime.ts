@@ -41,7 +41,7 @@ export interface AdmittedAnimationLibrary {
   libraryId: string;
   label: string;
   creator: string;
-  licenseId: 'CC0-1.0';
+  licenseId: 'CC0-1.0' | 'MIXED';
   clipCount: number;
   clips: ReadonlyMap<string, AdmittedAnimationLibraryClip>;
   stateRegistrations: readonly MotionClipRegistration[];
@@ -93,7 +93,10 @@ export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAni
     if (canonical.sampleRate !== manifest.conversion.sampleRate) {
       throw new Error(`Animation library clip ${definition.clipId} has inconsistent sample rate`);
     }
-    if (manifest.source.licenseId !== library.licenseId || manifest.output.licenseId !== library.licenseId) {
+    const sourceArchive = library.sourceArchives.find((source) =>
+      source.animationSourceSha256 === manifest.source.sha256);
+    if (!sourceArchive || manifest.source.licenseId !== sourceArchive.licenseId
+      || manifest.output.licenseId !== sourceArchive.licenseId) {
       throw new Error(`Animation library clip ${definition.clipId} has inconsistent rights metadata`);
     }
     const bytes = serializeCanonicalAnimationClip(canonical);
@@ -118,6 +121,7 @@ export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAni
       manifest: definition.manifest,
       crossFadeMs: binding.crossFadeMs,
       order: binding.order,
+      hipsTranslation: binding.hipsTranslation,
     });
   }));
 

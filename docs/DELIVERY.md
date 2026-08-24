@@ -191,7 +191,7 @@ Implemented and test-verified:
 - Acquired the free Standard editions of Quaternius Universal Animation Libraries 1 and 2 under their included CC0-1.0 dedication; recorded both archive hashes, both exact FBX hashes, source pages, timestamps, and project-owner review.
 - Extended the deterministic converter with exact multi-clip selection, inventory mode, the reviewed `quaternius-uam-v1` bone map, Z-up hips conversion, source profile/name provenance, and an atomic library builder.
 - Generated 84 canonical clips from 86 source records after excluding both authoring T-poses. Paid Pro/Source files were not acquired and Desky does not claim their 120+/130+ counts.
-- Added a validated, cryptographically admitted library schema with three state bindings and fifteen file-defined programs. Runtime TypeScript contains selection/interruption policy but no animation filename list.
+- Added a validated, cryptographically admitted library schema, now with four state bindings and fifteen file-defined programs. Runtime TypeScript contains selection/interruption policy but no animation filename list.
 - Replaced the hard-coded four-item autonomous list with weighted, cooldown-aware planning from admitted file metadata. Multi-step sit/chat/stand and magic sequences use the existing single mixer/body owner.
 - Routed explicit Jump through reviewed `Jump_Start` and `Jump_Land` files while retaining procedural Wave because the acquired inventories contain no Wave clip.
 - Kept combat, weapons, death, injury, swimming, driving, farming, prop-dependent, and incomplete sleep-transition behaviors catalog-only rather than allowing random playback.
@@ -255,10 +255,12 @@ Implemented and package-verified on Windows:
 - Package-proved the actual measured-hit-target pointer path with a 48-by-32 logical move, a persisted 72.8-degree Shift-drag view, loaded Milk texture, and unfocused ambient surface in isolated application data.
 - Reconnected the packaged app to the newly authenticated non-dev OpenClaw profile and received the exact streamed response `DESKY_RUNNER_LIVE_OK` from the selected Desky session through `openai/gpt-5.6-sol`.
 - Replaced the imported/restored arms-sideways posture with an authored folded-arm idle in both connected idle and disconnected rest. Removed repetitive head-motion/thumbs-up from autonomy, rejected the distorted crouch on Milk, and package-proved a shuffled-bag sequence of Search/Interact, Formal Walk, and Dance Break with no clip error.
+- Reworked semantics after live review: the exact transformed 11.4-second Looking Around clip is the sole idle body owner; folded arms remains catalog-only and the competing procedural overlay is removed. Thinking owns Search/Interact, speaking stays on its talk loop without a procedural interruption, and all three standing states preserve target hips height. The autonomous shuffled bag is Phone Check, Formal Walk, and rare Dance Break.
+- Added provider-neutral `AgentAdapterCapabilities`, OpenClaw's read-scoped `desky.actions.capabilities` discovery method, explicit control-center readiness status, and live OpenClaw 2026.8.1 evidence for a real model-issued typed Jump.
 
 Evidence is recorded in `docs/verification/F3C4-AUTONOMOUS-MANIPULATION-2026-08-23.md` and `docs/verification/F3B8-ANIMATED-IDLE-REPAIR-2026-08-23.md`.
 
-The expression round, file-driven autonomous layer, direct manipulation, normalized Wave/Jump agent-action boundary, rights-safe local VRMA preview, and first CC0 candidate animation library are implemented. Packaged Windows has completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, and a live assistant-stream evidence run. The next animation gates are packaged Quaternius program playback/interruption review, local-preview interruption by a newly entered authoritative state, live OpenClaw plugin-action evidence, and representative binary-avatar evidence. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
+The expression round, file-driven autonomous layer, direct manipulation, normalized Wave/Jump agent-action boundary, rights-safe local VRMA preview, and first admitted candidate animation library are implemented. Packaged Windows has completed real local-VRMA playback, replay, reduced-motion rejection, malformed-humanoid rejection, completion, clear, restart-reset, direct movement, persisted view rotation, the exact Looking Around idle at multiple points in its seamless 11.4-second loop, and a live assistant-stream evidence run. Live OpenClaw action discovery and typed Jump now pass. The next animation gates are local-preview interruption by a newly entered authoritative state, a separate live Wave invocation, and representative binary-avatar evidence. The manual multi-monitor/display-scale pointer matrix, macOS equivalence, full-screen policy, and lifecycle/performance evidence remain broader F3/F3d exits.
 
 ## F4 — control surface and daily usability
 
@@ -326,10 +328,10 @@ These decisions are deliberately not guessed:
 ## Immediate next rounds
 
 1. Complete the remaining local-VRMA matrix by interrupting active playback with a newly entered authoritative companion state and repeat the packaged lane on macOS.
-2. Repair the current OpenClaw OAuth/model configuration and live-verify the normalized `desky_avatar_action` tool through the installed plugin.
-3. Start F5a generic adapter-host extraction before a second production adapter or final F4 connection management; OpenClaw must remain the first conformance implementation.
+2. Package-review the revised idle/thinking/speaking semantics and the Phone Check/Formal Walk/Dance Break autonomous bag on Milk; run a separate live Wave invocation.
+3. Start F5a generic adapter-host extraction from the implemented capability slice before a second production adapter or final F4 connection management; OpenClaw must remain the first conformance implementation.
 4. In parallel, finish visual admission of the approved Quaternius library, build the binary VRM 0.x/1.0 suite, and persist provenance-bearing cache records.
-4. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
-5. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
+5. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
+6. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

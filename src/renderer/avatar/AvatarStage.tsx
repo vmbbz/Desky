@@ -462,7 +462,7 @@ export function AvatarStage({
           kind: 'ready',
           message: animationLibraryWarning
             ? `${avatar.name} · motion fallback (${animationLibraryWarning})`
-            : `${avatar.name} · ${animationLibrary?.clipCount ?? 0} CC0 motions · ${capabilities.specLabel} · ${avatar.license}`,
+            : `${avatar.name} · ${animationLibrary?.clipCount ?? 0} admitted motions · ${capabilities.specLabel} · ${avatar.license}`,
           textureCount,
         });
       } catch (error) {

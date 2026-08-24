@@ -6,6 +6,8 @@ Adapters translate a runtime's native protocol into Desky events and commands. T
 
 The initial protocol is internal while semantics stabilize. A public adapter SDK begins only after two substantially different production adapters pass the same contract suite.
 
+The first executable provider-neutral slice is `AgentAdapterCapabilities`. It records sessions, streaming, tools, approvals, cancellation, reconnect, and typed agent-action availability. OpenClaw discovers its Desky action tool through a read-scoped plugin method; Claude and Hermes must translate their supported native discovery surfaces into the same shape. Generic tool streaming alone never implies that the Desky action schema is installed.
+
 ## Adapter lifecycle
 
 ```ts
@@ -126,6 +128,6 @@ The simulation adapter is a UI/state-machine harness only. It is always labeled 
 
 ## Adapter-platform extraction timing
 
-OpenClaw is intentionally the first production adapter, not the permanent application-level bridge. After the F3c.1 ambient/control-center boundary, F5a promotes the documented lifecycle into executable generic host, descriptor, capability, connection, session, and command contracts. OpenClaw must pass that contract before Codex is added as the second substantially different adapter. The public adapter SDK stabilizes only after both pass.
+OpenClaw is intentionally the first production adapter, not the permanent application-level bridge. The capability portion is now executable in `src/shared/adapter-capabilities.ts`; F5a promotes the remaining lifecycle into generic host, descriptor, connection, session, and command contracts. OpenClaw must pass that contract before Codex is added as the second substantially different adapter. The public adapter SDK stabilizes only after both pass.
 
 Claude then uses a supported structured interface, and Hermes proceeds only after supported programmatic transport discovery. Neither integration may scrape terminal presentation text. The desktop companion can proceed independently because it consumes only normalized `AdapterEvent` values.

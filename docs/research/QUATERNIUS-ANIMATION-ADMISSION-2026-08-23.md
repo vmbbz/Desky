@@ -15,7 +15,7 @@ The free downloads do **not** contain the advertised full Pro inventories. Each 
 
 Both FBXs use the Quaternius universal humanoid rig and a Z-up authoring coordinate system. Converter profile `quaternius-uam-v1` maps 52 normalized humanoid rotation bones plus hips position, rotates position through the rest parent into Y-up, and records the exact source clip name. `Idle_Loop` produces 53 canonical tracks at 30 Hz and a source rest hips height of `0.916700005531311`.
 
-The deterministic generated catalogue currently hashes to `d0df05af9c762c34591a43d9b4b4a5f39648c0bd347763ebbf82708d5bba3277` and contains 84 clips, three state bindings, and fifteen programs. Rebuild verification must reproduce that hash unless the reviewed plan or converter changes deliberately.
+The Quaternius portion remains 84 clips. The complete deterministic generated library now hashes to `a029e2d20efaba6d6ed59be46f44e32b006b7333470221c1543cf104403388bf` and contains those 84 clips plus the separately licensed Looking Around idle, four state bindings, and fifteen programs. Rebuild verification must reproduce that hash unless the reviewed plan or converter changes deliberately.
 
 ## Coverage of the eleven OSA gallery previews
 

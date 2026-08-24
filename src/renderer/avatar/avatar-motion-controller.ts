@@ -219,7 +219,6 @@ export class AvatarMotionController {
   }
 
   setMode(mode: CompanionMode): void {
-    const previousMode = this.plan.mode;
     const next = resolveMotionPlan(mode, this.registrations, {
       reducedMotion: this.reducedMotion,
     });
@@ -237,9 +236,6 @@ export class AvatarMotionController {
     this.plan = next;
     this.modeStartedAt = this.elapsedSeconds;
     if (!this.cueQueue.active && !this.preview) this.activatePlan(next);
-    if (previousMode !== 'speaking' && mode === 'speaking') {
-      this.queueMotionCue('emphasis', 'conversation');
-    }
   }
 
   setReducedMotion(reducedMotion: boolean): void {
@@ -402,11 +398,15 @@ export class AvatarMotionController {
     return this.cueQueue.enqueue(cue);
   }
 
-  private runtimeClip(definition: AdmittedAnimationLibraryClip): AnimationClip {
-    let clip = this.runtimeClips.get(definition.clipId);
+  private runtimeClip(
+    definition: AdmittedAnimationLibraryClip,
+    hipsTranslation: 'authored' | 'preserve-target' = 'authored',
+  ): AnimationClip {
+    const cacheKey = `${definition.clipId}:${hipsTranslation}`;
+    let clip = this.runtimeClips.get(cacheKey);
     if (!clip) {
-      clip = createVrmAnimationClip(definition.canonical, this.vrm);
-      this.runtimeClips.set(definition.clipId, clip);
+      clip = createVrmAnimationClip(definition.canonical, this.vrm, { hipsTranslation });
+      this.runtimeClips.set(cacheKey, clip);
     }
     return clip;
   }
@@ -537,7 +537,7 @@ export class AvatarMotionController {
         label: plan.clip.canonical.clipId,
         tags: [],
         canonical: plan.clip.canonical,
-      });
+      }, plan.clip.hipsTranslation);
       const nextAction = this.mixer.clipAction(clip);
       if (nextAction === this.currentAction && nextAction.isRunning()) return;
       nextAction.reset();

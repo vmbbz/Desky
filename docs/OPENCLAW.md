@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Against local OpenClaw 2026.8.1, the opt-in harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, active-turn recovery from unexpected transport loss, and a successful assistant stream. A packaged-app gate also passes cancellation during real shell-tool execution and a successful same-session turn immediately afterward. Secure remote-gateway and macOS checks keep F2 open.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Against local OpenClaw 2026.8.1, the opt-in harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, active-turn recovery from unexpected transport loss, a successful assistant stream, Desky action capability discovery, and a real model-issued Jump tool call. A packaged-app gate also passes cancellation during real shell-tool execution and a successful same-session turn immediately afterward. Secure remote-gateway and macOS checks keep F2 open.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -18,7 +18,7 @@ It advertises session-scoped events, structured tool events, unified approvals, 
 
 ## Desky avatar actions
 
-The optional agent-action capability is supplied by the reviewed tool-only package in `integrations/openclaw-desky-actions`. It declares one structured OpenClaw tool, `desky_avatar_action`, with a finite `wave`/`jump` enum. Desky accepts only the exact tool-start frame for the selected session and a live turn, deduplicates the tool-call identity, removes every other argument, and sends one ephemeral command to the motion queue. It never parses assistant text and never claims the animation completed merely because the Gateway executed the tool.
+The optional agent-action capability is supplied by the reviewed tool-only package in `integrations/openclaw-desky-actions`. It declares one structured OpenClaw tool, `desky_avatar_action`, with a finite `wave`/`jump` enum, plus a read-scoped `desky.actions.capabilities` discovery method. Desky accepts only the exact tool-start frame for the selected session and a live turn, deduplicates the tool-call identity, removes every other argument, and sends one ephemeral command to the motion queue. It never parses assistant text and never claims the animation completed merely because the Gateway executed the tool.
 
 Gateway operators install/enable the plugin once and restart or reload the Gateway; restrictive `plugins.allow` and tool policies must also admit it. Ordinary users do not update agent prompts, workspace instructions, `AGENTS.md`, or `CLAUDE.md`: OpenClaw's tool catalog provides the model-facing schema and usage description. Optional personality wording is not protocol setup. See `docs/AGENT-ACTIONS.md` and the integration package README.
 
@@ -60,7 +60,7 @@ npm run test:openclaw:live
 Remove-Item Env:DESKY_OPENCLAW_LIVE_URL, Env:DESKY_OPENCLAW_LIVE_CREDENTIAL
 ```
 
-The test must fail if the real assistant turn cannot stream `DESKY_LIVE_OK`; transport and approval passes do not waive that gate. See the dated verification record in `docs/verification/` for the latest redacted result.
+The test must fail if the real assistant turn cannot stream `DESKY_LIVE_OK`, if action capability discovery is absent, or if the subsequent turn does not emit a typed Jump command. Transport and approval passes do not waive those gates. See the dated verification record in `docs/verification/` for the latest redacted result.
 
 Record the Gateway version, Desky commit, platform, connection profile, and redacted result for each case:
 
