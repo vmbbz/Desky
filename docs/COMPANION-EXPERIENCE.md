@@ -281,6 +281,8 @@ Manual pointer pass-through at every required display scale, equivalent macOS be
 
 The Windows implementation now stops the animation-frame loop for main-reported native hiding, Chromium-reported document hiding/occlusion, Electron power suspension, and WebGL loss. It uses active-only motion time so hidden intervals do not skip autonomous programs. A bounded unrecoverable-WebGL state keeps ordinary UI available and offers a fresh-canvas **Retry graphics** route. Packaged evidence proves native hide/show, the shared power state path, a real withheld WebGL restoration followed by retry, and 80 transactional avatar changes. Real hardware sleep/wake, arbitrary overlap occlusion where Chromium does not report it, full-screen suppression, timed reference-device budgets, accessibility, and macOS remain open.
 
+F4.7 adds a typed adaptive frame policy: ambient life targets 30 FPS, while thinking, working, approval, speaking, explicit cues, and previews target 60 FPS. A timed packaged Windows probe verifies actual native-hidden suspension and recovery, materially reduces visible renderer/GPU CPU, and keeps the renderer working set below 350 MB. The composed `<3%` visible-idle CPU exit remains open because renderer plus GPU still average about 4.02% on the current reference development machine.
+
 F4 completes the standard control center, full transcript, settings, approval history, avatar browser, and daily management workflows.
 
 ## Acceptance matrix

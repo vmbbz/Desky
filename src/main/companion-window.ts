@@ -95,6 +95,7 @@ async function captureVisualTest(
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
   let visualExerciseError: string | null = null;
+  let performanceLifecycle: Record<string, unknown> | null = null;
   const processMetricsBefore = app.getAppMetrics().map((metric) => ({
     type: metric.type,
     pid: metric.pid,
@@ -506,6 +507,110 @@ async function captureVisualTest(
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
   }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'performance-lifecycle') {
+    try {
+      const readRenderState = async () => window.webContents.executeJavaScript(`(() => {
+        const canvas = document.querySelector('.avatar-stage canvas');
+        return {
+          avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
+          frame: Number.parseInt(canvas?.dataset.motionFrame ?? '0', 10),
+          suspended: canvas?.dataset.renderSuspended ?? null,
+          reason: canvas?.dataset.renderSuspensionReason ?? null,
+        };
+      })()`) as Promise<{
+        avatarState: string | null;
+        frame: number;
+        suspended: string | null;
+        reason: string | null;
+      }>;
+      const readyDeadline = Date.now() + 10000;
+      let readyState = await readRenderState();
+      while (Date.now() < readyDeadline
+        && (readyState.avatarState !== 'ready' || readyState.frame < 1)) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        readyState = await readRenderState();
+      }
+      if (readyState.avatarState !== 'ready') throw new Error('Avatar was not ready for performance sampling');
+
+      const sampleMetrics = () => app.getAppMetrics().map((metric) => ({
+        type: metric.type,
+        pid: metric.pid,
+        percentCpuUsage: metric.cpu?.percentCPUUsage ?? null,
+        workingSetSize: metric.memory?.workingSetSize ?? null,
+      }));
+      const samplePhase = async (count: number) => {
+        const samples: ReturnType<typeof sampleMetrics>[] = [];
+        for (let index = 0; index < count; index += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          samples.push(sampleMetrics());
+        }
+        return samples;
+      };
+      const summarize = (samples: Awaited<ReturnType<typeof samplePhase>>, type: string) => {
+        const cpuTotals = samples.map((sample) => sample
+          .filter((metric) => metric.type === type)
+          .reduce((total, metric) => total + (metric.percentCpuUsage ?? 0), 0));
+        const workingSets = samples.flatMap((sample) => sample
+          .filter((metric) => metric.type === type)
+          .map((metric) => metric.workingSetSize)
+          .filter((value): value is number => typeof value === 'number'));
+        return {
+          averagePercentCpuUsage: cpuTotals.length > 0
+            ? cpuTotals.reduce((total, value) => total + value, 0) / cpuTotals.length
+            : null,
+          peakPercentCpuUsage: cpuTotals.length > 0 ? Math.max(...cpuTotals) : null,
+          peakWorkingSetSize: workingSets.length > 0 ? Math.max(...workingSets) : null,
+        };
+      };
+
+      sampleMetrics();
+      const visibleSamples = await samplePhase(10);
+      const frameBeforeHide = (await readRenderState()).frame;
+      window.hide();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const hiddenState = await readRenderState();
+      const hiddenSamples = await samplePhase(6);
+      const frameAfterHidden = (await readRenderState()).frame;
+      window.showInactive();
+      const recoveredSamples = await samplePhase(3);
+      const recoveredState = await readRenderState();
+      const hiddenFrameStable = hiddenState.suspended === 'true'
+        && ['native-hidden', 'document-hidden'].includes(hiddenState.reason ?? '')
+        && frameAfterHidden === hiddenState.frame;
+      const recoveryAdvanced = recoveredState.frame > frameAfterHidden;
+      if (!hiddenFrameStable || !recoveryAdvanced) {
+        throw new Error('Timed lifecycle probe did not suspend and recover the render loop');
+      }
+      performanceLifecycle = {
+        intervalMs: 1000,
+        visibleSampleCount: visibleSamples.length,
+        hiddenSampleCount: hiddenSamples.length,
+        recoveredSampleCount: recoveredSamples.length,
+        frameBeforeHide,
+        hiddenFrame: hiddenState.frame,
+        frameAfterHidden,
+        recoveredFrame: recoveredState.frame,
+        hiddenReason: hiddenState.reason,
+        hiddenFrameStable,
+        recoveryAdvanced,
+        visible: {
+          renderer: summarize(visibleSamples, 'Tab'),
+          gpu: summarize(visibleSamples, 'GPU'),
+        },
+        hidden: {
+          renderer: summarize(hiddenSamples, 'Tab'),
+          gpu: summarize(hiddenSamples, 'GPU'),
+        },
+        recovered: {
+          renderer: summarize(recoveredSamples, 'Tab'),
+          gpu: summarize(recoveredSamples, 'GPU'),
+        },
+      };
+    } catch (error) {
+      visualExerciseError = String(error);
+      if (!window.isVisible()) window.showInactive();
+    }
+  }
   const rendererDiagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
@@ -526,6 +631,7 @@ async function captureVisualTest(
     avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null,
     motionFrame: document.querySelector('.avatar-stage canvas')?.dataset.motionFrame ?? null,
     motionElapsed: document.querySelector('.avatar-stage canvas')?.dataset.motionElapsed ?? null,
+    renderTargetFps: document.querySelector('.avatar-stage canvas')?.dataset.renderTargetFps ?? null,
     motionMode: document.querySelector('.avatar-stage canvas')?.dataset.motionMode ?? null,
     motionStateClip: document.querySelector('.avatar-stage canvas')?.dataset.motionStateClip ?? null,
     motionActiveProgram: document.querySelector('.avatar-stage canvas')?.dataset.motionActiveProgram ?? null,
@@ -582,6 +688,7 @@ async function captureVisualTest(
       pid: metric.pid,
       workingSetSize: metric.memory?.workingSetSize ?? null,
     })),
+    performanceLifecycle,
   };
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());

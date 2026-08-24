@@ -47,6 +47,7 @@ import {
   smoothMotionEnvelopeZoom,
 } from './avatar-framing';
 import { AvatarMotionController } from './avatar-motion-controller';
+import { resolveAvatarTargetFrameRate } from './avatar-render-policy';
 import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
 import {
@@ -429,6 +430,7 @@ export function AvatarStage({
     let motionEnvelopeTargetZoom = 1;
     let motionEnvelopeReady = false;
     let lastReportedFramingZoom = 1;
+    let lastRenderTimestamp = 0;
     let loopActive = false;
     const renderSuspensionReason = () => {
       if (webglContextUnrecoverable) return 'webgl-unrecoverable';
@@ -450,10 +452,11 @@ export function AvatarStage({
       }
       if (loopActive) return;
       clock.start();
+      lastRenderTimestamp = 0;
       loopActive = true;
       frameId = requestAnimationFrame(animate);
     };
-    const animate = () => {
+    const animate = (timestamp: number) => {
       if (disposed) return;
       const suspensionReason = renderSuspensionReason();
       if (suspensionReason) {
@@ -462,6 +465,20 @@ export function AvatarStage({
         loopActive = false;
         return;
       }
+      const pendingDiagnostics = motionControllerRef.current?.runtimeDiagnostics;
+      const targetFrameRate = resolveAvatarTargetFrameRate({
+        mode: modeRef.current,
+        activeCue: Boolean(pendingDiagnostics?.activeCueId),
+        previewActive: Boolean(activePreviewRequestId),
+      });
+      canvas.dataset.renderTargetFps = String(targetFrameRate);
+      const minimumFrameInterval = 1000 / targetFrameRate;
+      if (lastRenderTimestamp > 0
+        && timestamp - lastRenderTimestamp < minimumFrameInterval - 0.5) {
+        frameId = requestAnimationFrame(animate);
+        return;
+      }
+      lastRenderTimestamp = timestamp;
       const delta = Math.min(clock.getDelta(), 0.1);
       motionElapsed += delta;
       const elapsed = motionElapsed;

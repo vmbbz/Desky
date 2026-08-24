@@ -155,6 +155,7 @@ An agent-facing commerce capability is read-mostly and provider-neutral. Agents 
 - Fail-closed core humanoid and embedded usage-permission checks before a model enters the scene.
 - SHA-256 provenance over the exact downloaded model bytes, joined to reviewed catalog licence metadata and retained with the loaded scene.
 - Fixed timestep where animation correctness requires it; render interpolation for display refresh.
+- Use a provider-neutral 30 FPS ambient/idle target and 60 FPS for live semantic work, explicit cues, and local previews; lifecycle suspension still stops the loop rather than merely throttling it.
 - Stop the animation-frame loop when the native surface is hidden, Chromium reports the document hidden/occluded, Electron reports OS power suspend, or WebGL is unavailable. Motion time advances only while rendering is active.
 - Pause or reduce work when battery-saving mode or reduced-motion is enabled.
 - Dispose geometries, materials, textures, mixers, and object URLs on replacement.

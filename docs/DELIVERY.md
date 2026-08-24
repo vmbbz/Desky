@@ -350,7 +350,17 @@ Evidence: `docs/verification/F4-RENDER-LIFECYCLE-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-MOTION-ENVELOPE-2026-08-24.md`.
 
-Next: a rights-clear real VRM 1.0 admission, real Windows sleep/wake and timed performance, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
+### F4.7 adaptive render performance — 2026-08-24
+
+- Added bounded packaged sampling for ten seconds visible, six seconds native-hidden, and three seconds recovered, including renderer/GPU CPU, working set, lifecycle frames, and reason.
+- Added provider-neutral 30 FPS ambient life and 60 FPS semantic work/cue/preview policy with unit coverage and renderer diagnostics.
+- Reduced visible renderer average CPU from 2.858% to 1.867% and GPU from 4.013% to 2.150% on the current machine; renderer working set peaked at 259,364 KiB.
+- Proved hidden frame 582 stayed exact for six seconds while renderer/GPU CPU averaged 0.010%/0.037%, then advanced to 673 after inactive recovery.
+- Kept the composed visible-idle CPU gate open: renderer plus GPU still total about 4.02% before browser-process cost.
+
+Evidence: `docs/verification/F4-ADAPTIVE-PERFORMANCE-2026-08-24.md`.
+
+Next: profile the remaining composed idle cost, admit a rights-clear real VRM 1.0, run real Windows sleep/wake, macOS equivalence, full-screen policy, and accessibility. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 

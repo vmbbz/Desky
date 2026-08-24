@@ -103,7 +103,7 @@ A separate additive controller uses the avatar capability inventory before drivi
 
 ### F3d — resilience, accessibility, and performance
 
-Status: in progress. System reduced-motion detection exists. F4.4 proves restoration of the admitted scene after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability, adds a bounded fresh-renderer retry, and package-proves the shared lifecycle path plus 80 avatar switches on Windows. Real sleep/wake, full-screen suppression, unreported overlap occlusion, timed reference-device CPU/GPU budgets, accessibility, and macOS evidence remain open.
+Status: in progress. System reduced-motion detection exists. F4.4 proves restoration after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability and adds bounded fresh-renderer retry; F4.7 package-proves timed hidden/recovery metrics plus adaptive 30/60 FPS on Windows. Hidden CPU and renderer memory pass their local targets, but composed visible idle remains approximately 4.02% across renderer plus GPU and therefore stays open. Real sleep/wake, full-screen suppression, unreported overlap occlusion, broader reference hardware, accessibility, and macOS evidence remain open.
 
 - Retain the implemented Paused/System/Full/Reduced policy through accessibility and lifecycle validation.
 - Suspend rendering when hidden or Chromium-reported occluded; add explicit full-screen suppression policy.
