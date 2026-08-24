@@ -1,6 +1,12 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import {
+  defaultMotionPersonality,
+  normalizeMotionPersonalityPolicy,
+  type MotionPersonalityPolicy,
+} from '../shared/motion-personality';
+
 export interface StoredAmbientPlacement {
   updatedAt: string;
   x: number;
@@ -10,6 +16,7 @@ export interface StoredAmbientPlacement {
 export interface DesktopState {
   alwaysOnTop: boolean;
   avatarYawDegrees: number;
+  motionPersonality: MotionPersonalityPolicy;
   placements: Record<string, StoredAmbientPlacement>;
   version: 1;
 }
@@ -19,6 +26,7 @@ const maximumPlacements = 16;
 export const defaultDesktopState: DesktopState = {
   alwaysOnTop: true,
   avatarYawDegrees: 0,
+  motionPersonality: structuredClone(defaultMotionPersonality),
   placements: {},
   version: 1,
 };
@@ -67,6 +75,7 @@ export function parseDesktopState(value: unknown): DesktopState {
       ? source.alwaysOnTop
       : defaultDesktopState.alwaysOnTop,
     avatarYawDegrees: normalizeAvatarYaw(source.avatarYawDegrees),
+    motionPersonality: normalizeMotionPersonalityPolicy(source.motionPersonality),
     placements,
   };
 }

@@ -158,6 +158,8 @@ Normal users choose `Paused`, `Quiet`, `Balanced`, `Lively`, or `Custom`, not in
 
 The setting changes decorative cadence and eligible semantic programs, never normalized state truth or safety priority. System/in-app reduced motion remains stricter than every personality preset. Per-avatar compatibility profiles may remove unsafe categories or programs. Explicit typed user/agent actions remain deliberate and bounded; a lively preset does not authorize a gateway or model to select arbitrary clips.
 
+This control is now implemented and persisted in main-owned desktop state. Paused suppresses body motion through the existing reduced execution path. Quiet admits only low Presence/Conversation/Reactions, disables Playful and Locomotion autonomy, and lengthens file-defined quiet windows. Balanced is the default; Lively shortens cadence only over admitted categories. Custom exposes bounded 0–3 category levels. The scheduler maps semantic tags to categories and still contains no filename list.
+
 ## Dialogue and input
 
 ### Speech bubble

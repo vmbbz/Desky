@@ -122,6 +122,8 @@ This lane does not block F3c because deterministic procedural state fallbacks al
 
 ### F4 marketplace foundation
 
+Status: motion personality, strict bundled/free-only catalog contracts, and the first-class Companions route are implemented and package-verified on Windows. Milk is the only real admitted entry; two binary admissions, cache/activation/offline/signature work, macOS, and the twenty-switch matrix remain open.
+
 - Add user-facing `Paused`, `Quiet`, `Balanced`, `Lively`, and category-based `Custom` motion policy without exposing clip filenames.
 - Define strict admitted-avatar revision and signed presentation-catalog contracts; the upstream Open Source Avatars registry remains untrusted candidate input.
 - Use real binary evidence to select three CC0 free companions across representative style/VRM/performance classes.

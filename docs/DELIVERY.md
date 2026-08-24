@@ -286,6 +286,17 @@ Exit gate:
 
 The authoritative marketplace plan is `docs/AVATAR-MARKETPLACE.md`. F4 does not require blockchain code and must prove the catalog/product value before F4x begins.
 
+### F4.1 marketplace foundation — 2026-08-24
+
+- Implemented persisted Paused/Quiet/Balanced/Lively/Custom motion personality with bounded semantic category levels and scheduler cadence/filter enforcement.
+- Added a strict commerce-disabled bundled catalog and free-entitlement decision. Locked offers fail parsing, candidate records cannot become available, and renderer source requests resolve exact catalog IDs in main.
+- Added the full Companions control-center route. It presents Milk as the one real admitted Free/Active avatar, two honest admission-in-progress slots, source/licence/attribution/compatibility information, and explicit payment-rails-off status.
+- Package-verified the production `desky://` marketplace surface on Windows with three visible cards, one active admitted entry, and no payment provider.
+
+Evidence: `docs/verification/F4-MARKETPLACE-FOUNDATION-2026-08-24.md`.
+
+Next: admit two additional CC0 binary avatars and implement content-addressed cache, isolated preview, transactional activation, signed production catalog, offline recovery, and the twenty-switch matrix. F4x remains blocked by those product gates and owner/legal decisions.
+
 ## F4x — commerce and entitlement program
 
 F4x is downstream of the free marketplace foundation and can progress beside later adapter work without coupling commerce to a gateway provider.

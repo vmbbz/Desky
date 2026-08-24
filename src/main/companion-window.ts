@@ -19,6 +19,10 @@ import type {
   SurfaceKind,
   WindowAction,
 } from '../shared/runtime';
+import {
+  parseMotionPersonalityPolicy,
+  type MotionPersonalityPolicy,
+} from '../shared/motion-personality';
 import { DesktopControls } from './desktop-controls';
 import {
   clampBoundsToDisplays,
@@ -223,7 +227,11 @@ async function captureVisualTest(
     motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
     motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
-    avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null
+    avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
+    marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
+    marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,
+    marketplaceCommerce: document.querySelector('.marketplace-kicker')?.textContent?.trim() ?? null,
+    marketplaceActive: document.querySelector('.marketplace-avatar-card__actions button:disabled')?.textContent?.trim() ?? null
   })`) as Record<string, unknown>;
   const diagnostic = {
     ...rendererDiagnostic,
@@ -377,6 +385,17 @@ export class DeskyWindowManager {
       ),
       workArea: clamped.display.workArea,
     };
+  }
+
+  getMotionPersonality(): MotionPersonalityPolicy {
+    return structuredClone(this.desktopState.motionPersonality);
+  }
+
+  setMotionPersonality(value: unknown): MotionPersonalityPolicy {
+    const motionPersonality = parseMotionPersonalityPolicy(value);
+    this.desktopState = { ...this.desktopState, motionPersonality };
+    this.stateStore.save(this.desktopState);
+    return structuredClone(motionPersonality);
   }
 
   setPointerRegion(contents: WebContents, region: AmbientPointerRegion): void {

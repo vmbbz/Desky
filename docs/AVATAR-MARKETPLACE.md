@@ -488,3 +488,9 @@ Implement M1 and the schema-only portion of M2/M3. Specifically:
 6. cache/provenance design tests before adding additional binaries.
 
 This slice creates no wallet, blockchain dependency, paid claim, or secret. It produces the exact UX and domain boundaries that later payment adapters must satisfy.
+
+### Foundation status — 2026-08-24
+
+The first sub-slice is implemented. Main now persists and broadcasts the strict motion-personality policy; the autonomous scheduler filters admitted semantic categories and scales quiet cadence without knowing animation filenames. Paused uses the reduced execution path, Quiet excludes playful/locomotion autonomy, and Balanced remains the saved default.
+
+The control center now has a first-class Companions route backed by a strict bundled catalog and free-entitlement decision. It shows only the actually admitted Milk revision as Free/Active, presents two honest `Admission in progress` slots toward the three-free target, displays provenance/licence/compatibility details, and declares commerce/payment rails disabled. The next sub-slice is two real binary admissions plus content-addressed cache, transactional activation, restart/offline recovery, and signed production-catalog work—not x402.

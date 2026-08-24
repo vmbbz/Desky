@@ -16,6 +16,7 @@ import {
   type CompanionDraftSnapshot,
   type CompanionSnapshot,
 } from '../shared/companion-state';
+import type { MarketplaceCatalog } from '../shared/avatar-marketplace';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import { openClawCapabilities } from '../shared/adapter-capabilities';
 import {
@@ -23,6 +24,14 @@ import {
   type LocalAnimationPreviewState,
 } from '../shared/local-animation';
 import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
+import {
+  defaultMotionPersonality,
+  motionCategories,
+  motionPersonalityForPreset,
+  motionPersonalityPresets,
+  type MotionCategoryLevel,
+  type MotionPersonalityPolicy,
+} from '../shared/motion-personality';
 import type {
   AmbientSurfaceState,
   DesktopRectangle,
@@ -68,6 +77,11 @@ export function App() {
   );
   const [gateway, setGateway] = useState<OpenClawConnectionState>(initialGateway);
   const [showConnection, setShowConnection] = useState(true);
+  const [controlView, setControlView] = useState<'home' | 'companions'>(
+    visualTestState === 'marketplace' ? 'companions' : 'home',
+  );
+  const [marketplaceCatalog, setMarketplaceCatalog] = useState<MarketplaceCatalog>();
+  const [marketplaceError, setMarketplaceError] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
@@ -79,6 +93,9 @@ export function App() {
     initialLocalAnimationPreviewState,
   );
   const [motionPreference, setMotionPreference] = useState<MotionPreference>('system');
+  const [motionPersonality, setMotionPersonality] = useState<MotionPersonalityPolicy>(
+    defaultMotionPersonality,
+  );
   const [systemReducedMotion, setSystemReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
@@ -146,6 +163,11 @@ export function App() {
     const removeAnimationState = window.desky.animation.onState(setAnimationState);
     void window.desky.getMotionPreference().then(setMotionPreference);
     const removeMotionPreference = window.desky.onMotionPreference(setMotionPreference);
+    void window.desky.getMotionPersonality().then(setMotionPersonality);
+    const removeMotionPersonality = window.desky.onMotionPersonality(setMotionPersonality);
+    void window.desky.marketplace.getCatalog()
+      .then(setMarketplaceCatalog)
+      .catch((error: unknown) => setMarketplaceError(errorMessage(error)));
     return () => {
       removeState();
       removeCompanionState();
@@ -154,6 +176,7 @@ export function App() {
       removeAmbientState();
       removeAnimationState();
       removeMotionPreference();
+      removeMotionPersonality();
     };
   }, []);
 
@@ -305,7 +328,8 @@ export function App() {
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
   const hasSession = adapterMode === 'simulation' || Boolean(gateway.selectedSessionKey);
   const effectiveReducedMotion = motionPreference === 'reduced'
-    || (motionPreference === 'system' && systemReducedMotion);
+    || (motionPreference === 'system' && systemReducedMotion)
+    || motionPersonality.preset === 'paused';
   const runtimeLabel = adapterMode === 'simulation' ? 'Simulation' : 'OpenClaw';
   const connectionStatus = adapterMode === 'simulation' ? 'simulation' : gateway.status;
   const statusDetail = adapterMode === 'openclaw' && gateway.status !== 'connected'
@@ -518,6 +542,7 @@ export function App() {
         <div className="ambient-avatar">
           <AvatarStage
             mode={state.mode}
+            motionPersonality={motionPersonality}
             motionPreference={motionPreference}
             motionCue={motionCue}
             onVisibleBounds={setAvatarBounds}
@@ -561,9 +586,11 @@ export function App() {
             className="ambient-motion-status"
             data-desky-interactive="true"
             onClick={() => window.desky.performWindowAction('open-control-center')}
-            title="Motion is reduced. Choose Full in the control center to enable avatar animation."
+            title={motionPersonality.preset === 'paused'
+              ? 'Companion energy is paused. Choose another preset in the control center.'
+              : 'Motion is reduced. Review accessibility motion in the control center.'}
           >
-            Motion paused · Open settings
+            {motionPersonality.preset === 'paused' ? 'Companion paused' : 'Motion reduced'} · Open settings
           </button>
         ) : null}
 
@@ -601,6 +628,94 @@ export function App() {
     );
   }
 
+  if (controlView === 'companions') {
+    const admittedCount = marketplaceCatalog?.avatars.filter(
+      (avatar) => avatar.admissionStatus === 'admitted',
+    ).length ?? 0;
+    return (
+      <main className="companion control-center marketplace-view">
+        <header className="control-center__header">
+          <div className="brand">
+            <span className="brand__mark" aria-hidden="true">D</span>
+            <div><strong>Companions</strong><span>Desky Marketplace foundation</span></div>
+          </div>
+          <div className="control-center__actions">
+            <button type="button" onClick={() => setControlView('home')}>Back to control center</button>
+            <button type="button" onClick={() => window.desky.performWindowAction('show-ambient')}>Show companion</button>
+          </div>
+        </header>
+
+        <section className="marketplace-hero" aria-labelledby="marketplace-title">
+          <div>
+            <span className="marketplace-kicker">Commerce disabled · free foundation</span>
+            <h1 id="marketplace-title">Choose a companion you can trust.</h1>
+            <p>Every visible companion must pass rights, VRM, motion, performance, and provenance admission. Locked offers will not appear until human-approved checkout and durable restore are implemented.</p>
+          </div>
+          <dl>
+            <div><dt>Admitted now</dt><dd>{admittedCount}</dd></div>
+            <div><dt>Free launch target</dt><dd>{marketplaceCatalog?.targetFreeAvatarCount ?? 3}</dd></div>
+            <div><dt>Payment rails</dt><dd>Off</dd></div>
+          </dl>
+        </section>
+
+        {marketplaceError ? <p className="marketplace-error" role="alert">{marketplaceError}</p> : null}
+        {!marketplaceCatalog && !marketplaceError ? <p className="marketplace-loading" role="status">Loading the verified local catalog…</p> : null}
+
+        <section className="marketplace-grid" aria-label="Available companions">
+          {marketplaceCatalog?.avatars.map((avatar) => (
+            <article className="marketplace-avatar-card" key={avatar.avatarId}>
+              <div className="marketplace-avatar-card__visual" aria-hidden="true">
+                <span>M</span>
+                <small>{avatar.vrmVersion}</small>
+              </div>
+              <div className="marketplace-avatar-card__body">
+                <div className="marketplace-avatar-card__title">
+                  <div><h2>{avatar.name}</h2><span>{avatar.creator}</span></div>
+                  <span className="marketplace-chip marketplace-chip--free">Free</span>
+                </div>
+                <p>{avatar.description}</p>
+                <div className="marketplace-avatar-card__facts">
+                  <span>{avatar.licenseId}</span>
+                  <span>{avatar.performanceClass} footprint</span>
+                  <span>84 admitted motions</span>
+                </div>
+                <p className="marketplace-attribution">{avatar.attribution}</p>
+                <div className="marketplace-avatar-card__actions">
+                  <button
+                    type="button"
+                    onClick={() => void window.desky.marketplace.openSource(avatar.avatarId)
+                      .catch((error: unknown) => setMarketplaceError(errorMessage(error)))}
+                  >Source & licence</button>
+                  <button type="button" disabled>Active companion</button>
+                </div>
+              </div>
+            </article>
+          ))}
+          {Array.from({ length: Math.max(0, 3 - admittedCount) }, (_, index) => (
+            <article className="marketplace-avatar-card marketplace-avatar-card--candidate" key={`candidate-${index}`}>
+              <div className="marketplace-avatar-card__candidate-icon" aria-hidden="true">+</div>
+              <h2>Free companion slot {admittedCount + index + 1}</h2>
+              <p>Reserved for a real CC0 avatar after binary compatibility, embedded-rights, motion, and packaged performance review.</p>
+              <span>Admission in progress</span>
+            </article>
+          ))}
+        </section>
+
+        <section className="marketplace-payment-explainer" aria-labelledby="marketplace-payment-title">
+          <div>
+            <span>Future paid catalog</span>
+            <h2 id="marketplace-payment-title">The person initiates every payment.</h2>
+          </div>
+          <ol>
+            <li><strong>Discover</strong><span>Choose here, or ask an agent to search and prepare an offer.</span></li>
+            <li><strong>Verify</strong><span>Desky independently loads the exact product, USDC amount, network, merchant, and expiry.</span></li>
+            <li><strong>Approve</strong><span>You confirm in Desky and sign in your wallet. Agents never receive wallet authority.</span></li>
+          </ol>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`companion control-center companion--${state.mode}`}>
       <header className="control-center__header">
@@ -609,6 +724,7 @@ export function App() {
           <div><strong>Desky</strong><span>Control Center</span></div>
         </div>
         <div className="control-center__actions">
+          <button type="button" onClick={() => setControlView('companions')}>Companions</button>
           <button type="button" onClick={() => window.desky.performWindowAction('show-ambient')}>Show companion</button>
           <button
             type="button"
@@ -658,6 +774,70 @@ export function App() {
           <button type="button" onClick={() => window.desky.performWindowAction('reset-ambient-position')}>Reset position</button>
           <button type="button" onClick={() => window.desky.performWindowAction('hide-ambient')}>Hide companion</button>
         </div>
+      </section>
+
+      <section className="motion-personality-card" aria-labelledby="motion-personality-title">
+        <div className="motion-personality-card__header">
+          <div>
+            <strong id="motion-personality-title">Companion energy</strong>
+            <span>Choose a temperament. Agent state and reduced-motion safety always take priority.</span>
+          </div>
+          <span className="motion-personality-card__saved">Saved</span>
+        </div>
+        <div className="motion-personality-presets" role="group" aria-label="Companion energy preset">
+          {motionPersonalityPresets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={motionPersonality.preset === preset}
+              disabled={animationBusy}
+              onClick={() => void withAnimationBusy(async () => {
+                const next = preset === 'custom'
+                  ? { ...motionPersonality, preset: 'custom' as const }
+                  : motionPersonalityForPreset(preset);
+                setMotionPersonality(await window.desky.setMotionPersonality(next));
+              })}
+            >{preset[0].toUpperCase()}{preset.slice(1)}</button>
+          ))}
+        </div>
+        <p className="motion-personality-description">
+          {motionPersonality.preset === 'paused'
+            ? 'Static readable states; autonomous and conversational body motion are paused.'
+            : motionPersonality.preset === 'quiet'
+              ? 'Calm presence with longer quiet intervals and no playful or roaming breaks.'
+              : motionPersonality.preset === 'balanced'
+                ? 'Living idle, clear work states, occasional reactions, and rare playful moments.'
+                : motionPersonality.preset === 'lively'
+                  ? 'More frequent admitted reactions and variety without changing safety priority.'
+                  : 'Fine-tune semantic categories; individual animation files remain admission-controlled.'}
+        </p>
+        {motionPersonality.preset === 'custom' ? (
+          <div className="motion-category-grid">
+            {motionCategories.map((category) => (
+              <label key={category}>
+                <span>{category === 'locomotion' ? 'Locomotion & fantasy' : `${category[0].toUpperCase()}${category.slice(1)}`}</span>
+                <select
+                  value={motionPersonality.categories[category]}
+                  disabled={animationBusy}
+                  onChange={(event) => void withAnimationBusy(async () => {
+                    const level = Number(event.target.value) as MotionCategoryLevel;
+                    const next: MotionPersonalityPolicy = {
+                      schemaVersion: 1,
+                      preset: 'custom',
+                      categories: { ...motionPersonality.categories, [category]: level },
+                    };
+                    setMotionPersonality(await window.desky.setMotionPersonality(next));
+                  })}
+                >
+                  <option value={0}>Off</option>
+                  <option value={1}>Low</option>
+                  <option value={2}>Normal</option>
+                  <option value={3}>High</option>
+                </select>
+              </label>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="animation-preview-card" aria-label="Local animation preview">

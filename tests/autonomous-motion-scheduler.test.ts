@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AdmittedAnimationProgram } from '../src/renderer/avatar/animation-library-runtime';
 import { AutonomousMotionScheduler } from '../src/renderer/avatar/autonomous-motion-scheduler';
+import { motionPersonalityForPreset } from '../src/shared/motion-personality';
 
 function ambientProgram(
   programId: string,
@@ -12,12 +13,13 @@ function ambientProgram(
     maximum?: number;
     cooldown?: number;
     cycle?: { id: string; length: number; slots: number[] };
+    tags?: string[];
   } = {},
 ): AdmittedAnimationProgram {
   return {
     programId,
     label: programId,
-    tags: ['idle'],
+    tags: options.tags ?? ['idle'],
     fallbackCue: 'weight-shift',
     trigger: {
       kind: 'ambient',
@@ -128,5 +130,25 @@ describe('AutonomousMotionScheduler', () => {
       'long-look-around',
       'celebration-fist-pump',
     ]);
+  });
+
+  it('filters autonomous programs by semantic category policy', () => {
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('phone-check', { minimum: 1, maximum: 1, tags: ['ambient', 'phone'] }),
+      ambientProgram('dance-break', { minimum: 1, maximum: 1, tags: ['ambient', 'dance'] }),
+    ], 42, motionPersonalityForPreset('quiet'));
+
+    expect(scheduler.update(0, 'idle')).toBeUndefined();
+    expect(scheduler.update(2, 'idle')).toBeUndefined();
+    expect(scheduler.update(3, 'idle')?.programId).toBe('phone-check');
+  });
+
+  it('resets pending autonomy when the personality changes', () => {
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('dance-break', { minimum: 1, maximum: 1, tags: ['ambient', 'dance'] }),
+    ], 42, motionPersonalityForPreset('lively'));
+    scheduler.update(0, 'idle');
+    scheduler.setPolicy(motionPersonalityForPreset('quiet'));
+    expect(scheduler.update(30, 'idle')).toBeUndefined();
   });
 });

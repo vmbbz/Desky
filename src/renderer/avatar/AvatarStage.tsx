@@ -29,6 +29,7 @@ import builtInAnimationLibrary from '../../assets/animations/quaternius-uam-stan
 import type { CompanionMode } from '../../shared/adapter-events';
 import { createAssetProvenance } from '../../shared/asset-provenance';
 import type { LocalAnimationPreviewCommand } from '../../shared/local-animation';
+import type { MotionPersonalityPolicy } from '../../shared/motion-personality';
 import {
   resolveReducedMotion,
   type DesktopRectangle,
@@ -52,6 +53,7 @@ import {
 
 interface AvatarStageProps {
   mode: CompanionMode;
+  motionPersonality: MotionPersonalityPolicy;
   motionPreference: MotionPreference;
   motionCue?: { id: string; kind: MotionCueKind; source: MotionCueSource };
   onVisibleBounds?: (bounds: DesktopRectangle | undefined) => void;
@@ -91,6 +93,7 @@ function applyRelaxedPose(vrm: VRM): void {
 
 export function AvatarStage({
   mode,
+  motionPersonality,
   motionPreference,
   motionCue,
   onVisibleBounds,
@@ -105,6 +108,7 @@ export function AvatarStage({
   const expressionControllerRef = useRef<AvatarExpressionController>(undefined);
   const motionCueRef = useRef(motionCue);
   const motionPreferenceRef = useRef(motionPreference);
+  const motionPersonalityRef = useRef(motionPersonality);
   const viewYawDegreesRef = useRef(viewYawDegrees);
   const admittedMotionCueIdRef = useRef<string>(undefined);
   const [loadState, setLoadState] = useState<LoadState>({
@@ -142,10 +146,21 @@ export function AvatarStage({
     const reduced = resolveReducedMotion(
       motionPreference,
       window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-    );
+    ) || motionPersonalityRef.current.preset === 'paused';
     motionControllerRef.current?.setReducedMotion(reduced);
     expressionControllerRef.current?.setReducedMotion(reduced);
   }, [motionPreference]);
+
+  useEffect(() => {
+    motionPersonalityRef.current = motionPersonality;
+    motionControllerRef.current?.setMotionPersonality(motionPersonality);
+    const reduced = resolveReducedMotion(
+      motionPreferenceRef.current,
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    ) || motionPersonality.preset === 'paused';
+    motionControllerRef.current?.setReducedMotion(reduced);
+    expressionControllerRef.current?.setReducedMotion(reduced);
+  }, [motionPersonality]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -224,7 +239,7 @@ export function AvatarStage({
       const reduced = resolveReducedMotion(
         motionPreferenceRef.current,
         reducedMotionQuery.matches,
-      );
+      ) || motionPersonalityRef.current.preset === 'paused';
       motionControllerRef.current?.setReducedMotion(reduced);
       expressionControllerRef.current?.setReducedMotion(reduced);
     };
@@ -440,10 +455,11 @@ export function AvatarStage({
         const expressionController = new AvatarExpressionController(vrm, capabilities);
         motionControllerRef.current = motionController;
         expressionControllerRef.current = expressionController;
+        motionController.setMotionPersonality(motionPersonalityRef.current);
         const reduced = resolveReducedMotion(
           motionPreferenceRef.current,
           reducedMotionQuery.matches,
-        );
+        ) || motionPersonalityRef.current.preset === 'paused';
         motionController.setReducedMotion(reduced);
         expressionController.setReducedMotion(reduced);
         motionController.setMode(modeRef.current);

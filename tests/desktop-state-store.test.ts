@@ -10,6 +10,7 @@ import {
   parseDesktopState,
   recordPlacement,
 } from '../src/main/desktop-state-store';
+import { motionPersonalityForPreset } from '../src/shared/motion-personality';
 
 const temporaryDirectories: string[] = [];
 
@@ -36,6 +37,7 @@ describe('desktop state store', () => {
       version: 1,
       alwaysOnTop: false,
       avatarYawDegrees: 0,
+      motionPersonality: motionPersonalityForPreset('balanced'),
       placements: {
         valid: { x: 10, y: -21, updatedAt: '2026-08-22T12:00:00.000Z' },
       },
@@ -55,6 +57,18 @@ describe('desktop state store', () => {
       avatarYawDegrees: 'sideways',
       placements: {},
     }).avatarYawDegrees).toBe(0);
+  });
+
+  it('persists a valid motion personality and repairs malformed values', () => {
+    const lively = motionPersonalityForPreset('lively');
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      motionPersonality: lively,
+    }).motionPersonality).toEqual(lively);
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      motionPersonality: { preset: 'chaos' },
+    }).motionPersonality).toEqual(defaultDesktopState.motionPersonality);
   });
 
   it('retains only the sixteen most recently updated display arrangements', () => {

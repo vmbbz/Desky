@@ -12,6 +12,7 @@ import {
 
 import type { CompanionMode } from '../../shared/adapter-events';
 import { isAvatarActionKind } from '../../shared/agent-actions';
+import type { MotionPersonalityPolicy } from '../../shared/motion-personality';
 import { AutonomousMotionScheduler } from './autonomous-motion-scheduler';
 import {
   selectActionProgram,
@@ -246,6 +247,10 @@ export class AvatarMotionController {
     this.plan = resolveMotionPlan(this.plan.mode, this.registrations, { reducedMotion });
     this.modeStartedAt = this.elapsedSeconds;
     if (!this.cueQueue.active && !this.preview) this.activatePlan(this.plan);
+  }
+
+  setMotionPersonality(policy: MotionPersonalityPolicy): void {
+    this.autonomousMotion.setPolicy(policy);
   }
 
   playPreviewClip(

@@ -1,4 +1,11 @@
 import type { CompanionMode } from '../../shared/adapter-events';
+import {
+  defaultMotionPersonality,
+  motionCategoryForTags,
+  motionQuietIntervalScale,
+  normalizeMotionPersonalityPolicy,
+  type MotionPersonalityPolicy,
+} from '../../shared/motion-personality';
 import type { AdmittedAnimationProgram } from './animation-library-runtime';
 
 export class AutonomousMotionScheduler {
@@ -16,11 +23,20 @@ export class AutonomousMotionScheduler {
 
   private readonly lastPlayedAt = new Map<string, number>();
 
+  private policy: MotionPersonalityPolicy;
+
   constructor(
     private readonly programs: readonly AdmittedAnimationProgram[],
     seed = 0xD35C_0001,
+    policy: MotionPersonalityPolicy = defaultMotionPersonality,
   ) {
     this.state = seed >>> 0 || 1;
+    this.policy = normalizeMotionPersonalityPolicy(policy);
+  }
+
+  setPolicy(policy: MotionPersonalityPolicy): void {
+    this.policy = normalizeMotionPersonalityPolicy(policy);
+    this.resetQuietInterval();
   }
 
   update(
@@ -32,7 +48,9 @@ export class AutonomousMotionScheduler {
       return undefined;
     }
     const eligible = this.programs.filter(
-      (program) => program.trigger.kind === 'ambient' && program.trigger.modes.includes(mode),
+      (program) => program.trigger.kind === 'ambient'
+        && program.trigger.modes.includes(mode)
+        && this.policy.categories[motionCategoryForTags(program.tags)] > 0,
     );
     if (eligible.length === 0) {
       this.resetQuietInterval();
@@ -82,8 +100,7 @@ export class AutonomousMotionScheduler {
       this.nextProgram = selected;
       this.nextCycle = { id: cycle.id, slot, length: cycle.length };
       this.nextProgramAt = elapsedSeconds
-        + selected.trigger.minimumQuietSeconds
-        + this.random() * (selected.trigger.maximumQuietSeconds - selected.trigger.minimumQuietSeconds);
+        + this.quietInterval(selected.trigger.minimumQuietSeconds, selected.trigger.maximumQuietSeconds);
       return;
     }
     let candidates = eligible.filter((program) => {
@@ -105,13 +122,17 @@ export class AutonomousMotionScheduler {
     if (unplayed.length > 0) candidates = unplayed;
 
     const totalWeight = candidates.reduce(
-      (sum, program) => sum + (program.trigger.kind === 'ambient' ? program.trigger.weight : 0),
+      (sum, program) => sum + (program.trigger.kind === 'ambient'
+        ? program.trigger.weight * this.policy.categories[motionCategoryForTags(program.tags)]
+        : 0),
       0,
     );
     let selection = this.random() * totalWeight;
     let selected = candidates[candidates.length - 1];
     for (const candidate of candidates) {
-      selection -= candidate.trigger.kind === 'ambient' ? candidate.trigger.weight : 0;
+      selection -= candidate.trigger.kind === 'ambient'
+        ? candidate.trigger.weight * this.policy.categories[motionCategoryForTags(candidate.tags)]
+        : 0;
       if (selection > 0) continue;
       selected = candidate;
       break;
@@ -119,8 +140,12 @@ export class AutonomousMotionScheduler {
     if (selected.trigger.kind !== 'ambient') return;
     this.nextProgram = selected;
     this.nextProgramAt = elapsedSeconds
-      + selected.trigger.minimumQuietSeconds
-      + this.random() * (selected.trigger.maximumQuietSeconds - selected.trigger.minimumQuietSeconds);
+      + this.quietInterval(selected.trigger.minimumQuietSeconds, selected.trigger.maximumQuietSeconds);
+  }
+
+  private quietInterval(minimum: number, maximum: number): number {
+    const raw = minimum + this.random() * (maximum - minimum);
+    return raw * motionQuietIntervalScale(this.policy);
   }
 
   private random(): number {

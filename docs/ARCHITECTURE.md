@@ -129,6 +129,8 @@ Disk caching remains open. When added, exact model bytes and their provenance si
 
 The upstream registry is a candidate source, not Desky's commercial catalog. The planned admission pipeline pins the source commit and exact record/model hashes, reviews project plus embedded VRM permissions, executes the compatibility matrix, and emits an immutable admitted revision. A separately signed presentation catalog maps those revisions to localized metadata, release-profile availability, motion-safety profiles, and opaque offer IDs. Price labels are never charge authority.
 
+The first executable catalog boundary is deliberately local and payment-free. `src/shared/avatar-marketplace.ts` strictly parses a bounded `bundled-foundation` catalog, rejects locked entries while commerce is disabled, rejects candidates presented as available, and evaluates only free grants. Main owns catalog IPC and resolves an exact admitted avatar ID to its reviewed source URL before opening it externally. The renderer receives no arbitrary URL-opening primitive. Milk is the sole admitted entry; two future free slots exist only as UI admission status, not catalog products. Remote catalog signatures, cache, additional binaries, and activation remain the next F4 slice.
+
 Production premium delivery uses content-addressed immutable object storage/CDN with short-lived authorization and exact hash verification. GitHub, Arweave, and IPFS may remain provenance/source locations; no GitHub PAT proxy or renderer-accessible general fetch surface becomes the entitlement boundary. The full catalog contract is in `docs/AVATAR-MARKETPLACE.md`.
 
 ### Commerce and entitlements

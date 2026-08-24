@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
-import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron';
 
 import {
   ambientDragPhases,
@@ -12,6 +12,7 @@ import {
   type MotionPreference,
   type WindowAction,
 } from '../shared/runtime';
+import type { MotionPersonalityPolicy } from '../shared/motion-personality';
 import type {
   OpenClawConnectInput,
   OpenClawResolveApprovalInput,
@@ -23,6 +24,7 @@ import {
 } from '../shared/local-animation';
 import { getDistributionProfile } from './capabilities';
 import { loadFeaturedAvatarAsset } from './avatar-asset-broker';
+import { getBundledMarketplaceCatalog } from './marketplace-catalog';
 import { CompanionStateHost } from './companion-state-host';
 import {
   LocalAnimationPreviewHost,
@@ -40,6 +42,8 @@ import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
 const featuredAvatarChannel = 'desky:avatar:get-featured';
+const marketplaceCatalogChannel = 'desky:marketplace:get-catalog';
+const marketplaceOpenSourceChannel = 'desky:marketplace:open-source';
 const openClawChannels = {
   state: 'desky:openclaw:state',
   event: 'desky:openclaw:event',
@@ -75,6 +79,11 @@ const motionPreferenceChannels = {
   state: 'desky:motion-preference:state',
   get: 'desky:motion-preference:get',
   set: 'desky:motion-preference:set',
+} as const;
+const motionPersonalityChannels = {
+  state: 'desky:motion-personality:state',
+  get: 'desky:motion-personality:get',
+  set: 'desky:motion-personality:set',
 } as const;
 
 function isWindowAction(value: unknown): value is WindowAction {
@@ -195,6 +204,17 @@ export function registerIpc(
     surface: windows.surfaceFor(event.sender),
   }));
   ipcMain.handle(featuredAvatarChannel, () => loadFeaturedAvatarAsset());
+  ipcMain.handle(marketplaceCatalogChannel, () => getBundledMarketplaceCatalog());
+  ipcMain.handle(marketplaceOpenSourceChannel, async (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof value !== 'string'
+      || value.length > 128) {
+      throw new Error('Invalid marketplace source request.');
+    }
+    const avatar = getBundledMarketplaceCatalog().avatars.find((entry) => entry.avatarId === value);
+    if (!avatar) throw new Error('Marketplace avatar source is unavailable.');
+    await shell.openExternal(avatar.sourceUrl);
+  });
   ipcMain.handle(motionPreferenceChannels.get, () => motionPreference);
   ipcMain.handle(motionPreferenceChannels.set, (event, value: unknown) => {
     const visualTestOverride = process.env.DESKY_VISUAL_TEST_PATH !== undefined
@@ -213,6 +233,17 @@ export function registerIpc(
       window.webContents.send(motionPreferenceChannels.state, motionPreference);
     }
     return motionPreference;
+  });
+  ipcMain.handle(motionPersonalityChannels.get, () => windows.getMotionPersonality());
+  ipcMain.handle(motionPersonalityChannels.set, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Motion personality can only be changed from the control center.');
+    }
+    const policy: MotionPersonalityPolicy = windows.setMotionPersonality(value);
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(motionPersonalityChannels.state, policy);
+    }
+    return policy;
   });
   ipcMain.handle(animationChannels.getState, () => animation.getState());
   ipcMain.handle(animationChannels.select, async (event) => {
@@ -351,6 +382,8 @@ export function registerIpc(
 export const ipcChannels = {
   runtimeInfo: runtimeInfoChannel,
   featuredAvatar: featuredAvatarChannel,
+  marketplaceCatalog: marketplaceCatalogChannel,
+  marketplaceOpenSource: marketplaceOpenSourceChannel,
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,
   ambientPointerRegion: ambientPointerRegionChannel,
@@ -359,5 +392,6 @@ export const ipcChannels = {
   companion: companionChannels,
   animation: animationChannels,
   motionPreference: motionPreferenceChannels,
+  motionPersonality: motionPersonalityChannels,
   openClaw: openClawChannels,
 } as const;

@@ -8,6 +8,7 @@ import type {
   RuntimeInfo,
   WindowAction,
 } from '../shared/runtime';
+import type { MotionPersonalityPolicy } from '../shared/motion-personality';
 import type {
   OpenClawBridge,
   OpenClawConnectInput,
@@ -18,6 +19,7 @@ import type {
 import type { AdapterEvent } from '../shared/adapter-events';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import type { AvatarAssetBridge, FeaturedAvatarAsset } from '../shared/avatar-assets';
+import type { MarketplaceBridge, MarketplaceCatalog } from '../shared/avatar-marketplace';
 import type {
   LocalAnimationBridge,
   LocalAnimationPreviewCommand,
@@ -100,6 +102,11 @@ const avatar: AvatarAssetBridge = Object.freeze({
   getFeatured: () => ipcRenderer.invoke('desky:avatar:get-featured') as Promise<FeaturedAvatarAsset>,
 });
 
+const marketplace: MarketplaceBridge = Object.freeze({
+  getCatalog: () => ipcRenderer.invoke('desky:marketplace:get-catalog') as Promise<MarketplaceCatalog>,
+  openSource: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:open-source', avatarId) as Promise<void>,
+});
+
 const animationChannels = {
   state: 'desky:animation:state',
   command: 'desky:animation:command',
@@ -149,6 +156,15 @@ const api = Object.freeze({
     ipcRenderer.on('desky:motion-preference:state', handler);
     return () => ipcRenderer.removeListener('desky:motion-preference:state', handler);
   },
+  getMotionPersonality: (): Promise<MotionPersonalityPolicy> =>
+    ipcRenderer.invoke('desky:motion-personality:get') as Promise<MotionPersonalityPolicy>,
+  setMotionPersonality: (policy: MotionPersonalityPolicy): Promise<MotionPersonalityPolicy> =>
+    ipcRenderer.invoke('desky:motion-personality:set', policy) as Promise<MotionPersonalityPolicy>,
+  onMotionPersonality: (listener: (policy: MotionPersonalityPolicy) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, policy: MotionPersonalityPolicy) => listener(policy);
+    ipcRenderer.on('desky:motion-personality:state', handler);
+    return () => ipcRenderer.removeListener('desky:motion-personality:state', handler);
+  },
   performWindowAction: (action: WindowAction): void => {
     ipcRenderer.send('desky:window-action', action);
   },
@@ -163,6 +179,7 @@ const api = Object.freeze({
   },
   companion,
   avatar,
+  marketplace,
   animation,
   openClaw,
 });
