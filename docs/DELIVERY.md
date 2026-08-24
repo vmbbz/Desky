@@ -410,7 +410,7 @@ The security and protocol authority is `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ## F5 — additional runtimes
 
-Prerequisite F5a extracts the executable generic adapter host after the F3c.1 surface boundary and before a second production adapter or final F4 connection UX. OpenClaw must pass the same shared contract after extraction; the renderer must not receive provider-native frames.
+F5a.1 is implemented: the executable generic contracts, active-runtime registry, `desky:adapter:*` IPC/preload surface, and provider-neutral renderer state now sit above the unchanged OpenClaw transport host. OpenClaw validates its opaque configuration and maps native gateway/session/run state behind `OpenClawRuntime`; provider-native frames and native state names do not reach the renderer. Registry tests cover enumeration, full command routing, switching teardown, inactive-runtime isolation, and renderer-safe errors. The next prerequisite is F5a.2: a materially different Codex app-server runtime must pass the shared contract before the SDK is stabilized or final multi-provider connection UX is frozen.
 
 Order:
 

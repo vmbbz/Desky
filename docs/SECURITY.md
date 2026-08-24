@@ -53,12 +53,13 @@ Mac App Store builds do not launch arbitrary installed runtimes. Any bundled hel
 
 ## OpenClaw credential handling
 
-- The renderer submits a credential through one validated invocation and clears its input after a successful connection.
+- The renderer submits an opaque adapter configuration through the generic bridge and clears its credential input after a successful connection. The selected main-process runtime performs exact provider validation; generic IPC never interprets, stores, or broadcasts the credential.
 - The credential, device private key, and paired device token are never returned through IPC.
 - Persistence uses Electron `safeStorage`; unavailable OS encryption is a hard failure, not a plaintext downgrade.
 - Saved vault records contain base64-encoded ciphertext. Connection state contains URL, auth kind, server version, and redacted status only.
 - URLs containing user-info, query parameters, or fragments are rejected to keep credentials out of logs and diagnostics.
-- Every OpenClaw IPC rejection is bounded and redacted before reaching the renderer. Authentication and protocol failures additionally remove token/password/authorization patterns, the submitted credential, and any saved device token.
+- Every adapter operation rejection is bounded and provider-redacted before reaching the renderer. OpenClaw authentication and protocol failures additionally remove token/password/authorization patterns, the submitted credential, and any saved device token.
+- Runtime switching disconnects the active adapter before selecting another. State, events, and typed actions from inactive registered runtimes are not forwarded through IPC.
 
 ## Avatar parser safety
 

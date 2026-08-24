@@ -26,11 +26,15 @@ import {
 } from '../shared/avatar-assets';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import { openClawCapabilities } from '../shared/adapter-capabilities';
+import type { AdapterConnectionState } from '../shared/agent-adapter';
 import {
   initialLocalAnimationPreviewState,
   type LocalAnimationPreviewState,
 } from '../shared/local-animation';
-import type { OpenClawAuthKind, OpenClawConnectionState } from '../shared/openclaw';
+import {
+  openClawAdapterDescriptor,
+  type OpenClawAuthKind,
+} from '../shared/openclaw';
 import {
   defaultMotionPersonality,
   motionCategories,
@@ -51,11 +55,14 @@ import { MarketplaceAvatarPreview } from './avatar/MarketplaceAvatarPreview';
 import { resolveAvatarDragMode } from './avatar/avatar-manipulation';
 import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
 
-const initialGateway: OpenClawConnectionState = {
+const initialGateway: AdapterConnectionState = {
+  schemaVersion: 1,
+  adapterId: 'openclaw',
+  descriptor: openClawAdapterDescriptor,
   status: 'disconnected',
-  gatewayUrl: 'ws://127.0.0.1:18789/',
-  authKind: 'token',
-  insecureLoopback: true,
+  endpoint: 'ws://127.0.0.1:18789/',
+  authenticationMethod: 'token',
+  insecureLocal: true,
   message: 'Connect to an OpenClaw Gateway',
   reconnectAttempt: 0,
   sessions: [],
@@ -91,10 +98,10 @@ export function App() {
   const [ambientState, setAmbientState] = useState<AmbientSurfaceState>();
   const [avatarYawDegrees, setAvatarYawDegrees] = useState(0);
   const [avatarBounds, setAvatarBounds] = useState<DesktopRectangle>();
-  const [adapterMode, setAdapterMode] = useState<'openclaw' | 'simulation'>(
-    visualTestState ? 'simulation' : 'openclaw',
+  const [adapterMode, setAdapterMode] = useState<'runtime' | 'simulation'>(
+    visualTestState ? 'simulation' : 'runtime',
   );
-  const [gateway, setGateway] = useState<OpenClawConnectionState>(initialGateway);
+  const [gateway, setGateway] = useState<AdapterConnectionState>(initialGateway);
   const [showConnection, setShowConnection] = useState(true);
   const [controlView, setControlView] = useState<'home' | 'companions'>(
     visualTestState === 'marketplace' ? 'companions' : 'home',
@@ -107,7 +114,7 @@ export function App() {
   const [marketplaceBusyAvatarId, setMarketplaceBusyAvatarId] = useState('');
   const [marketplaceCacheBusyAvatarId, setMarketplaceCacheBusyAvatarId] = useState('');
   const [marketplacePreviewAvatarId, setMarketplacePreviewAvatarId] = useState('');
-  const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
+  const [gatewayUrl, setGatewayUrl] = useState(initialGateway.endpoint);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
   const [rememberCredential, setRememberCredential] = useState(true);
@@ -165,15 +172,17 @@ export function App() {
       document.body.dataset.deskySurface = info.surface;
       setRuntimeInfo(info);
     });
-    void window.desky.openClaw.getState().then((next) => {
+    void window.desky.adapters.getState().then((next) => {
       setGateway(next);
-      setGatewayUrl(next.gatewayUrl);
-      setAuthKind(next.authKind);
+      setGatewayUrl(next.endpoint);
+      if (next.authenticationMethod === 'token' || next.authenticationMethod === 'password') {
+        setAuthKind(next.authenticationMethod);
+      }
       setShowConnection(next.status !== 'connected');
     });
-    const removeState = window.desky.openClaw.onState(setGateway);
+    const removeState = window.desky.adapters.onState(setGateway);
     const acceptCompanionState = (next: CompanionSnapshot) => {
-      if (adapterModeRef.current !== 'openclaw') return;
+      if (adapterModeRef.current !== 'runtime') return;
       setState((current) => next.revision >= current.revision ? next : current);
     };
     const acceptDraft = (next: CompanionDraftSnapshot) => {
@@ -184,7 +193,7 @@ export function App() {
     };
     const removeCompanionState = window.desky.companion.onState(acceptCompanionState);
     const acceptAgentAction = (command: AgentActionCommand) => {
-      if (adapterModeRef.current !== 'openclaw') return;
+      if (adapterModeRef.current !== 'runtime') return;
       setMotionCue({
         id: command.commandId,
         kind: command.payload.action,
@@ -255,7 +264,7 @@ export function App() {
 
   useEffect(() => {
     adapterModeRef.current = adapterMode;
-    if (adapterMode === 'openclaw') {
+    if (adapterMode === 'runtime') {
       void window.desky.companion.getState().then((next) => {
         setState(next);
       });
@@ -357,11 +366,14 @@ export function App() {
   };
 
   const connect = () => withBusy(async () => {
-    const next = await window.desky.openClaw.connect({
-      gatewayUrl,
-      authKind,
-      credential: credential || undefined,
-      rememberCredential,
+    const next = await window.desky.adapters.connect({
+      adapterId: gateway.adapterId,
+      configuration: {
+        gatewayUrl,
+        authKind,
+        credential: credential || undefined,
+        rememberCredential,
+      },
     });
     setGateway(next);
     setCredential('');
@@ -392,26 +404,28 @@ export function App() {
         setState((current) => reduceCompanionSnapshot(current, event));
       }
     } else {
-      await window.desky.openClaw.send(text);
+      await window.desky.adapters.send(text);
     }
     updateDraft('');
     setComposerExpanded(false);
   });
 
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
-  const hasSession = adapterMode === 'simulation' || Boolean(gateway.selectedSessionKey);
+  const hasSession = adapterMode === 'simulation'
+    || gateway.descriptor.sessionSelection !== 'required'
+    || Boolean(gateway.selectedSessionId);
   const effectiveReducedMotion = motionPreference === 'reduced'
     || (motionPreference === 'system' && systemReducedMotion)
     || motionPersonality.preset === 'paused';
-  const runtimeLabel = adapterMode === 'simulation' ? 'Simulation' : 'OpenClaw';
+  const runtimeLabel = adapterMode === 'simulation' ? 'Simulation' : gateway.descriptor.displayName;
   const connectionStatus = adapterMode === 'simulation' ? 'simulation' : gateway.status;
-  const statusDetail = adapterMode === 'openclaw' && gateway.status !== 'connected'
+  const statusDetail = adapterMode === 'runtime' && gateway.status !== 'connected'
     ? gateway.message
     : state.detail;
   const recoveryShortcutLabel = runtimeInfo?.platform === 'darwin'
     ? 'Cmd+Shift+D'
     : 'Ctrl+Shift+D';
-  const activeRun = adapterMode === 'openclaw' && Boolean(gateway.activeRunId);
+  const activeRun = adapterMode === 'runtime' && Boolean(gateway.activeTurnId);
   const meaningfulModes = ['listening', 'thinking', 'working', 'approval', 'speaking', 'success', 'cancelled', 'error'];
   const bubbleMessage = uiError || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
   const showAmbientBubble = Boolean(bubbleMessage)
@@ -531,14 +545,14 @@ export function App() {
   const resolveApproval = (decision: 'allow-once' | 'allow-always' | 'deny') => {
     const approval = state.pendingApproval;
     if (!approval) return Promise.resolve();
-    return window.desky.openClaw.resolveApproval({
+    return window.desky.adapters.resolveApproval({
       requestId: approval.requestId,
       kind: approval.kind,
       decision,
     });
   };
 
-  const approvalCard = state.pendingApproval && adapterMode === 'openclaw' ? (
+  const approvalCard = state.pendingApproval && adapterMode === 'runtime' ? (
     <section className="approval-card" aria-label="Approval required">
       <strong>{state.pendingApproval.action}</strong>
       <p>{state.pendingApproval.safeTarget}</p>
@@ -596,7 +610,7 @@ export function App() {
           <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
             <strong>{uiError ? 'Needs attention' : state.label}</strong>
             <p>{bubbleMessage}</p>
-            {state.pendingApproval && adapterMode === 'openclaw' ? (
+            {state.pendingApproval && adapterMode === 'runtime' ? (
               <div className="ambient-approval-actions" aria-label="Approval choices">
                 {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
                   <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-once'))}>Allow once</button>
@@ -685,7 +699,7 @@ export function App() {
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
             <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Desky anything…" />
             {activeRun ? (
-              <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
+              <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
               <button type="submit" disabled={busy || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
             )}
@@ -693,7 +707,7 @@ export function App() {
         ) : (
           <div className="ambient-launcher" data-desky-interactive="true">
             {activeRun ? (
-              <button className="ambient-stop" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
+              <button className="ambient-stop" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
               <button type="button" onClick={openComposer}>
                 {connected ? (hasSession ? 'Ask Desky…' : 'Choose a session') : 'Connect an agent'}
@@ -1109,28 +1123,28 @@ export function App() {
         </div>
       </section>
 
-      {adapterMode === 'openclaw' && gateway.status === 'connected' ? (
+      {adapterMode === 'runtime' && gateway.status === 'connected' ? (
         <div className="session-row">
-          <label className="sr-only" htmlFor="openclaw-session">OpenClaw session</label>
+          <label className="sr-only" htmlFor="adapter-session">{gateway.descriptor.displayName} session</label>
           <select
-            id="openclaw-session"
-            value={gateway.selectedSessionKey ?? ''}
+            id="adapter-session"
+            value={gateway.selectedSessionId ?? ''}
             disabled={busy}
-            onChange={(event) => void withBusy(async () => { setGateway(await window.desky.openClaw.selectSession(event.target.value)); })}
+            onChange={(event) => void withBusy(async () => { setGateway(await window.desky.adapters.selectSession(event.target.value)); })}
           >
             <option value="" disabled>Select a session</option>
-            {gateway.sessions.map((session) => <option key={session.key} value={session.key}>{session.label}</option>)}
+            {gateway.sessions.map((session) => <option key={session.id} value={session.id}>{session.label}</option>)}
           </select>
-          <button type="button" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.openClaw.createSession({ label: 'Desky' })); })}>New</button>
-          <button type="button" aria-label="Refresh sessions" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.openClaw.refreshSessions()); })}>↻</button>
+          <button type="button" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.createSession({ label: 'Desky' })); })}>New</button>
+          <button type="button" aria-label="Refresh sessions" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.refreshSessions()); })}>↻</button>
         </div>
       ) : null}
 
       <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
         <label className="sr-only" htmlFor="control-prompt">Message</label>
         <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Desky anything…" />
-        {adapterMode === 'openclaw' && gateway.activeRunId ? (
-          <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.openClaw.cancel())}>Stop</button>
+        {adapterMode === 'runtime' && gateway.activeTurnId ? (
+          <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
         ) : (
           <button type="submit" disabled={busy || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
         )}
@@ -1143,10 +1157,10 @@ export function App() {
             <button type="button" aria-label="Close connection settings" onClick={() => setShowConnection(false)}>×</button>
           </div>
           <div className="mode-switch" role="group" aria-label="Adapter mode">
-            <button type="button" className={adapterMode === 'openclaw' ? 'active' : ''} onClick={() => setAdapterMode('openclaw')}>OpenClaw</button>
+            <button type="button" className={adapterMode === 'runtime' ? 'active' : ''} onClick={() => setAdapterMode('runtime')}>{gateway.descriptor.displayName}</button>
             <button type="button" className={adapterMode === 'simulation' ? 'active' : ''} onClick={() => { setAdapterMode('simulation'); setShowConnection(false); }}>Simulation</button>
           </div>
-          {adapterMode === 'openclaw' ? (
+          {adapterMode === 'runtime' && gateway.descriptor.kind === 'openclaw' ? (
             <form onSubmit={(event) => { event.preventDefault(); void connect(); }}>
               <label htmlFor="gateway-url">Gateway URL</label>
               <input id="gateway-url" value={gatewayUrl} onChange={(event) => setGatewayUrl(event.target.value)} autoCapitalize="none" spellCheck={false} />
@@ -1158,7 +1172,7 @@ export function App() {
               <label htmlFor="gateway-credential">{authKind === 'token' ? 'Token' : 'Password'}</label>
               <input id="gateway-credential" type="password" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Leave blank to use saved access" autoComplete="off" />
               <label className="remember-row"><input type="checkbox" checked={rememberCredential} onChange={(event) => setRememberCredential(event.target.checked)} /> Store with OS credential encryption</label>
-              {gateway.insecureLoopback ? <p className="connection-warning">Plain WebSocket is accepted only because this is a loopback address.</p> : null}
+              {gateway.insecureLocal ? <p className="connection-warning">Plain WebSocket is accepted only because this is a loopback address.</p> : null}
               {gateway.status === 'connected' ? (
                 <p className={`adapter-capability adapter-capability--${gateway.capabilities.agentActions.availability}`}>
                   Avatar actions: {gateway.capabilities.agentActions.availability === 'available'
@@ -1169,7 +1183,7 @@ export function App() {
               {gateway.pairingRequestId ? <p className="pairing-id">Pairing request: <code>{gateway.pairingRequestId}</code></p> : null}
               {uiError ? <p className="connection-error">{uiError}</p> : null}
               <div className="connection-actions">
-                {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.openClaw.disconnect()); })}>Disconnect</button> : null}
+                {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
                 <button type="submit" disabled={busy}>{busy ? 'Connecting…' : gateway.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
               </div>
             </form>
@@ -1178,7 +1192,7 @@ export function App() {
       ) : null}
 
       <footer>
-        <span>{gateway.insecureLoopback && adapterMode === 'openclaw' ? 'Local ws · development only' : `${runtimeInfo.distributionProfile} build`}</span>
+        <span>{gateway.insecureLocal && adapterMode === 'runtime' ? 'Local ws · development only' : `${runtimeInfo.distributionProfile} build`}</span>
         <span>v{runtimeInfo.version}</span>
       </footer>
     </main>

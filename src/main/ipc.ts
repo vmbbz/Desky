@@ -16,9 +16,9 @@ import {
 import type { MotionPersonalityPolicy } from '../shared/motion-personality';
 import type { AvatarLoadReport } from '../shared/avatar-assets';
 import type {
-  OpenClawConnectInput,
-  OpenClawResolveApprovalInput,
-} from '../shared/openclaw';
+  AdapterConnectCommand,
+  AdapterResolveApprovalInput,
+} from '../shared/agent-adapter';
 import {
   localAnimationPreviewStatuses,
   type LocalAnimationPreviewCommand,
@@ -44,7 +44,7 @@ import {
   ambientStateChannel,
   type DeskyWindowManager,
 } from './companion-window';
-import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
+import type { AgentAdapterRegistry } from './adapters/registry';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -61,18 +61,19 @@ const marketplacePreviewChannel = 'desky:marketplace:get-preview';
 const marketplaceCacheInventoryChannel = 'desky:marketplace:get-cache-inventory';
 const marketplaceRemoveDownloadChannel = 'desky:marketplace:remove-download';
 const marketplaceOpenSourceChannel = 'desky:marketplace:open-source';
-const openClawChannels = {
-  state: 'desky:openclaw:state',
-  event: 'desky:openclaw:event',
-  getState: 'desky:openclaw:get-state',
-  connect: 'desky:openclaw:connect',
-  disconnect: 'desky:openclaw:disconnect',
-  refreshSessions: 'desky:openclaw:refresh-sessions',
-  createSession: 'desky:openclaw:create-session',
-  selectSession: 'desky:openclaw:select-session',
-  send: 'desky:openclaw:send',
-  cancel: 'desky:openclaw:cancel',
-  resolveApproval: 'desky:openclaw:resolve-approval',
+const adapterChannels = {
+  state: 'desky:adapter:state',
+  event: 'desky:adapter:event',
+  list: 'desky:adapter:list',
+  getState: 'desky:adapter:get-state',
+  connect: 'desky:adapter:connect',
+  disconnect: 'desky:adapter:disconnect',
+  refreshSessions: 'desky:adapter:refresh-sessions',
+  createSession: 'desky:adapter:create-session',
+  selectSession: 'desky:adapter:select-session',
+  send: 'desky:adapter:send',
+  cancel: 'desky:adapter:cancel',
+  resolveApproval: 'desky:adapter:resolve-approval',
 } as const;
 const companionChannels = {
   state: 'desky:companion:state',
@@ -133,23 +134,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function readConnectInput(value: unknown): OpenClawConnectInput {
+function readAdapterConnectCommand(value: unknown): AdapterConnectCommand {
   if (!isRecord(value)
-    || typeof value.gatewayUrl !== 'string' || value.gatewayUrl.length > 2048
-    || (value.authKind !== 'token' && value.authKind !== 'password')
-    || (value.credential !== undefined && (typeof value.credential !== 'string' || value.credential.length > 16_384))
-    || typeof value.rememberCredential !== 'boolean') {
-    throw new Error('Invalid OpenClaw connection input.');
+    || typeof value.adapterId !== 'string'
+    || value.adapterId.length === 0
+    || value.adapterId.length > 128
+    || !Object.hasOwn(value, 'configuration')) {
+    throw new Error('Invalid agent adapter connection command.');
   }
   return {
-    gatewayUrl: value.gatewayUrl,
-    authKind: value.authKind,
-    credential: value.credential,
-    rememberCredential: value.rememberCredential,
+    adapterId: value.adapterId,
+    configuration: value.configuration,
   };
 }
 
-function readApprovalInput(value: unknown): OpenClawResolveApprovalInput {
+function readApprovalInput(value: unknown): AdapterResolveApprovalInput {
   if (!isRecord(value)
     || typeof value.requestId !== 'string'
     || (value.kind !== 'exec' && value.kind !== 'plugin' && value.kind !== 'system-agent')
@@ -200,19 +199,8 @@ function readAvatarLoadReport(value: unknown): AvatarLoadReport {
   };
 }
 
-async function rendererSafeOpenClawCall<T>(
-  operation: () => T | Promise<T>,
-  secrets: Array<string | undefined> = [],
-): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    throw new Error(redactOpenClawError(error, secrets));
-  }
-}
-
 export function registerIpc(
-  openClaw: OpenClawAdapterHost,
+  adapters: AgentAdapterRegistry,
   windows: DeskyWindowManager,
 ): void {
   const companion = new CompanionStateHost();
@@ -469,44 +457,47 @@ export function registerIpc(
     return draft;
   });
 
-  ipcMain.handle(openClawChannels.getState, () => openClaw.getState());
-  ipcMain.handle(openClawChannels.connect, (_event, input: unknown) => {
-    const connection = readConnectInput(input);
-    return rendererSafeOpenClawCall(() => openClaw.connect(connection), [connection.credential]);
+  ipcMain.handle(adapterChannels.list, () => adapters.list());
+  ipcMain.handle(adapterChannels.getState, () => adapters.getState());
+  ipcMain.handle(adapterChannels.connect, (_event, input: unknown) => {
+    const command = readAdapterConnectCommand(input);
+    return adapters.connect(command);
   });
-  ipcMain.handle(openClawChannels.disconnect, () => rendererSafeOpenClawCall(() => openClaw.disconnect()));
-  ipcMain.handle(openClawChannels.refreshSessions, () => rendererSafeOpenClawCall(() => openClaw.refreshSessions()));
-  ipcMain.handle(openClawChannels.createSession, (_event, input: unknown) => {
-    if (!isRecord(input) || (input.label !== undefined && typeof input.label !== 'string')) {
+  ipcMain.handle(adapterChannels.disconnect, () => adapters.disconnect());
+  ipcMain.handle(adapterChannels.refreshSessions, () => adapters.refreshSessions());
+  ipcMain.handle(adapterChannels.createSession, (_event, input: unknown) => {
+    if (!isRecord(input)
+      || (input.label !== undefined
+        && (typeof input.label !== 'string' || input.label.length > 100))) {
       throw new Error('Invalid session input.');
     }
-    return rendererSafeOpenClawCall(() => openClaw.createSession({ label: input.label as string | undefined }));
+    return adapters.createSession({ label: input.label as string | undefined });
   });
-  ipcMain.handle(openClawChannels.selectSession, (_event, key: unknown) => {
-    const sessionKey = assertText(key, 'session key', 512);
-    return rendererSafeOpenClawCall(() => openClaw.selectSession(sessionKey));
+  ipcMain.handle(adapterChannels.selectSession, (_event, id: unknown) => {
+    const sessionId = assertText(id, 'session id', 512);
+    return adapters.selectSession(sessionId);
   });
-  ipcMain.handle(openClawChannels.send, (_event, message: unknown) => {
+  ipcMain.handle(adapterChannels.send, (_event, message: unknown) => {
     const text = assertText(message, 'message', 100_000);
-    return rendererSafeOpenClawCall(() => openClaw.send(text), [text]);
+    return adapters.send(text);
   });
-  ipcMain.handle(openClawChannels.cancel, () => rendererSafeOpenClawCall(() => openClaw.cancel()));
-  ipcMain.handle(openClawChannels.resolveApproval, (_event, input: unknown) => {
+  ipcMain.handle(adapterChannels.cancel, () => adapters.cancel());
+  ipcMain.handle(adapterChannels.resolveApproval, (_event, input: unknown) => {
     const approval = readApprovalInput(input);
-    return rendererSafeOpenClawCall(() => openClaw.resolveApproval(approval));
+    return adapters.resolveApproval(approval);
   });
 
-  openClaw.onState((state) => {
-    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(openClawChannels.state, state);
+  adapters.onState((state) => {
+    for (const window of BrowserWindow.getAllWindows()) window.webContents.send(adapterChannels.state, state);
   });
-  openClaw.onEvent((adapterEvent) => {
+  adapters.onEvent((adapterEvent) => {
     const snapshot = companion.applyEvent(adapterEvent);
     for (const window of BrowserWindow.getAllWindows()) {
-      window.webContents.send(openClawChannels.event, adapterEvent);
+      window.webContents.send(adapterChannels.event, adapterEvent);
       window.webContents.send(companionChannels.state, snapshot);
     }
   });
-  openClaw.onAction((command) => {
+  adapters.onAction((command) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (windows.surfaceFor(window.webContents) !== 'ambient') continue;
       window.webContents.send(companionChannels.action, command);
@@ -533,5 +524,5 @@ export const ipcChannels = {
   animation: animationChannels,
   motionPreference: motionPreferenceChannels,
   motionPersonality: motionPersonalityChannels,
-  openClaw: openClawChannels,
+  adapter: adapterChannels,
 } as const;

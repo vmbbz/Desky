@@ -162,6 +162,14 @@ F4x must not block the free companion or adapter platform. Its complete contract
 
 F5a may begin after F3c.1. It must finish before the second production adapter and before F4 connection management is considered final.
 
+Implementation status — 2026-08-24:
+
+- **F5a.1 platform extraction complete:** executable descriptor/state/command/bridge contracts, main-process runtime interface, active-runtime registry, generic IPC/preload bridge, and generic renderer state/session/turn consumption.
+- **F5a.1 OpenClaw conformance complete:** exact OpenClaw configuration validation and state mapping sit behind `OpenClawRuntime`; the proven host retains streaming, tools, approvals, cancellation, reconnect, sessions, pairing, secure vault, and typed-action behavior unchanged.
+- **F5a.1 isolation complete:** inactive runtime state/events/actions are rejected by the registry; descriptors are defensively cloned; renderer-facing errors retain provider redaction; Simulation remains isolated from production conformance.
+- **F5a.2 next:** implement the direct-profile Codex app-server runtime against the same internal contract and contract suite, then revise semantics exposed by two genuinely different runtimes before declaring a public SDK.
+- **F5a.3 later:** Claude through a supported structured interface; Hermes only after supported programmatic transport discovery. Neither may scrape terminal presentation text.
+
 ## Store and owner gates
 
 Store submission remains downstream of engineering and owner-controlled inputs:

@@ -6,22 +6,27 @@ Adapters translate a runtime's native protocol into Desky events and commands. T
 
 The initial protocol is internal while semantics stabilize. A public adapter SDK begins only after two substantially different production adapters pass the same contract suite.
 
-The first executable provider-neutral slice is `AgentAdapterCapabilities`. It records sessions, streaming, tools, approvals, cancellation, reconnect, and typed agent-action availability. OpenClaw discovers its Desky action tool through a read-scoped plugin method; Claude and Hermes must translate their supported native discovery surfaces into the same shape. Generic tool streaming alone never implies that the Desky action schema is installed.
+The provider-neutral platform is executable in `src/shared/agent-adapter.ts`, `src/main/adapters/runtime.ts`, and `src/main/adapters/registry.ts`. It owns safe descriptors, connection/session state, lifecycle commands, normalized events, and the separate typed agent-action lane. `AgentAdapterCapabilities` records sessions, streaming, tools, approvals, cancellation, reconnect, and typed agent-action availability. OpenClaw discovers its Desky action tool through a read-scoped plugin method; later runtimes must translate their supported native discovery surfaces into the same shape. Generic tool streaming alone never implies that the Desky action schema is installed.
 
 ## Adapter lifecycle
 
 ```ts
-interface AgentAdapter {
+interface AgentAdapterRuntime {
   readonly descriptor: AdapterDescriptor;
-  connect(options: ConnectionOptions): AsyncIterable<AdapterEvent>;
-  send(input: UserInput): Promise<void>;
-  cancel(turnId: string): Promise<void>;
-  resolveApproval(requestId: string, decision: ApprovalDecision): Promise<void>;
-  disconnect(reason?: string): Promise<void>;
+  getState(): AdapterConnectionState;
+  connect(configuration: unknown): Promise<AdapterConnectionState>;
+  send(message: string): Promise<void>;
+  cancel(): Promise<void>;
+  resolveApproval(input: AdapterResolveApprovalInput): Promise<void>;
+  disconnect(): Promise<AdapterConnectionState>;
+  onEvent(listener: (event: AdapterEvent) => void): () => void;
+  onAction(listener: (command: AgentActionCommand) => void): () => void;
 }
 ```
 
-An adapter instance owns one connection. It may expose multiple remote sessions, but concurrent turn semantics must be explicit in its descriptor.
+An adapter instance owns one connection. It may expose multiple remote sessions, but concurrent turn semantics must be explicit in its descriptor. The renderer bridge uses a generic `{ adapterId, configuration }` connection envelope; the selected main-process runtime alone validates the opaque provider configuration. This keeps credentials and future authentication shapes out of a misleading lowest-common-denominator contract.
+
+`AgentAdapterRegistry` is the single provider-aware dependency of IPC. It enumerates cloned safe descriptors, including explicit direct/Store release-profile availability, session-selection semantics, and turn concurrency, selects one active runtime, disconnects before switching, routes the full command surface, and forwards state/events/actions only from the active runtime. Provider-native frames and native state names never cross preload. The current renderer-local Simulation harness remains deliberately outside this production registry.
 
 ## Event envelope
 
@@ -128,6 +133,6 @@ The simulation adapter is a UI/state-machine harness only. It is always labeled 
 
 ## Adapter-platform extraction timing
 
-OpenClaw is intentionally the first production adapter, not the permanent application-level bridge. The capability portion is now executable in `src/shared/adapter-capabilities.ts`; F5a promotes the remaining lifecycle into generic host, descriptor, connection, session, and command contracts. OpenClaw must pass that contract before Codex is added as the second substantially different adapter. The public adapter SDK stabilizes only after both pass.
+OpenClaw is the first production conformance runtime behind the generic platform, not the application-level bridge. `OpenClawRuntime` validates its exact token/password payload, maps native gateway/session/run names into the shared state, preserves redaction, and delegates transport behavior to the already-proven `OpenClawAdapterHost`. The renderer and preload expose only `desky.adapters` over `desky:adapter:*` channels. Codex is the next substantially different adapter; the public adapter SDK stabilizes only after both pass.
 
 Claude then uses a supported structured interface, and Hermes proceeds only after supported programmatic transport discovery. Neither integration may scrape terminal presentation text. The desktop companion can proceed independently because it consumes only normalized `AdapterEvent` values.

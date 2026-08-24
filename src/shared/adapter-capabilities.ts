@@ -1,6 +1,6 @@
 import { avatarActionKinds, type AvatarActionKind } from './agent-actions';
 
-export const agentAdapterKinds = ['openclaw', 'claude', 'hermes', 'simulation'] as const;
+export const agentAdapterKinds = ['openclaw', 'codex', 'claude', 'hermes', 'simulation'] as const;
 export type AgentAdapterKind = (typeof agentAdapterKinds)[number];
 
 export type AgentActionAvailability = 'available' | 'setup-required' | 'unsupported';

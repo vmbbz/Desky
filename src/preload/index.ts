@@ -10,12 +10,13 @@ import type {
 } from '../shared/runtime';
 import type { MotionPersonalityPolicy } from '../shared/motion-personality';
 import type {
-  OpenClawBridge,
-  OpenClawConnectInput,
-  OpenClawConnectionState,
-  OpenClawCreateSessionInput,
-  OpenClawResolveApprovalInput,
-} from '../shared/openclaw';
+  AdapterConnectCommand,
+  AdapterConnectionState,
+  AdapterCreateSessionInput,
+  AdapterDescriptor,
+  AdapterResolveApprovalInput,
+  AgentAdapterBridge,
+} from '../shared/agent-adapter';
 import type { AdapterEvent } from '../shared/adapter-events';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import type {
@@ -43,31 +44,33 @@ import type {
 } from '../shared/companion-state';
 
 const channels = {
-  state: 'desky:openclaw:state',
-  event: 'desky:openclaw:event',
-  getState: 'desky:openclaw:get-state',
-  connect: 'desky:openclaw:connect',
-  disconnect: 'desky:openclaw:disconnect',
-  refreshSessions: 'desky:openclaw:refresh-sessions',
-  createSession: 'desky:openclaw:create-session',
-  selectSession: 'desky:openclaw:select-session',
-  send: 'desky:openclaw:send',
-  cancel: 'desky:openclaw:cancel',
-  resolveApproval: 'desky:openclaw:resolve-approval',
+  state: 'desky:adapter:state',
+  event: 'desky:adapter:event',
+  list: 'desky:adapter:list',
+  getState: 'desky:adapter:get-state',
+  connect: 'desky:adapter:connect',
+  disconnect: 'desky:adapter:disconnect',
+  refreshSessions: 'desky:adapter:refresh-sessions',
+  createSession: 'desky:adapter:create-session',
+  selectSession: 'desky:adapter:select-session',
+  send: 'desky:adapter:send',
+  cancel: 'desky:adapter:cancel',
+  resolveApproval: 'desky:adapter:resolve-approval',
 } as const;
 
-const openClaw: OpenClawBridge = Object.freeze({
-  getState: () => ipcRenderer.invoke(channels.getState) as Promise<OpenClawConnectionState>,
-  connect: (input: OpenClawConnectInput) => ipcRenderer.invoke(channels.connect, input) as Promise<OpenClawConnectionState>,
-  disconnect: () => ipcRenderer.invoke(channels.disconnect) as Promise<OpenClawConnectionState>,
-  refreshSessions: () => ipcRenderer.invoke(channels.refreshSessions) as Promise<OpenClawConnectionState>,
-  createSession: (input: OpenClawCreateSessionInput) => ipcRenderer.invoke(channels.createSession, input) as Promise<OpenClawConnectionState>,
-  selectSession: (sessionKey: string) => ipcRenderer.invoke(channels.selectSession, sessionKey) as Promise<OpenClawConnectionState>,
+const adapters: AgentAdapterBridge = Object.freeze({
+  list: () => ipcRenderer.invoke(channels.list) as Promise<AdapterDescriptor[]>,
+  getState: () => ipcRenderer.invoke(channels.getState) as Promise<AdapterConnectionState>,
+  connect: (input: AdapterConnectCommand) => ipcRenderer.invoke(channels.connect, input) as Promise<AdapterConnectionState>,
+  disconnect: () => ipcRenderer.invoke(channels.disconnect) as Promise<AdapterConnectionState>,
+  refreshSessions: () => ipcRenderer.invoke(channels.refreshSessions) as Promise<AdapterConnectionState>,
+  createSession: (input: AdapterCreateSessionInput) => ipcRenderer.invoke(channels.createSession, input) as Promise<AdapterConnectionState>,
+  selectSession: (sessionId: string) => ipcRenderer.invoke(channels.selectSession, sessionId) as Promise<AdapterConnectionState>,
   send: (message: string) => ipcRenderer.invoke(channels.send, message) as Promise<void>,
   cancel: () => ipcRenderer.invoke(channels.cancel) as Promise<void>,
-  resolveApproval: (input: OpenClawResolveApprovalInput) => ipcRenderer.invoke(channels.resolveApproval, input) as Promise<void>,
-  onState: (listener: (state: OpenClawConnectionState) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, state: OpenClawConnectionState) => listener(state);
+  resolveApproval: (input: AdapterResolveApprovalInput) => ipcRenderer.invoke(channels.resolveApproval, input) as Promise<void>,
+  onState: (listener: (state: AdapterConnectionState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: AdapterConnectionState) => listener(state);
     ipcRenderer.on(channels.state, handler);
     return () => ipcRenderer.removeListener(channels.state, handler);
   },
@@ -203,7 +206,7 @@ const api = Object.freeze({
   avatar,
   marketplace,
   animation,
-  openClaw,
+  adapters,
 });
 
 contextBridge.exposeInMainWorld('desky', api);

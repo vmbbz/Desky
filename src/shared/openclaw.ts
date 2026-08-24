@@ -1,10 +1,28 @@
-import type { AdapterEvent } from './adapter-events';
 import type { AgentAdapterCapabilities } from './adapter-capabilities';
+import type { ApprovalDecision } from './agent-adapter';
+import type { AdapterDescriptor } from './agent-adapter';
 
 export const OPENCLAW_PROTOCOL_VERSION = 4 as const;
 
+export const openClawAdapterDescriptor: AdapterDescriptor = Object.freeze({
+  schemaVersion: 1,
+  adapterId: 'openclaw',
+  kind: 'openclaw',
+  displayName: 'OpenClaw',
+  description: 'Connect to an authenticated OpenClaw Gateway.',
+  production: true,
+  distributionProfiles: ['direct', 'store'] satisfies AdapterDescriptor['distributionProfiles'],
+  sessionSelection: 'required',
+  concurrentTurns: false,
+  endpointLabel: 'Gateway URL',
+  authenticationMethods: [
+    { id: 'token', label: 'Gateway token', secret: true },
+    { id: 'password', label: 'Gateway password', secret: true },
+  ],
+});
+
 export type OpenClawAuthKind = 'token' | 'password';
-export type ApprovalDecision = 'allow-once' | 'allow-always' | 'deny';
+export type { ApprovalDecision } from './agent-adapter';
 
 export interface OpenClawConnectInput {
   gatewayUrl: string;
@@ -42,26 +60,8 @@ export interface OpenClawConnectionState {
   capabilities: AgentAdapterCapabilities;
 }
 
-export interface OpenClawCreateSessionInput {
-  label?: string;
-}
-
 export interface OpenClawResolveApprovalInput {
   requestId: string;
   kind: 'exec' | 'plugin' | 'system-agent';
   decision: ApprovalDecision;
-}
-
-export interface OpenClawBridge {
-  getState(): Promise<OpenClawConnectionState>;
-  connect(input: OpenClawConnectInput): Promise<OpenClawConnectionState>;
-  disconnect(): Promise<OpenClawConnectionState>;
-  refreshSessions(): Promise<OpenClawConnectionState>;
-  createSession(input: OpenClawCreateSessionInput): Promise<OpenClawConnectionState>;
-  selectSession(sessionKey: string): Promise<OpenClawConnectionState>;
-  send(message: string): Promise<void>;
-  cancel(): Promise<void>;
-  resolveApproval(input: OpenClawResolveApprovalInput): Promise<void>;
-  onState(listener: (state: OpenClawConnectionState) => void): () => void;
-  onEvent(listener: (event: AdapterEvent) => void): () => void;
 }

@@ -99,25 +99,28 @@ The ambient renderer reports only `interactive` or `transparent` pointer intent 
 
 The contextual composer uses a separate typed companion bridge. Main holds one bounded, revisioned draft in memory, broadcasts changes to existing windows, and returns it to windows opened later. It is cleared only after an accepted send or explicit user deletion; collapsing, reconnecting, or recreating a renderer does not discard it. The draft is intentionally absent from `desktop-state.json`, the secure credential vault, and transcript persistence. Main also broadcasts the revisioned companion snapshot after every normalized adapter event, while the renderer uses a concise response preview and routes the bounded live response to the control center.
 
-Surface separation does not make the OpenClaw bridge the generic adapter contract. The capability slice is now shared and executable; F5a will put an adapter registry and shared host/connection/session/command types above the current OpenClaw host before a second production adapter and before F4 connection UX is frozen. The sequencing contract is in `docs/EXECUTION-PLAN.md`.
+The companion surfaces now use the executable provider-neutral adapter contract. `AgentAdapterRegistry` owns active-runtime selection and forwards only the selected runtime's safe state, events, actions, and lifecycle commands. Shared descriptors and connection/session/turn state use generic identifiers; provider authentication remains an opaque configuration envelope until the selected main-process runtime validates it. Preload exposes only `desky.adapters` over `desky:adapter:*` channels. The renderer-local Simulation harness remains visibly separate and cannot satisfy a production adapter gate.
 
 ### OpenClaw adapter host
 
 The first production adapter is owned entirely by the main process:
 
 ```text
-connection UI -> validated IPC command -> OpenClawAdapterHost
-                                        -> secure vault
-                                        -> protocol-v4 WebSocket client
-Gateway frame -> main-process validation/redaction -> AdapterEvent -> companion snapshot -> renderers
-Structured action tool -> main-process validation/session filter -> ephemeral AgentActionCommand -> motion queue
+connection UI -> generic adapter IPC -> AgentAdapterRegistry -> OpenClawRuntime
+                                                           -> OpenClawAdapterHost
+                                                           -> secure vault
+                                                           -> protocol-v4 WebSocket client
+Gateway frame -> provider validation/redaction -> AdapterEvent -> registry -> companion snapshot -> renderers
+Structured action tool -> provider validation/session filter -> registry -> ephemeral AgentActionCommand -> motion queue
 ```
 
 - `gateway-client.ts` owns the challenge-first wire exchange and request correlation.
 - `protocol.ts` owns the pinned v4 constants, Ed25519 device proof, URL policy, native frame guards, and redacted event mapping.
 - `secure-vault.ts` stores encrypted opaque values only; it has no plaintext fallback.
 - `host.ts` owns profiles, sessions, terminal-event deduplication, approval routing, cancellation, reconciliation, and bounded reconnect.
-- Preload exposes semantic commands, read-only runtime events/state, and revisioned companion snapshot/draft methods. It never exposes sockets, native frames, credentials, or `ipcRenderer`.
+- `openclaw-runtime.ts` owns exact provider configuration validation, safe state normalization, and provider error redaction.
+- `registry.ts` owns active-runtime selection, command routing, inactive-runtime event isolation, and bounded disposal.
+- Preload exposes generic semantic commands, safe descriptors, read-only normalized runtime state/events, and revisioned companion snapshot/draft methods. It never exposes sockets, native frames, credentials, native provider state, or `ipcRenderer`.
 
 The packaged renderer is served from the secure custom `desky://` scheme. This lets the file-protocol privilege fuse remain disabled without making packaged assets unavailable.
 
