@@ -10,6 +10,7 @@ import { codexAdapterDescriptor, codexFoundationCapabilities } from '../src/shar
 import { openClawCapabilities } from '../src/shared/adapter-capabilities';
 import { openClawAdapterDescriptor } from '../src/shared/openclaw';
 import { hermesAdapterDescriptor, hermesFoundationCapabilities } from '../src/shared/hermes';
+import { claudeAdapterDescriptor, claudeFoundationCapabilities } from '../src/shared/claude';
 
 describe('agent adapter contract v1', () => {
   it('admits the two production descriptors and their normalized states', () => {
@@ -17,6 +18,7 @@ describe('agent adapter contract v1', () => {
     assertAdapterDescriptor(openClawAdapterDescriptor);
     assertAdapterDescriptor(codexAdapterDescriptor);
     assertAdapterDescriptor(hermesAdapterDescriptor);
+    assertAdapterDescriptor(claudeAdapterDescriptor);
     expect(() => assertAdapterConnectionState({
       schemaVersion: 1,
       adapterId: 'openclaw',
@@ -56,6 +58,19 @@ describe('agent adapter contract v1', () => {
       sessions: [],
       capabilities: hermesFoundationCapabilities,
     }, hermesAdapterDescriptor)).not.toThrow();
+    expect(() => assertAdapterConnectionState({
+      schemaVersion: 1,
+      adapterId: 'claude',
+      descriptor: claudeAdapterDescriptor,
+      status: 'disconnected',
+      endpoint: 'Local Agent SDK',
+      authenticationMethod: 'anthropic-api-key',
+      insecureLocal: false,
+      message: 'Disconnected',
+      reconnectAttempt: 0,
+      sessions: [],
+      capabilities: claudeFoundationCapabilities,
+    }, claudeAdapterDescriptor)).not.toThrow();
   });
 
   it('fails closed on identity, capability, and action contradictions', () => {

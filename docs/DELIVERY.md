@@ -414,6 +414,8 @@ F5a.1 is implemented: the executable generic contracts, active-runtime registry,
 
 F5b.1 Hermes foundation is implemented against official source revision `057dcdf236f8a6a26721c10fcc6ccb72726e272a`: authenticated capability and version admission, strict endpoint policy, bounded structured HTTP/SSE, sessions, streaming, tool/subagent lifecycle, per-run approvals, truthful stop, disconnect, redaction, and exactly-once terminal fixtures pass. It is not registered or production-admitted because this machine has no installed/authenticated Hermes server. The live and packaged matrices, bounded reconnect, credential persistence, and typed Desky-action discovery remain open.
 
+F5c.1 Claude foundation is implemented with exact production dependency `@anthropic-ai/claude-agent-sdk 0.3.241`: typed partial streaming, SDK session list/resume, API-key-only init admission, reviewed environment and setting isolation, opaque workspace grants, plan/default permission mapping, SDK approval callbacks, cancellation, redaction, and exactly-once terminal fixtures pass. It is direct-only, unregistered, and `production: false`. Anthropic's documented restriction against unapproved third-party Claude.ai login reuse is enforced architecturally. An authorized API-key source/package matrix, effective-policy adversarial proof, lifecycle/crash evidence, vault integration, and typed Desky MCP action remain open.
+
 Order:
 
 1. Codex direct adapter using app-server stdio. Complete.

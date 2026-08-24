@@ -81,6 +81,15 @@ The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_T
 - The bearer token is held only by the unregistered main-process client and is redacted from errors. Durable OS credential storage is deliberately not implemented yet; the runtime cannot be registered until it uses the existing vault-grade persistence policy or an equivalent provider-specific store.
 - JSON responses are capped at 512 KiB and individual SSE frames at 256 KiB. Malformed JSON, incomplete/oversized SSE, capability drift, cross-run events, invalid approval choices, and a stream that closes without a terminal event fail closed.
 - Approval scope is never broadened: `allow-always` is offered only when Hermes includes `always`; every local approval route is bound to one run and expires on terminal state or disconnect. Stop remains pending until Hermes emits `run.cancelled`; disconnect records a local cancelled terminal and aborts transport after requesting server stop.
+
+## Claude foundation security
+
+- The direct Claude topology pins the official Agent SDK exactly and launches its bundled agent process through that supported library. Desky does not discover the unrelated `claude` executable on PATH or scrape CLI output.
+- Configuration accepts an opaque workspace grant, never a renderer path. Plan mode resolves only a read-only grant; default/on-request resolves a separately confirmed workspace-write grant. The foundation does not expose bypass-permissions or accept-edits.
+- The child environment is rebuilt from a small OS/proxy allowlist. Ambient AI-provider keys and unrelated secrets are dropped; only the explicitly supplied `ANTHROPIC_API_KEY` is added, together with a Desky client identifier and disabled auto-memory. `settingSources: []` prevents user/project settings from silently widening the app-selected baseline.
+- Initialization must report `apiKeySource=ANTHROPIC_API_KEY`. Consumer OAuth/login is rejected in accordance with Anthropic's published third-party restriction. The API key remains main-owned, is redacted from every failure, and is not yet persisted; vault integration is a production-admission gate.
+- SDK permission callbacks remain the runtime authority. Desky never infers approval from text, never invents persistent scope without SDK suggestions, binds each request to the live turn, denies it on abort/disconnect, and reports only basename/bounded redacted targets. The SDK permission flow can resolve calls before `canUseTool`; authenticated adversarial testing must verify the exact effective policy rather than claiming that callback sees every tool.
+- Cancel aborts and closes the SDK query, denies pending callbacks, and records one local cancelled terminal. Full process-tree/crash/clean-package evidence remains required because fixture cancellation is not containment proof.
 - Runtime switching disconnects the active adapter before selecting another. State, events, and typed actions from inactive registered runtimes are not forwarded through IPC.
 
 ## Avatar parser safety

@@ -110,9 +110,13 @@ Adapters may expose this only when their runtime provides a registered structure
 
 ### Claude
 
-- Direct transport candidate: supported SDK or structured stream output, never terminal scraping.
-- Store transport: authenticated remote API/gateway subject to product terms and secure credential handling.
-- Gate: supported authentication, stable streaming schema, approvals, cancellation, and permission-mode mapping.
+- Direct transport selected: the official TypeScript Claude Agent SDK, pinned exactly to `@anthropic-ai/claude-agent-sdk 0.3.241`. Desky consumes typed SDK messages and partial API stream events; it never parses terminal presentation text. The SDK runs the Claude Code agent loop as a local subprocess, so this topology is direct-profile only.
+- Authentication policy: an explicit Anthropic API key is required. Anthropic's official Agent SDK documentation says third-party products may not offer Claude.ai login or rate limits without prior approval, so Desky neither discovers nor reuses the user's consumer Claude Code session. SDK initialization must report `apiKeySource=ANTHROPIC_API_KEY`; `none`/OAuth and malformed capability frames fail closed. A separately approved enterprise proxy is a future provider-specific auth mode, not silently equivalent.
+- Current foundation: `ClaudeSdkClient` uses a reviewed environment allowlist, injects only the supplied `ANTHROPIC_API_KEY`, identifies `desky/<version>`, disables auto-memory, loads no user/project settings (`settingSources: []`), enables typed partial streaming, supports exact session list/resume, and routes SDK `canUseTool` callbacks to the host. The SDK's own installed CLI is used; the unrelated older `claude` on PATH is neither discovered nor trusted.
+- `ClaudeRuntime` implements opaque workspace-grant resolution, plan/read-only and default/workspace-write disclosure, implicit fresh sessions, resume, one active query, partial text, paired tool/progress events, SDK permission allow/deny/persistent suggestions, cancellation, disconnect, session refresh, redaction, and exactly-once terminals behind Adapter Contract v1. Persistent approval is unavailable unless the SDK supplied typed permission-update suggestions.
+- Permission boundary: Desky displays and resolves the SDK's actual `canUseTool` prompts. The SDK may resolve a call earlier through its own managed policy/permission flow; `canUseTool` is not falsely documented as a universal pre-tool hook. Desky supplies no `allowedTools`, no bypass/accept-edits mode, and no filesystem settings in this foundation. Authenticated adversarial tests must still prove the effective plan/default policy before admission.
+- Admission status: descriptor remains `production: false`, direct-only, and unregistered. The development machine has Claude Code `2.0.42`, but no authorized third-party API-key matrix was available; that consumer CLI login is intentionally irrelevant. Live real-model streaming, deny/allow, interruption during execution, crash/cleanup, clean package, SDK/CLI mismatch, credential persistence, and any future stable MCP Desky-action tool remain open.
+- Store transport would require a separately authenticated remote service, product-terms review, and its own package profile; the local SDK is not instantiated in Store builds.
 
 ### Hermes
 
