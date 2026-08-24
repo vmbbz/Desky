@@ -18,8 +18,17 @@ import type {
 } from '../shared/openclaw';
 import type { AdapterEvent } from '../shared/adapter-events';
 import type { AgentActionCommand } from '../shared/agent-actions';
-import type { AvatarAssetBridge, FeaturedAvatarAsset } from '../shared/avatar-assets';
-import type { MarketplaceBridge, MarketplaceCatalog } from '../shared/avatar-marketplace';
+import type {
+  AvatarAssetBridge,
+  AvatarLoadReport,
+  AvatarSelectionState,
+  SelectedAvatarAsset,
+} from '../shared/avatar-assets';
+import type {
+  MarketplaceBridge,
+  MarketplaceCatalog,
+  MarketplaceThumbnail,
+} from '../shared/avatar-marketplace';
 import type {
   LocalAnimationBridge,
   LocalAnimationPreviewCommand,
@@ -99,11 +108,20 @@ const companion = Object.freeze({
 });
 
 const avatar: AvatarAssetBridge = Object.freeze({
-  getFeatured: () => ipcRenderer.invoke('desky:avatar:get-featured') as Promise<FeaturedAvatarAsset>,
+  getSelected: () => ipcRenderer.invoke('desky:avatar:get-selected') as Promise<SelectedAvatarAsset>,
+  getSelectionState: () => ipcRenderer.invoke('desky:avatar:get-selection-state') as Promise<AvatarSelectionState>,
+  reportLoad: (report: AvatarLoadReport) => ipcRenderer.invoke('desky:avatar:report-load', report) as Promise<AvatarSelectionState>,
+  onSelectionState: (listener: (state: AvatarSelectionState) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, state: AvatarSelectionState) => listener(state);
+    ipcRenderer.on('desky:avatar:selection-state', handler);
+    return () => ipcRenderer.removeListener('desky:avatar:selection-state', handler);
+  },
 });
 
 const marketplace: MarketplaceBridge = Object.freeze({
   getCatalog: () => ipcRenderer.invoke('desky:marketplace:get-catalog') as Promise<MarketplaceCatalog>,
+  getThumbnail: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:get-thumbnail', avatarId) as Promise<MarketplaceThumbnail>,
+  activate: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:activate', avatarId) as Promise<AvatarSelectionState>,
   openSource: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:open-source', avatarId) as Promise<void>,
 });
 

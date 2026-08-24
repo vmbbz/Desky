@@ -122,7 +122,7 @@ This lane does not block F3c because deterministic procedural state fallbacks al
 
 ### F4 marketplace foundation
 
-Status: motion personality, strict bundled/free-only catalog contracts, and the first-class Companions route are implemented and package-verified on Windows. Milk is the only real admitted entry; two binary admissions, cache/activation/offline/signature work, macOS, and the twenty-switch matrix remain open.
+Status: motion personality, three real free admitted revisions, exact model/thumbnail provenance, content-addressed cache, transactional activation/rollback, saved selection, and the first-class Companions route are implemented. CoolBanana and Astronaut activation are package-verified on Windows. A qualifying VRM 1.0 binary, final-build network-denied restart, bounded eviction/detail preview, signed production catalog, macOS, and the twenty-switch matrix remain open.
 
 - Add user-facing `Paused`, `Quiet`, `Balanced`, `Lively`, and category-based `Custom` motion policy without exposing clip filenames.
 - Define strict admitted-avatar revision and signed presentation-catalog contracts; the upstream Open Source Avatars registry remains untrusted candidate input.

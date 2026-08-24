@@ -7,18 +7,19 @@ import {
 } from '../src/shared/avatar-marketplace';
 
 describe('avatar marketplace foundation', () => {
-  it('publishes only the admitted free Milk revision while commerce is disabled', () => {
+  it('publishes three admitted free revisions while commerce is disabled', () => {
     const catalog = getBundledMarketplaceCatalog();
     expect(catalog.commerceMode).toBe('disabled');
     expect(catalog.targetFreeAvatarCount).toBe(3);
-    expect(catalog.avatars).toHaveLength(1);
-    expect(catalog.avatars[0]).toMatchObject({
-      name: 'Milk',
-      availability: 'free',
-      admissionStatus: 'admitted',
-      modelSha256: '99e32f15d529eb47b3892aa44d5f053c07dabf55a0851aca7e7ab74f5f17e107',
-    });
-    expect(evaluateFreeEntitlement(catalog.avatars[0]).status).toBe('granted');
+    expect(catalog.avatars).toHaveLength(3);
+    expect(catalog.avatars.map((avatar) => avatar.name)).toEqual([
+      'Milk',
+      'CoolBanana',
+      'Astronaut',
+    ]);
+    expect(catalog.avatars.every((avatar) => avatar.availability === 'free'
+      && avatar.admissionStatus === 'admitted'
+      && evaluateFreeEntitlement(avatar).status === 'granted')).toBe(true);
   });
 
   it('rejects locked offers when the commerce provider is disabled', () => {

@@ -1,3 +1,5 @@
+import type { AvatarSelectionState } from './avatar-assets';
+
 export const marketplaceCommerceModes = ['disabled', 'enabled'] as const;
 export type MarketplaceCommerceMode = (typeof marketplaceCommerceModes)[number];
 
@@ -43,6 +45,12 @@ export interface FreeEntitlementDecision {
   productId: string;
   status: 'granted' | 'unavailable';
   reason: string;
+}
+
+export interface MarketplaceThumbnail {
+  avatarId: string;
+  mediaType: 'image/png';
+  bytes: ArrayBuffer;
 }
 
 const idPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
@@ -172,5 +180,7 @@ export function evaluateFreeEntitlement(avatar: MarketplaceAvatar): FreeEntitlem
 
 export interface MarketplaceBridge {
   getCatalog(): Promise<MarketplaceCatalog>;
+  getThumbnail(avatarId: string): Promise<MarketplaceThumbnail>;
+  activate(avatarId: string): Promise<AvatarSelectionState>;
   openSource(avatarId: string): Promise<void>;
 }

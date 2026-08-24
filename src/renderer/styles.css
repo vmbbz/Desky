@@ -704,6 +704,7 @@ body[data-desky-surface="control-center"] {
   display: grid;
   height: 140px;
   place-items: center;
+  overflow: hidden;
   background:
     radial-gradient(circle at 50% 42%, rgba(130, 230, 255, 0.24), transparent 33%),
     linear-gradient(145deg, rgba(88, 139, 255, 0.12), rgba(var(--accent-rgb), 0.08));
@@ -721,12 +722,49 @@ body[data-desky-surface="control-center"] {
   font-weight: 850;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
 }
+.marketplace-avatar-card__visual > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 42%;
+}
+.marketplace-avatar-card--cool-banana .marketplace-avatar-card__visual {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 226, 77, 0.28), transparent 35%),
+    linear-gradient(145deg, rgba(117, 62, 255, 0.2), rgba(250, 194, 38, 0.08));
+}
+.marketplace-avatar-card--cool-banana .marketplace-avatar-card__visual > span {
+  width: 54px;
+  height: 96px;
+  transform: rotate(-7deg);
+  border-radius: 58% 38% 52% 42%;
+  background: linear-gradient(135deg, #ffed66, #f5bd24);
+}
+.marketplace-avatar-card--astronaut .marketplace-avatar-card__visual {
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 140, 79, 0.3), transparent 34%),
+    linear-gradient(145deg, rgba(57, 221, 184, 0.12), rgba(255, 97, 99, 0.1));
+}
+.marketplace-avatar-card--astronaut .marketplace-avatar-card__visual > span {
+  width: 74px;
+  height: 74px;
+  border: 8px solid rgba(255, 255, 255, 0.16);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffca57, #f26a54);
+}
 .marketplace-avatar-card__visual small {
   position: absolute;
-  right: 10px;
-  bottom: 9px;
-  color: #8190a8;
+  top: 9px;
+  left: 10px;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(5, 8, 14, 0.72);
+  color: #d5dce8;
   font-size: 8px;
+  z-index: 1;
 }
 .marketplace-avatar-card__body { display: grid; gap: 10px; padding: 14px; }
 .marketplace-avatar-card__title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
@@ -759,7 +797,7 @@ body[data-desky-surface="control-center"] {
   color: #dce3ef;
   font-size: 9px;
 }
-.marketplace-avatar-card__actions button:disabled { color: var(--accent); opacity: 0.78; }
+.marketplace-avatar-card__actions button:disabled { color: var(--accent); cursor: default; opacity: 0.78; }
 .marketplace-avatar-card--candidate {
   display: grid;
   align-content: center;

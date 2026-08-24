@@ -17,6 +17,10 @@ import {
   type CompanionSnapshot,
 } from '../shared/companion-state';
 import type { MarketplaceCatalog } from '../shared/avatar-marketplace';
+import {
+  defaultAvatarRevisionId,
+  type AvatarSelectionState,
+} from '../shared/avatar-assets';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import { openClawCapabilities } from '../shared/adapter-capabilities';
 import {
@@ -54,6 +58,11 @@ const initialGateway: OpenClawConnectionState = {
   capabilities: openClawCapabilities(false),
 };
 const visualTestState = new URLSearchParams(window.location.search).get('visualState');
+const initialAvatarSelection: AvatarSelectionState = {
+  activeAvatarId: '15dce553-3d3c-4288-8c03-c69c65167447',
+  activeRevisionId: defaultAvatarRevisionId,
+  status: 'ready',
+};
 
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : 'The operation failed.';
@@ -82,6 +91,9 @@ export function App() {
   );
   const [marketplaceCatalog, setMarketplaceCatalog] = useState<MarketplaceCatalog>();
   const [marketplaceError, setMarketplaceError] = useState('');
+  const [marketplaceThumbnails, setMarketplaceThumbnails] = useState<Record<string, string>>({});
+  const [avatarSelection, setAvatarSelection] = useState<AvatarSelectionState>(initialAvatarSelection);
+  const [marketplaceBusyAvatarId, setMarketplaceBusyAvatarId] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
@@ -165,9 +177,12 @@ export function App() {
     const removeMotionPreference = window.desky.onMotionPreference(setMotionPreference);
     void window.desky.getMotionPersonality().then(setMotionPersonality);
     const removeMotionPersonality = window.desky.onMotionPersonality(setMotionPersonality);
-    void window.desky.marketplace.getCatalog()
-      .then(setMarketplaceCatalog)
-      .catch((error: unknown) => setMarketplaceError(errorMessage(error)));
+    const acceptAvatarSelection = (next: AvatarSelectionState) => {
+      setAvatarSelection(next);
+      if (next.error) setMarketplaceError(next.error);
+    };
+    void window.desky.avatar.getSelectionState().then(acceptAvatarSelection);
+    const removeAvatarSelection = window.desky.avatar.onSelectionState(acceptAvatarSelection);
     return () => {
       removeState();
       removeCompanionState();
@@ -177,8 +192,36 @@ export function App() {
       removeAnimationState();
       removeMotionPreference();
       removeMotionPersonality();
+      removeAvatarSelection();
     };
   }, []);
+
+  useEffect(() => {
+    if (runtimeInfo?.surface !== 'control-center') return;
+    void window.desky.marketplace.getCatalog()
+      .then(setMarketplaceCatalog)
+      .catch((error: unknown) => setMarketplaceError(errorMessage(error)));
+  }, [runtimeInfo?.surface]);
+
+  useEffect(() => {
+    if (!marketplaceCatalog) return undefined;
+    let disposed = false;
+    const objectUrls: string[] = [];
+    void Promise.all(marketplaceCatalog.avatars.map(async (avatar) => {
+      const thumbnail = await window.desky.marketplace.getThumbnail(avatar.avatarId);
+      const objectUrl = URL.createObjectURL(new Blob([thumbnail.bytes], { type: thumbnail.mediaType }));
+      objectUrls.push(objectUrl);
+      return [avatar.avatarId, objectUrl] as const;
+    })).then((entries) => {
+      if (!disposed) setMarketplaceThumbnails(Object.fromEntries(entries));
+    }).catch((error: unknown) => {
+      if (!disposed) setMarketplaceError(errorMessage(error));
+    });
+    return () => {
+      disposed = true;
+      for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
+    };
+  }, [marketplaceCatalog]);
 
   useEffect(() => {
     adapterModeRef.current = adapterMode;
@@ -541,6 +584,7 @@ export function App() {
 
         <div className="ambient-avatar">
           <AvatarStage
+            avatarRevisionId={avatarSelection.pendingRevisionId ?? avatarSelection.activeRevisionId}
             mode={state.mode}
             motionPersonality={motionPersonality}
             motionPreference={motionPreference}
@@ -633,7 +677,11 @@ export function App() {
       (avatar) => avatar.admissionStatus === 'admitted',
     ).length ?? 0;
     return (
-      <main className="companion control-center marketplace-view">
+      <main
+        className="companion control-center marketplace-view"
+        data-avatar-selection={avatarSelection.status}
+        data-active-avatar-id={avatarSelection.activeAvatarId}
+      >
         <header className="control-center__header">
           <div className="brand">
             <span className="brand__mark" aria-hidden="true">D</span>
@@ -662,10 +710,19 @@ export function App() {
         {!marketplaceCatalog && !marketplaceError ? <p className="marketplace-loading" role="status">Loading the verified local catalog…</p> : null}
 
         <section className="marketplace-grid" aria-label="Available companions">
-          {marketplaceCatalog?.avatars.map((avatar) => (
-            <article className="marketplace-avatar-card" key={avatar.avatarId}>
+          {marketplaceCatalog?.avatars.map((avatar) => {
+            const active = avatar.avatarId === avatarSelection.activeAvatarId
+              && avatarSelection.pendingAvatarId === undefined;
+            const pending = avatar.avatarId === avatarSelection.pendingAvatarId;
+            return (
+            <article
+              className={`marketplace-avatar-card marketplace-avatar-card--${avatar.productId.replace('avatar.', '')}`}
+              key={avatar.avatarId}
+            >
               <div className="marketplace-avatar-card__visual" aria-hidden="true">
-                <span>M</span>
+                {marketplaceThumbnails[avatar.avatarId]
+                  ? <img src={marketplaceThumbnails[avatar.avatarId]} alt="" />
+                  : <span>{avatar.name.slice(0, 1)}</span>}
                 <small>{avatar.vrmVersion}</small>
               </div>
               <div className="marketplace-avatar-card__body">
@@ -677,7 +734,7 @@ export function App() {
                 <div className="marketplace-avatar-card__facts">
                   <span>{avatar.licenseId}</span>
                   <span>{avatar.performanceClass} footprint</span>
-                  <span>84 admitted motions</span>
+                  <span>85 admitted motions</span>
                 </div>
                 <p className="marketplace-attribution">{avatar.attribution}</p>
                 <div className="marketplace-avatar-card__actions">
@@ -686,11 +743,27 @@ export function App() {
                     onClick={() => void window.desky.marketplace.openSource(avatar.avatarId)
                       .catch((error: unknown) => setMarketplaceError(errorMessage(error)))}
                   >Source & licence</button>
-                  <button type="button" disabled>Active companion</button>
+                  <button
+                    type="button"
+                    data-avatar-id={avatar.avatarId}
+                    disabled={active || pending || marketplaceBusyAvatarId.length > 0}
+                    onClick={() => {
+                      setMarketplaceError('');
+                      setMarketplaceBusyAvatarId(avatar.avatarId);
+                      void window.desky.marketplace.activate(avatar.avatarId)
+                        .then(setAvatarSelection)
+                        .then(() => window.desky.performWindowAction('show-ambient'))
+                        .catch((error: unknown) => setMarketplaceError(errorMessage(error)))
+                        .finally(() => setMarketplaceBusyAvatarId(''));
+                    }}
+                  >{pending || marketplaceBusyAvatarId === avatar.avatarId
+                      ? 'Switching…'
+                      : active ? 'Active companion' : 'Use companion'}</button>
                 </div>
               </div>
             </article>
-          ))}
+            );
+          })}
           {Array.from({ length: Math.max(0, 3 - admittedCount) }, (_, index) => (
             <article className="marketplace-avatar-card marketplace-avatar-card--candidate" key={`candidate-${index}`}>
               <div className="marketplace-avatar-card__candidate-icon" aria-hidden="true">+</div>

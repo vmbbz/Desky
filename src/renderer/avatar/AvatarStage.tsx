@@ -52,6 +52,7 @@ import {
 } from './vrm-capabilities';
 
 interface AvatarStageProps {
+  avatarRevisionId: string;
   mode: CompanionMode;
   motionPersonality: MotionPersonalityPolicy;
   motionPreference: MotionPreference;
@@ -92,6 +93,7 @@ function applyRelaxedPose(vrm: VRM): void {
 }
 
 export function AvatarStage({
+  avatarRevisionId,
   mode,
   motionPersonality,
   motionPreference,
@@ -165,6 +167,7 @@ export function AvatarStage({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
+    setLoadState({ kind: 'loading', message: 'Loading the selected companion…' });
 
     let disposed = false;
     let frameId = 0;
@@ -353,6 +356,7 @@ export function AvatarStage({
       frameId = requestAnimationFrame(animate);
     };
 
+    let loadedRevisionId: string | undefined;
     const load = async () => {
       try {
         let animationLibrary: AdmittedAnimationLibrary | undefined;
@@ -364,7 +368,8 @@ export function AvatarStage({
             ? error.message
             : 'The built-in animation library failed admission.';
         }
-        const { avatar, bytes: buffer } = await window.desky.avatar.getFeatured();
+        const { avatar, bytes: buffer } = await window.desky.avatar.getSelected();
+        loadedRevisionId = avatar.revisionId;
         if (disposed) return;
         setLoadState({ kind: 'loading', message: `Loading ${avatar.name}…` });
         const loader = new GLTFLoader();
@@ -376,7 +381,7 @@ export function AvatarStage({
         if (!vrm) throw new Error('The selected file is not a readable VRM avatar');
         const capabilities = inspectVrmCapabilities(vrm);
         assertCoreHumanoid(capabilities);
-        const usageReview = reviewVrmUsage(vrm.meta, avatar.license);
+        const usageReview = reviewVrmUsage(vrm.meta, avatar.licenseId);
         assertVrmUsageCompatible(usageReview);
         let textureCount = 0;
         vrm.scene.traverse((object) => {
@@ -388,12 +393,12 @@ export function AvatarStage({
           }
         });
         const provenance = await createAssetProvenance({
-          assetId: `avatar:${avatar.projectId}/${avatar.id}`,
+          assetId: `avatar:${avatar.avatarId}/${avatar.revisionId}`,
           kind: 'avatar',
           sourceUrl: avatar.modelUrl,
           sourceProject: avatar.projectName,
           creator: usageReview.creator,
-          licenseId: avatar.license,
+          licenseId: avatar.licenseId,
           attribution: usageReview.requiresCredit ? usageReview.creator : undefined,
           bytes: buffer,
         });
@@ -474,15 +479,29 @@ export function AvatarStage({
         }
         reportVisibleBounds();
 
+        const readyMessage = animationLibraryWarning
+          ? `${avatar.name} · motion fallback (${animationLibraryWarning})`
+          : `${avatar.name} · ${animationLibrary?.clipCount ?? 0} admitted motions · ${capabilities.specLabel} · ${avatar.licenseId}`;
+        await window.desky.avatar.reportLoad({
+          revisionId: avatar.revisionId,
+          status: 'ready',
+        });
+        if (disposed) return;
         setLoadState({
           kind: 'ready',
-          message: animationLibraryWarning
-            ? `${avatar.name} · motion fallback (${animationLibraryWarning})`
-            : `${avatar.name} · ${animationLibrary?.clipCount ?? 0} admitted motions · ${capabilities.specLabel} · ${avatar.license}`,
+          message: readyMessage,
           textureCount,
         });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Avatar loading failed';
+        if (!disposed) {
+          await window.desky.avatar.reportLoad({
+            revisionId: loadedRevisionId ?? avatarRevisionId,
+            status: 'error',
+            message,
+          }).catch(() => undefined);
+        }
+        if (disposed) return;
         setLoadState({ kind: 'error', message });
       }
     };
@@ -507,7 +526,7 @@ export function AvatarStage({
       onVisibleBoundsRef.current?.(undefined);
       onHitTestReadyRef.current?.(undefined);
     };
-  }, []);
+  }, [avatarRevisionId]);
 
   return (
     <section

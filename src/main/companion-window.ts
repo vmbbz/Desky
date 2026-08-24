@@ -37,6 +37,7 @@ import {
   type DesktopState,
   type DesktopStateStore,
 } from './desktop-state-store';
+import type { PersistedAvatarSelection } from './avatar-asset-host';
 import { createWindowOptions } from './window-options';
 
 const applicationScheme = 'desky';
@@ -108,6 +109,25 @@ async function captureVisualTest(
       motionPreferenceError = String(error);
     }
     await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  const visualAvatarId = process.env.DESKY_VISUAL_TEST_AVATAR_ID;
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'activate-avatar'
+    && visualAvatarId) {
+    await window.webContents.executeJavaScript(`(async () => {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        const button = document.querySelector(
+          '[data-avatar-id=${JSON.stringify(visualAvatarId)}]',
+        );
+        if (button instanceof HTMLButtonElement) {
+          button.click();
+          return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error('Marketplace avatar button did not become available');
+    })()`);
   }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
   const waitMs = Number.isSafeInteger(requestedWaitMs)
@@ -230,8 +250,11 @@ async function captureVisualTest(
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
     marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
     marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,
+    marketplaceThumbnails: document.querySelectorAll('.marketplace-avatar-card__visual img').length,
     marketplaceCommerce: document.querySelector('.marketplace-kicker')?.textContent?.trim() ?? null,
-    marketplaceActive: document.querySelector('.marketplace-avatar-card__actions button:disabled')?.textContent?.trim() ?? null
+    marketplaceActive: document.querySelector('.marketplace-avatar-card__actions button:disabled')?.textContent?.trim() ?? null,
+    marketplaceSelection: document.querySelector('.marketplace-view')?.dataset.avatarSelection ?? null,
+    marketplaceActiveAvatarId: document.querySelector('.marketplace-view')?.dataset.activeAvatarId ?? null
   })`) as Record<string, unknown>;
   const diagnostic = {
     ...rendererDiagnostic,
@@ -295,6 +318,22 @@ export class DeskyWindowManager {
       toggleAlwaysOnTop: () => this.toggleAlwaysOnTop(),
       toggleFullClickThrough: () => this.toggleFullClickThrough(),
     });
+  }
+
+  getAvatarSelection(): PersistedAvatarSelection {
+    return {
+      activeRevisionId: this.desktopState.activeAvatarRevisionId,
+      fallbackRevisionId: this.desktopState.fallbackAvatarRevisionId,
+    };
+  }
+
+  setAvatarSelection(selection: PersistedAvatarSelection): void {
+    this.desktopState = {
+      ...this.desktopState,
+      activeAvatarRevisionId: selection.activeRevisionId,
+      fallbackAvatarRevisionId: selection.fallbackRevisionId,
+    };
+    this.stateStore.save(this.desktopState);
   }
 
   createInitialWindows(): void {

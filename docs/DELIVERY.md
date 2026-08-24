@@ -295,7 +295,20 @@ The authoritative marketplace plan is `docs/AVATAR-MARKETPLACE.md`. F4 does not 
 
 Evidence: `docs/verification/F4-MARKETPLACE-FOUNDATION-2026-08-24.md`.
 
-Next: admit two additional CC0 binary avatars and implement content-addressed cache, isolated preview, transactional activation, signed production catalog, offline recovery, and the twenty-switch matrix. F4x remains blocked by those product gates and owner/legal decisions.
+### F4.2 three-free activation foundation — 2026-08-24
+
+- Admitted CoolBanana and Astronaut beside Milk from pinned registry commit `0f9a1b2fd99894736563d55b2c9dc9125700d081`; all three have exact model/thumbnail hashes and byte lengths, canonical registry-record hashes, embedded CC0/everyone/commercial-use review, complete core humanoids, and one mapped texture.
+- Replaced the runtime's single featured-avatar request with selected-revision state and narrow typed IPC.
+- Added content-addressed model/thumbnail objects, atomic provenance sidecars, read-time revalidation, corrupt-object repair, and a visual-test network-denial mode for packaged offline proof.
+- Added two-phase activation: verified download/cache, pending ambient runtime admission, then committed active/fallback persistence. Failed runtime admission rolls back without replacing the last working companion.
+- Replaced candidate slots with three real Free cards using hash-pinned upstream art and working `Use companion` actions. Payment rails remain off.
+- Package-proved CoolBanana and Astronaut activation through the production `desky://` surface; both reached committed `ready`, and Astronaut reached `avatarState: ready` with a mapped texture in the ambient surface.
+
+Evidence: `docs/verification/F4-THREE-FREE-AVATARS-2026-08-24.md`.
+
+Final packaged evidence also restores active CoolBanana, its mapped texture, full Looking Around idle, and all three marketplace thumbnails from the verified cache while the visual harness forcibly denies network access.
+
+Next: representative full-motion Milk/Astronaut captures, a real VRM 1.0 admission, corrupt-cache packaged recovery, bounded eviction/removal, isolated detail preview, macOS equivalence, and the twenty-switch leak/recovery matrix. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 

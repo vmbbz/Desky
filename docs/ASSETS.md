@@ -48,7 +48,7 @@ interface AssetProvenance {
 
 The downloader validates HTTPS, size, media signature, checksum after download, and cache path containment. Model URLs are never executed as code.
 
-The schema and strict runtime parser live in `src/shared/asset-provenance.ts`. The initial F3a loader computes SHA-256 from the exact brokered avatar bytes and attaches the validated record to the loaded scene for diagnostics. Disk caching is not implemented yet; when it is, the same parsed record must be written atomically beside the cached bytes and revalidated before reuse.
+The schema and strict runtime parser live in `src/shared/asset-provenance.ts`. The renderer computes SHA-256 from the exact brokered avatar bytes and attaches the validated record to the loaded scene for diagnostics. F4 now persists admitted model and thumbnail objects under their exact SHA-256 with a separate parsed provenance sidecar. Both files are written through same-directory temporary files, and every cache read rechecks admission revision, pinned registry commit/record hash, byte length, SHA-256, media envelope, source, licence, and provenance before use. A corrupt or incomplete pair is replaced only from the exact admitted URL; the active avatar is not changed until renderer admission succeeds.
 
 ## VRM compatibility
 

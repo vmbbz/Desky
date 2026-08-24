@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron';
+import { join } from 'node:path';
 
 import {
   ambientDragPhases,
@@ -13,6 +14,7 @@ import {
   type WindowAction,
 } from '../shared/runtime';
 import type { MotionPersonalityPolicy } from '../shared/motion-personality';
+import type { AvatarLoadReport } from '../shared/avatar-assets';
 import type {
   OpenClawConnectInput,
   OpenClawResolveApprovalInput,
@@ -23,8 +25,12 @@ import {
   type LocalAnimationPreviewReport,
 } from '../shared/local-animation';
 import { getDistributionProfile } from './capabilities';
-import { loadFeaturedAvatarAsset } from './avatar-asset-broker';
-import { getBundledMarketplaceCatalog } from './marketplace-catalog';
+import { AvatarAssetHost } from './avatar-asset-host';
+import { AvatarCache } from './avatar-cache';
+import {
+  getAdmittedAvatarRevisionByAvatarId,
+  getBundledMarketplaceCatalog,
+} from './marketplace-catalog';
 import { CompanionStateHost } from './companion-state-host';
 import {
   LocalAnimationPreviewHost,
@@ -41,8 +47,15 @@ import { redactOpenClawError, type OpenClawAdapterHost } from './openclaw/host';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
-const featuredAvatarChannel = 'desky:avatar:get-featured';
+const avatarChannels = {
+  state: 'desky:avatar:selection-state',
+  getState: 'desky:avatar:get-selection-state',
+  getSelected: 'desky:avatar:get-selected',
+  reportLoad: 'desky:avatar:report-load',
+} as const;
 const marketplaceCatalogChannel = 'desky:marketplace:get-catalog';
+const marketplaceActivateChannel = 'desky:marketplace:activate';
+const marketplaceThumbnailChannel = 'desky:marketplace:get-thumbnail';
 const marketplaceOpenSourceChannel = 'desky:marketplace:open-source';
 const openClawChannels = {
   state: 'desky:openclaw:state',
@@ -166,6 +179,23 @@ function readAnimationReport(value: unknown): LocalAnimationPreviewReport {
   };
 }
 
+function readAvatarLoadReport(value: unknown): AvatarLoadReport {
+  if (!isRecord(value)
+    || typeof value.revisionId !== 'string'
+    || value.revisionId.length === 0
+    || value.revisionId.length > 128
+    || (value.status !== 'ready' && value.status !== 'error')
+    || (value.message !== undefined
+      && (typeof value.message !== 'string' || value.message.length > 240))) {
+    throw new Error('Invalid avatar load report.');
+  }
+  return {
+    revisionId: value.revisionId,
+    status: value.status,
+    message: value.message,
+  };
+}
+
 async function rendererSafeOpenClawCall<T>(
   operation: () => T | Promise<T>,
   secrets: Array<string | undefined> = [],
@@ -183,6 +213,15 @@ export function registerIpc(
 ): void {
   const companion = new CompanionStateHost();
   const animation = new LocalAnimationPreviewHost();
+  const avatarFetcher = process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK === '1'
+    ? async (): Promise<Response> => { throw new Error('Visual-test network is disabled.'); }
+    : fetch;
+  const avatarCache = new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), avatarFetcher);
+  const avatarAssets = new AvatarAssetHost(
+    avatarCache,
+    () => windows.getAvatarSelection(),
+    (selection) => windows.setAvatarSelection(selection),
+  );
   let motionPreference: MotionPreference = 'system';
   const broadcastAnimationState = () => {
     const state = animation.getState();
@@ -203,8 +242,44 @@ export function registerIpc(
     version: app.getVersion(),
     surface: windows.surfaceFor(event.sender),
   }));
-  ipcMain.handle(featuredAvatarChannel, () => loadFeaturedAvatarAsset());
+  avatarAssets.onState((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(avatarChannels.state, state);
+    }
+  });
+  ipcMain.handle(avatarChannels.getState, () => avatarAssets.getState());
+  ipcMain.handle(avatarChannels.getSelected, () => avatarAssets.getSelected());
+  ipcMain.handle(avatarChannels.reportLoad, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'ambient') {
+      throw new Error('Avatar load results can only be reported by the ambient companion.');
+    }
+    return avatarAssets.reportLoad(readAvatarLoadReport(value));
+  });
   ipcMain.handle(marketplaceCatalogChannel, () => getBundledMarketplaceCatalog());
+  ipcMain.handle(marketplaceThumbnailChannel, async (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof value !== 'string'
+      || value.length === 0
+      || value.length > 128) {
+      throw new Error('Invalid marketplace thumbnail request.');
+    }
+    const revision = getAdmittedAvatarRevisionByAvatarId(value);
+    if (!revision) throw new Error('Marketplace avatar thumbnail is unavailable.');
+    return {
+      avatarId: revision.avatar.avatarId,
+      mediaType: 'image/png' as const,
+      bytes: await avatarCache.getThumbnail(revision),
+    };
+  });
+  ipcMain.handle(marketplaceActivateChannel, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof value !== 'string'
+      || value.length === 0
+      || value.length > 128) {
+      throw new Error('Invalid companion activation request.');
+    }
+    return avatarAssets.activate(value);
+  });
   ipcMain.handle(marketplaceOpenSourceChannel, async (event, value: unknown) => {
     if (windows.surfaceFor(event.sender) !== 'control-center'
       || typeof value !== 'string'
@@ -381,8 +456,10 @@ export function registerIpc(
 
 export const ipcChannels = {
   runtimeInfo: runtimeInfoChannel,
-  featuredAvatar: featuredAvatarChannel,
+  avatar: avatarChannels,
+  marketplaceActivate: marketplaceActivateChannel,
   marketplaceCatalog: marketplaceCatalogChannel,
+  marketplaceThumbnail: marketplaceThumbnailChannel,
   marketplaceOpenSource: marketplaceOpenSourceChannel,
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,

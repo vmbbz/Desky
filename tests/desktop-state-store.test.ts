@@ -35,12 +35,33 @@ describe('desktop state store', () => {
       },
     })).toEqual({
       version: 1,
+      activeAvatarRevisionId: 'milk-99e32f15-v1',
       alwaysOnTop: false,
       avatarYawDegrees: 0,
+      fallbackAvatarRevisionId: 'milk-99e32f15-v1',
       motionPersonality: motionPersonalityForPreset('balanced'),
       placements: {
         valid: { x: 10, y: -21, updatedAt: '2026-08-22T12:00:00.000Z' },
       },
+    });
+  });
+
+  it('persists bounded avatar revision IDs and repairs malformed values', () => {
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      activeAvatarRevisionId: 'cool-banana-4d316549-v1',
+      fallbackAvatarRevisionId: 'astronaut-1cb82186-v1',
+    })).toMatchObject({
+      activeAvatarRevisionId: 'cool-banana-4d316549-v1',
+      fallbackAvatarRevisionId: 'astronaut-1cb82186-v1',
+    });
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      activeAvatarRevisionId: '../escape',
+      fallbackAvatarRevisionId: '',
+    })).toMatchObject({
+      activeAvatarRevisionId: 'milk-99e32f15-v1',
+      fallbackAvatarRevisionId: 'milk-99e32f15-v1',
     });
   });
 

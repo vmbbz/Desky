@@ -6,6 +6,7 @@ import {
   normalizeMotionPersonalityPolicy,
   type MotionPersonalityPolicy,
 } from '../shared/motion-personality';
+import { defaultAvatarRevisionId } from '../shared/avatar-assets';
 
 export interface StoredAmbientPlacement {
   updatedAt: string;
@@ -14,8 +15,10 @@ export interface StoredAmbientPlacement {
 }
 
 export interface DesktopState {
+  activeAvatarRevisionId: string;
   alwaysOnTop: boolean;
   avatarYawDegrees: number;
+  fallbackAvatarRevisionId: string;
   motionPersonality: MotionPersonalityPolicy;
   placements: Record<string, StoredAmbientPlacement>;
   version: 1;
@@ -24,12 +27,22 @@ export interface DesktopState {
 const maximumPlacements = 16;
 
 export const defaultDesktopState: DesktopState = {
+  activeAvatarRevisionId: defaultAvatarRevisionId,
   alwaysOnTop: true,
   avatarYawDegrees: 0,
+  fallbackAvatarRevisionId: defaultAvatarRevisionId,
   motionPersonality: structuredClone(defaultMotionPersonality),
   placements: {},
   version: 1,
 };
+
+const avatarRevisionIdPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
+
+function normalizeAvatarRevisionId(value: unknown): string {
+  return typeof value === 'string' && avatarRevisionIdPattern.test(value)
+    ? value
+    : defaultAvatarRevisionId;
+}
 
 function isFiniteCoordinate(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 100_000;
@@ -71,10 +84,12 @@ export function parseDesktopState(value: unknown): DesktopState {
   }
   return {
     version: 1,
+    activeAvatarRevisionId: normalizeAvatarRevisionId(source.activeAvatarRevisionId),
     alwaysOnTop: typeof source.alwaysOnTop === 'boolean'
       ? source.alwaysOnTop
       : defaultDesktopState.alwaysOnTop,
     avatarYawDegrees: normalizeAvatarYaw(source.avatarYawDegrees),
+    fallbackAvatarRevisionId: normalizeAvatarRevisionId(source.fallbackAvatarRevisionId),
     motionPersonality: normalizeMotionPersonalityPolicy(source.motionPersonality),
     placements,
   };

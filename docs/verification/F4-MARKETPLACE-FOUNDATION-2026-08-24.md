@@ -1,5 +1,7 @@
 # F4 marketplace and motion-personality foundation — 2026-08-24
 
+> Historical F4.1 evidence. F4.2 subsequently replaced the two candidate slots with admitted CoolBanana and Astronaut revisions and implemented verified cache/activation. See `F4-THREE-FREE-AVATARS-2026-08-24.md` for current evidence.
+
 ## Scope
 
 This round implements the smallest payment-free slice from `docs/AVATAR-MARKETPLACE.md`:
