@@ -13,7 +13,13 @@ import {
   type HermesConnectInput,
 } from '../../shared/hermes';
 import type { AgentAdapterRuntime } from '../adapters/runtime';
-import { HermesApiClient, readHermesEndpoint, type HermesApiClientPort } from './api-client';
+import {
+  HermesApiClient,
+  isHermesReconnectableError,
+  readHermesEndpoint,
+  type HermesApiAdmission,
+  type HermesApiClientPort,
+} from './api-client';
 import {
   hermesApprovalChoice,
   HermesRunNormalizer,
@@ -69,9 +75,15 @@ function safeError(error: unknown, secrets: Array<string | undefined> = []): str
     .slice(0, 240);
 }
 
+const defaultReconnectDelaysMs = [500, 2_000, 6_500] as const;
+const defaultHealthCheckIntervalMs = 30_000;
+
 export interface HermesRuntimeDependencies {
   createClient?: (configuration: HermesConnectInput) => HermesApiClientPort;
   createConnectionId?: () => string;
+  reconnectDelaysMs?: readonly number[];
+  healthCheckIntervalMs?: number;
+  wait?: (milliseconds: number) => Promise<void>;
 }
 
 export class HermesRuntime implements AgentAdapterRuntime {
@@ -82,11 +94,19 @@ export class HermesRuntime implements AgentAdapterRuntime {
   private readonly approvals = new Map<string, HermesApprovalRoute>();
   private readonly createClient: (configuration: HermesConnectInput) => HermesApiClientPort;
   private readonly createConnectionId: () => string;
+  private readonly reconnectDelaysMs: readonly number[];
+  private readonly healthCheckIntervalMs: number;
+  private readonly wait: (milliseconds: number) => Promise<void>;
   private client?: HermesApiClientPort;
+  private configuration?: HermesConnectInput;
+  private admission?: HermesApiAdmission;
   private connectionId?: string;
   private streamAbort?: AbortController;
+  private healthTimer?: ReturnType<typeof setTimeout>;
+  private reconnectPromise?: Promise<void>;
   private turnTerminal = true;
   private eventSequence = 0;
+  private lifecycleGeneration = 0;
   private state: AdapterConnectionState = {
     schemaVersion: 1,
     adapterId: 'hermes',
@@ -105,12 +125,28 @@ export class HermesRuntime implements AgentAdapterRuntime {
     this.createClient = dependencies.createClient
       ?? ((configuration) => new HermesApiClient(configuration.endpoint, configuration.token));
     this.createConnectionId = dependencies.createConnectionId ?? randomUUID;
+    this.reconnectDelaysMs = dependencies.reconnectDelaysMs ?? defaultReconnectDelaysMs;
+    this.healthCheckIntervalMs = dependencies.healthCheckIntervalMs ?? defaultHealthCheckIntervalMs;
+    this.wait = dependencies.wait
+      ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+    if (this.reconnectDelaysMs.length > 3
+      || this.reconnectDelaysMs.some((delay) => !Number.isSafeInteger(delay) || delay < 0 || delay > 30_000)) {
+      throw new Error('Invalid Hermes reconnect policy.');
+    }
+    if (!Number.isSafeInteger(this.healthCheckIntervalMs)
+      || this.healthCheckIntervalMs < 0
+      || this.healthCheckIntervalMs > 300_000) {
+      throw new Error('Invalid Hermes health-check policy.');
+    }
   }
 
   getState(): AdapterConnectionState { return cloneState(this.state); }
 
   async connect(configurationValue: unknown): Promise<AdapterConnectionState> {
     const configuration = readHermesConfiguration(configurationValue);
+    this.lifecycleGeneration += 1;
+    this.reconnectPromise = undefined;
+    const generation = this.lifecycleGeneration;
     await this.disconnectInternal(false);
     const endpoint = readHermesEndpoint(configuration.endpoint);
     this.patchState({
@@ -123,7 +159,10 @@ export class HermesRuntime implements AgentAdapterRuntime {
     try {
       const admission = await client.admit();
       const sessions = await client.listSessions();
+      if (generation !== this.lifecycleGeneration) throw new Error('Hermes connection was cancelled.');
       this.client = client;
+      this.configuration = { ...configuration };
+      this.admission = admission;
       this.connectionId = this.createConnectionId();
       this.patchState({
         status: 'connected',
@@ -134,10 +173,14 @@ export class HermesRuntime implements AgentAdapterRuntime {
         reconnectAttempt: 0,
       });
       this.emit({ type: 'connection.ready', payload: { runtimeName: 'Hermes Agent' } });
+      this.scheduleHealthCheck(generation);
       return this.getState();
     } catch (error) {
       const message = safeError(error, [configuration.token]);
+      this.clearHealthCheck();
       this.client = undefined;
+      this.configuration = undefined;
+      this.admission = undefined;
       this.connectionId = undefined;
       this.patchState({ status: 'error', message, runtimeVersion: undefined, sessions: [] });
       throw new Error(message);
@@ -145,12 +188,14 @@ export class HermesRuntime implements AgentAdapterRuntime {
   }
 
   async disconnect(): Promise<AdapterConnectionState> {
+    this.lifecycleGeneration += 1;
+    this.reconnectPromise = undefined;
     await this.disconnectInternal(true);
     return this.getState();
   }
 
   async refreshSessions(): Promise<AdapterConnectionState> {
-    const sessions = await this.requireClient().listSessions();
+    const sessions = await this.connectedOperation((client) => client.listSessions());
     const selectedSessionId = this.state.selectedSessionId
       && sessions.some((session) => session.id === this.state.selectedSessionId)
       ? this.state.selectedSessionId
@@ -163,7 +208,7 @@ export class HermesRuntime implements AgentAdapterRuntime {
     if (input.label !== undefined && (typeof input.label !== 'string' || input.label.length > 160)) {
       throw new Error('Invalid Hermes session label.');
     }
-    const session = await this.requireClient().createSession(input.label);
+    const session = await this.connectedOperation((client) => client.createSession(input.label));
     const sessions = [session, ...this.state.sessions.filter((entry) => entry.id !== session.id)];
     this.patchState({ sessions, selectedSessionId: session.id });
     return this.getState();
@@ -181,10 +226,10 @@ export class HermesRuntime implements AgentAdapterRuntime {
   async send(message: string): Promise<void> {
     if (!message.trim() || message.length > 64_000) throw new Error('Invalid Hermes message.');
     if (this.state.activeTurnId) throw new Error('Hermes already has an active turn.');
-    const client = this.requireClient();
     const sessionId = this.state.selectedSessionId;
     if (!sessionId) throw new Error('Select or create a Hermes session first.');
-    const runId = await client.startRun(sessionId, message);
+    const client = this.requireClient();
+    const runId = await this.connectedOperation((activeClient) => activeClient.startRun(sessionId, message));
     this.turnTerminal = false;
     this.streamAbort = new AbortController();
     this.patchState({ activeTurnId: runId, message: 'Hermes is working' });
@@ -204,7 +249,7 @@ export class HermesRuntime implements AgentAdapterRuntime {
   async cancel(): Promise<void> {
     const runId = this.state.activeTurnId;
     if (!runId) return;
-    await this.requireClient().stopRun(runId);
+    await this.connectedOperation((client) => client.stopRun(runId));
     this.patchState({ message: 'Stopping Hermes turn' });
   }
 
@@ -213,7 +258,7 @@ export class HermesRuntime implements AgentAdapterRuntime {
     const route = this.approvals.get(input.requestId);
     if (!route || route.runId !== this.state.activeTurnId) throw new Error('Unknown or expired Hermes approval.');
     const choice = hermesApprovalChoice(input.decision, route.choices);
-    await this.requireClient().resolveApproval(route.runId, choice);
+    await this.connectedOperation((client) => client.resolveApproval(route.runId, choice));
     this.approvals.delete(input.requestId);
     this.emit({
       type: 'approval.resolved',
@@ -264,14 +309,21 @@ export class HermesRuntime implements AgentAdapterRuntime {
         if (result.terminal) this.finishTurn(runId, eventMessage(result.events));
       }, signal);
       if (!this.turnTerminal && !signal.aborted) {
-        this.failTurn(runId, 'Hermes closed the run stream before a terminal event.');
+        await this.handleUnexpectedFailure(
+          client,
+          new Error('Hermes closed the run stream before a terminal event.'),
+          true,
+        );
       }
     } catch (error) {
-      if (!signal.aborted) this.failTurn(runId, safeError(error));
+      if (!signal.aborted) {
+        await this.handleUnexpectedFailure(client, error, isHermesReconnectableError(error));
+      }
     }
   }
 
   private async disconnectInternal(emitClosed: boolean): Promise<void> {
+    this.clearHealthCheck();
     const connectionId = this.connectionId;
     const runId = this.state.activeTurnId;
     const streamAbort = this.streamAbort;
@@ -282,6 +334,8 @@ export class HermesRuntime implements AgentAdapterRuntime {
     streamAbort?.abort();
     this.streamAbort = undefined;
     this.client = undefined;
+    this.configuration = undefined;
+    this.admission = undefined;
     this.connectionId = undefined;
     this.approvals.clear();
     this.turnTerminal = true;
@@ -328,6 +382,174 @@ export class HermesRuntime implements AgentAdapterRuntime {
   private requireConnectionId(): string {
     if (!this.connectionId) throw new Error('Hermes is not connected.');
     return this.connectionId;
+  }
+
+  private async connectedOperation<T>(
+    operation: (client: HermesApiClientPort) => Promise<T>,
+  ): Promise<T> {
+    const client = this.requireClient();
+    try {
+      return await operation(client);
+    } catch (error) {
+      void this.handleUnexpectedFailure(client, error, isHermesReconnectableError(error));
+      throw new Error(safeError(error, [this.configuration?.token]));
+    }
+  }
+
+  private handleUnexpectedFailure(
+    source: HermesApiClientPort,
+    error: unknown,
+    reconnectable: boolean,
+  ): Promise<void> {
+    if (source !== this.client || this.state.status !== 'connected') {
+      return this.reconnectPromise ?? Promise.resolve();
+    }
+    if (this.reconnectPromise) return this.reconnectPromise;
+    const reconnect = this.reconnectAfterUnexpectedFailure(error, reconnectable)
+      .finally(() => {
+        if (this.reconnectPromise === reconnect) this.reconnectPromise = undefined;
+      });
+    this.reconnectPromise = reconnect;
+    return reconnect;
+  }
+
+  private async reconnectAfterUnexpectedFailure(error: unknown, reconnectable: boolean): Promise<void> {
+    const reason = safeError(error, [this.configuration?.token]);
+    const connectionId = this.connectionId;
+    const configuration = this.configuration;
+    const expectedAdmission = this.admission;
+    const selectedSessionId = this.state.selectedSessionId;
+    const activeTurnId = this.state.activeTurnId;
+    this.clearHealthCheck();
+    this.streamAbort?.abort();
+    this.streamAbort = undefined;
+    this.client = undefined;
+    this.expireApprovals(connectionId, selectedSessionId, activeTurnId);
+    if (activeTurnId) {
+      this.failTurn(activeTurnId, 'The Hermes connection closed. The turn was not replayed.');
+    }
+    if (connectionId) {
+      this.emitWithConnection(connectionId, {
+        type: 'connection.closed', payload: { reason },
+      });
+    }
+    this.connectionId = undefined;
+    this.lifecycleGeneration += 1;
+    const generation = this.lifecycleGeneration;
+    if (!reconnectable || !configuration || !expectedAdmission || this.reconnectDelaysMs.length === 0) {
+      this.configuration = undefined;
+      this.admission = undefined;
+      this.patchState({ status: 'error', message: reason, reconnectAttempt: 0, activeTurnId: undefined });
+      return;
+    }
+
+    let lastError = reason;
+    for (let index = 0; index < this.reconnectDelaysMs.length; index += 1) {
+      const attempt = index + 1;
+      this.patchState({
+        status: 'reconnecting',
+        reconnectAttempt: attempt,
+        message: `Reconnecting to Hermes (${attempt}/${this.reconnectDelaysMs.length})`,
+        activeTurnId: undefined,
+      });
+      await this.wait(this.reconnectDelaysMs[index]);
+      if (generation !== this.lifecycleGeneration) return;
+      try {
+        const client = this.createClient(configuration);
+        const admission = await client.admit();
+        if (admission.version !== expectedAdmission.version || admission.model !== expectedAdmission.model) {
+          throw new Error('Hermes runtime version or model changed during reconnect.');
+        }
+        const sessions = await client.listSessions();
+        if (generation !== this.lifecycleGeneration) return;
+        const restoredSessionId = selectedSessionId
+          && sessions.some((session) => session.id === selectedSessionId)
+          ? selectedSessionId
+          : sessions[0]?.id;
+        this.client = client;
+        this.admission = admission;
+        this.connectionId = this.createConnectionId();
+        this.turnTerminal = true;
+        this.patchState({
+          status: 'connected',
+          message: 'Hermes API server reconnected',
+          runtimeVersion: admission.version,
+          sessions,
+          selectedSessionId: restoredSessionId,
+          reconnectAttempt: 0,
+          activeTurnId: undefined,
+        });
+        this.emit({ type: 'connection.ready', payload: { runtimeName: 'Hermes Agent' } });
+        this.scheduleHealthCheck(generation);
+        return;
+      } catch (reconnectError) {
+        lastError = safeError(reconnectError, [configuration.token]);
+        if (!isHermesReconnectableError(reconnectError)) break;
+      }
+    }
+    if (generation !== this.lifecycleGeneration) return;
+    this.client = undefined;
+    this.configuration = undefined;
+    this.admission = undefined;
+    this.connectionId = undefined;
+    this.patchState({
+      status: 'error',
+      message: `Hermes could not reconnect. ${lastError}`.slice(0, 240),
+      activeTurnId: undefined,
+    });
+  }
+
+  private expireApprovals(
+    connectionId: string | undefined,
+    sessionId: string | undefined,
+    turnId: string | undefined,
+  ): void {
+    const approvals = [...this.approvals.values()];
+    this.approvals.clear();
+    if (!connectionId) return;
+    for (const approval of approvals) {
+      this.emitWithConnection(connectionId, {
+        type: 'approval.resolved',
+        sessionId,
+        turnId: turnId ?? approval.runId,
+        payload: { requestId: approval.requestId, status: 'expired' },
+      });
+    }
+  }
+
+  private scheduleHealthCheck(generation: number): void {
+    this.clearHealthCheck();
+    if (this.healthCheckIntervalMs === 0) return;
+    this.healthTimer = setTimeout(() => {
+      this.healthTimer = undefined;
+      void this.runHealthCheck(generation);
+    }, this.healthCheckIntervalMs);
+    this.healthTimer.unref?.();
+  }
+
+  private async runHealthCheck(generation: number): Promise<void> {
+    if (generation !== this.lifecycleGeneration || this.state.status !== 'connected') return;
+    if (this.state.activeTurnId) {
+      this.scheduleHealthCheck(generation);
+      return;
+    }
+    const client = this.client;
+    const expectedAdmission = this.admission;
+    if (!client || !expectedAdmission) return;
+    try {
+      const admission = await client.admit();
+      if (admission.version !== expectedAdmission.version || admission.model !== expectedAdmission.model) {
+        throw new Error('Hermes runtime version or model changed during health check.');
+      }
+      this.scheduleHealthCheck(generation);
+    } catch (error) {
+      await this.handleUnexpectedFailure(client, error, isHermesReconnectableError(error));
+    }
+  }
+
+  private clearHealthCheck(): void {
+    if (this.healthTimer) clearTimeout(this.healthTimer);
+    this.healthTimer = undefined;
   }
 
   private patchState(patch: Partial<AdapterConnectionState>): void {

@@ -56,13 +56,12 @@ The admitted probes use `chmod 777` against a unique, nonexistent `/tmp/desky-he
 
 ## Remaining admission gates
 
-Hermes stays `production: false`, direct-only, and unregistered until all of the following pass:
+F5b.3 subsequently completed bounded reconnect, selected-session restoration, relay-driven idle/active loss, no replay, fixture protocol/version drift, and a real Windows gateway restart. See `docs/verification/F5B3-HERMES-RESILIENCE-2026-08-24.md`.
 
-1. bounded automatic reconnect and selected-session restoration;
-2. gateway crash/restart during idle and active turns, with no turn replay;
-3. version/capability mismatch and SSE corruption behavior against a real server;
-4. vault-grade bearer persistence and rotation;
-5. clean packaged Windows lifecycle and process ownership evidence;
-6. remote HTTPS/TLS policy and Store-profile eligibility decision;
-7. stable typed Desky-action discovery or a truthful unsupported disposition;
-8. macOS package, credential-store, lifecycle, and performance evidence.
+Hermes stays `production: false`, direct-only, and unregistered until all of the following remaining gates pass:
+
+1. vault-grade bearer persistence and rotation;
+2. clean packaged Windows UI lifecycle and process ownership evidence;
+3. remote HTTPS/TLS policy and Store-profile eligibility decision;
+4. stable typed Desky-action discovery or a truthful unsupported disposition;
+5. macOS package, credential-store, lifecycle, and performance evidence.

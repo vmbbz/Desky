@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  HermesApiError,
   HermesApiClient,
   HermesSseDecoder,
+  isHermesReconnectableError,
   readHermesEndpoint,
 } from '../src/main/hermes/api-client';
 import { hermesCapabilitiesFixture } from './hermes-protocol.test';
@@ -91,5 +93,33 @@ describe('HermesApiClient', () => {
       { event: 'message.delta', run_id: 'run-1', delta: 'Hi' },
       { event: 'run.completed', run_id: 'run-1', output: 'Hi' },
     ]);
+  });
+
+  it('classifies only transport and retryable HTTP failures for reconnect', async () => {
+    const unavailable = new HermesApiClient(
+      'https://hermes.example', 'token', vi.fn(async () => {
+        throw new TypeError('connection reset with token=private');
+      }) as typeof fetch,
+    );
+    const networkError = await unavailable.listSessions().catch((error: unknown) => error);
+    expect(networkError).toEqual(new HermesApiError('Hermes transport is unavailable.', true));
+    expect(isHermesReconnectableError(networkError)).toBe(true);
+    expect(String(networkError)).not.toContain('private');
+
+    for (const [status, reconnectable] of [[503, true], [401, false]] as const) {
+      const client = new HermesApiClient(
+        'https://hermes.example', 'token',
+        vi.fn(async () => jsonResponse({ error: 'nope' }, status)) as typeof fetch,
+      );
+      const error = await client.listSessions().catch((caught: unknown) => caught);
+      expect(isHermesReconnectableError(error)).toBe(reconnectable);
+    }
+
+    const malformed = new HermesApiClient(
+      'https://hermes.example', 'token',
+      vi.fn(async () => new Response('{broken', { status: 200 })) as typeof fetch,
+    );
+    const protocolError = await malformed.listSessions().catch((error: unknown) => error);
+    expect(isHermesReconnectableError(protocolError)).toBe(false);
   });
 });

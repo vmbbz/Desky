@@ -14,6 +14,17 @@ const maximumSseFrameBytes = 256 * 1024;
 
 export interface HermesApiAdmission extends HermesCapabilitiesAdmission, HermesHealthAdmission {}
 
+export class HermesApiError extends Error {
+  constructor(message: string, readonly reconnectable: boolean) {
+    super(message);
+    this.name = 'HermesApiError';
+  }
+}
+
+export function isHermesReconnectableError(error: unknown): boolean {
+  return error instanceof HermesApiError && error.reconnectable;
+}
+
 export interface HermesApiClientPort {
   admit(): Promise<HermesApiAdmission>;
   listSessions(): Promise<AdapterSessionSummary[]>;
@@ -52,13 +63,18 @@ async function readJsonResponse(response: Response): Promise<unknown> {
   if (new TextEncoder().encode(text).byteLength > maximumJsonBytes) {
     throw new Error('Hermes returned an oversized JSON response.');
   }
+  if (!response.ok) {
+    throw new HermesApiError(
+      `Hermes request failed with HTTP ${response.status}.`,
+      response.status === 408 || response.status === 429 || response.status >= 500,
+    );
+  }
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch {
     throw new Error('Hermes returned malformed JSON.');
   }
-  if (!response.ok) throw new Error(`Hermes request failed with HTTP ${response.status}.`);
   return value;
 }
 
@@ -139,12 +155,18 @@ export class HermesApiClient implements HermesApiClientPort {
   }
 
   async streamRun(runId: string, onEvent: (event: unknown) => void, signal: AbortSignal): Promise<void> {
-    const response = await this.fetchImpl(this.url(`/v1/runs/${encodeURIComponent(runId)}/events`), {
+    const response = await this.request(this.url(`/v1/runs/${encodeURIComponent(runId)}/events`), {
       method: 'GET', headers: this.headers(), signal,
     });
-    if (!response.ok || !response.body
+    if (!response.ok) {
+      throw new HermesApiError(
+        `Hermes run stream failed with HTTP ${response.status}.`,
+        response.status === 408 || response.status === 429 || response.status >= 500,
+      );
+    }
+    if (!response.body
       || !response.headers.get('content-type')?.toLowerCase().startsWith('text/event-stream')) {
-      throw new Error(`Hermes run stream failed with HTTP ${response.status}.`);
+      throw new Error('Hermes run stream returned an invalid content type.');
     }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -174,11 +196,20 @@ export class HermesApiClient implements HermesApiClientPort {
   }
 
   private async json(path: string, init: RequestInit = {}): Promise<unknown> {
-    const response = await this.fetchImpl(this.url(path), {
+    const response = await this.request(this.url(path), {
       ...init,
       headers: { ...this.headers(), ...(init.headers ?? {}) },
     });
     return readJsonResponse(response);
+  }
+
+  private async request(input: string, init: RequestInit): Promise<Response> {
+    try {
+      return await this.fetchImpl(input, init);
+    } catch (error) {
+      if (init.signal?.aborted) throw error;
+      throw new HermesApiError('Hermes transport is unavailable.', true);
+    }
   }
 
   private headers(): Record<string, string> {

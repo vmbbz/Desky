@@ -23,7 +23,7 @@ export const hermesFoundationCapabilities: AgentAdapterCapabilities = Object.fre
   tools: true,
   approvals: true,
   cancellation: true,
-  reconnect: false,
+  reconnect: true,
   agentActions: {
     availability: 'unsupported',
     transport: 'none',
