@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { app, BrowserWindow, dialog, ipcMain, shell, type OpenDialogOptions } from 'electron';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
@@ -46,6 +47,7 @@ import {
 } from './companion-window';
 import type { AgentAdapterRegistry } from './adapters/registry';
 import type { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
+import { readScopedCodexVisualTestWorkspace } from './codex/visual-test-workspace';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -500,6 +502,20 @@ export function registerIpc(
       || windows.surfaceFor(event.sender) !== 'control-center'
       || (sandbox !== 'read-only' && sandbox !== 'workspace-write')) {
       throw new Error('Codex workspace selection is unavailable on this surface.');
+    }
+    const visualTestWorkspace = readScopedCodexVisualTestWorkspace({
+      sandbox,
+      exercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
+      capturePath: process.env.DESKY_VISUAL_TEST_PATH,
+      userDataPath: process.env.DESKY_VISUAL_TEST_USER_DATA,
+      workspacePath: process.env.DESKY_CODEX_UI_TEST_WORKSPACE,
+      temporaryRoot: tmpdir(),
+    });
+    if (visualTestWorkspace) {
+      return {
+        status: 'selected' as const,
+        grant: await codexWorkspaceGrants.issue(visualTestWorkspace, 'read-only'),
+      };
     }
     const parent = BrowserWindow.fromWebContents(event.sender);
     const options: OpenDialogOptions = {

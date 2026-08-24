@@ -1,5 +1,7 @@
 # F5a.2 Codex runtime conformance — 2026-08-24
 
+> Status update: direct-profile registration and the packaged authenticated matrix later passed; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`. The scope below describes this earlier fixture-only round.
+
 ## Scope and claim boundary
 
 This round implements and tests the provider runtime behind the generic port, but does not register or expose it. Codex remains direct-only, `production: false`, and typed agent actions unavailable. Bounded reconnect was completed by the later lifecycle gate recorded in `F5A2-CODEX-LIFECYCLE-2026-08-24.md`.

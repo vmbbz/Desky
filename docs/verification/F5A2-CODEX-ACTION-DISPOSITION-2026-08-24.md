@@ -1,5 +1,7 @@
 # F5a.2 Codex typed-action disposition — 2026-08-24
 
+> Status update: Codex was subsequently admitted for direct packages without enabling experimental typed actions; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`.
+
 ## Decision
 
 Codex typed Desky actions remain `unsupported`. The admitted app-server protocol has no stable client-local registration/discovery surface. Its documented `thread/start.dynamicTools` registration and `item/tool/call` callback require the experimental API.

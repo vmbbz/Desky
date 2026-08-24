@@ -13,7 +13,9 @@ import { OpenClawAdapterHost } from './openclaw/host';
 import { SecureVault } from './openclaw/secure-vault';
 import { AgentAdapterRegistry } from './adapters/registry';
 import { OpenClawRuntime } from './adapters/openclaw-runtime';
+import { agentRuntimesForProfile } from './adapters/profile-runtimes';
 import { getDistributionProfile } from './capabilities';
+import { CodexRuntime } from './codex/runtime';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { installBoundedApplicationShutdown } from './bounded-shutdown';
 
@@ -36,17 +38,26 @@ void app.whenReady().then(() => {
     app.getVersion(),
     process.platform,
   );
+  const distributionProfile = getDistributionProfile();
+  const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
+    protectedWritableRoots: [app.getPath('home')],
+  });
+  const runtimes = agentRuntimesForProfile(
+    distributionProfile,
+    new OpenClawRuntime(openClaw),
+    () => new CodexRuntime({
+      appVersion: app.getVersion(),
+      resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
+    }),
+  );
   const adapters = new AgentAdapterRegistry(
-    [new OpenClawRuntime(openClaw)],
+    runtimes,
     'openclaw',
-    getDistributionProfile(),
+    distributionProfile,
   );
   const windowManager = new DeskyWindowManager(
     new DesktopStateStore(join(app.getPath('userData'), 'desktop-state.json')),
   );
-  const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
-    protectedWritableRoots: [app.getPath('home')],
-  });
   windows = windowManager;
   registerIpc(adapters, windowManager, codexWorkspaceGrants);
   windowManager.createInitialWindows();

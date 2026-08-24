@@ -2,7 +2,7 @@
 
 ## Claim boundary
 
-This gate proves authenticated behavior through the production `CodexRuntime`, admitted `codex-cli 0.146.0-alpha.3`, supervised stdio client, real model and real built-in tools. It uses one isolated temporary read-only workspace and an explicitly named conformance thread. It does not yet claim that Codex is registered or reachable through the packaged provider picker; that is the next direct-profile admission gate.
+This gate proves authenticated behavior through the production `CodexRuntime`, admitted `codex-cli 0.146.0-alpha.3`, supervised stdio client, real model and real built-in tools. It uses one isolated temporary read-only workspace and an explicitly named conformance thread. Packaged provider admission was subsequently completed in `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`.
 
 The opt-in command is `npm run test:codex:matrix:live`. Ordinary `npm test` skips it and cannot consume credits. A parent runner owns the temporary workspace and removes it only after Vitest and all supervised descendants exit.
 
@@ -42,6 +42,6 @@ The strengthened delayed-write case passes with this implementation.
 - TypeScript typecheck, ESLint, the 273-file Codex schema baseline and production dependency audit passed; production dependencies report zero vulnerabilities.
 - Electron Forge Windows x64 packaging passed. A fresh isolated packaged control-center lifecycle exited with code 0, produced its renderer diagnostic and capture, reported a live renderer process and no exercise error; its temporary profile and capture were removed.
 
-## Next gate
+## Closed follow-on gate
 
-Register Codex only for the direct distribution profile, add an explicit provider picker without weakening OpenClaw or Store reachability, and repeat authentication, session creation, streaming, approval and Stop behavior through the packaged UI. Codex remains `production: false` and unreachable until that round passes.
+Codex is now registered only in direct packages, exposed through explicit provider selection, and verified through the packaged authenticated UI/lifecycle matrix. Store packages retain only OpenClaw. The adapter is `production: true`; typed local Desky actions remain explicitly unsupported.

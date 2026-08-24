@@ -95,6 +95,7 @@ async function captureVisualTest(
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
   let visualExerciseError: string | null = null;
+  let codexFilesystemEvidence: Record<string, unknown> | null = null;
   let performanceLifecycle: Record<string, unknown> | null = null;
   const processMetricsBefore = app.getAppMetrics().map((metric) => ({
     type: metric.type,
@@ -260,6 +261,214 @@ async function captureVisualTest(
       root.dataset.switchSoak = completed.join(',');
       return completed;
       })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'codex-ui'
+    && process.env.DESKY_CODEX_UI_TEST_WORKSPACE) {
+    const workspace = process.env.DESKY_CODEX_UI_TEST_WORKSPACE;
+    const denyMarker = join(workspace, 'packaged-deny-marker.txt').replaceAll('\\', '/');
+    const allowMarker = join(workspace, 'packaged-allow-marker.txt').replaceAll('\\', '/');
+    const cancellationMarker = join(workspace, 'packaged-cancellation-marker.txt').replaceAll('\\', '/');
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const waitFor = async (read, label, timeoutMs = 120000) => {
+          const deadline = Date.now() + timeoutMs;
+          while (Date.now() < deadline) {
+            const value = read();
+            if (value) return value;
+            await wait(25);
+          }
+          throw new Error('Timed out waiting for ' + label);
+        };
+        const root = await waitFor(
+          () => document.querySelector('.control-center'),
+          'the Control Center',
+          15000,
+        );
+        const mark = (phase) => { root.dataset.codexUiExercise = phase; };
+        const promptInput = () => document.querySelector('#control-prompt');
+        const response = () => document.querySelector('.control-center__bubble p')?.textContent ?? '';
+        const submitPrompt = async (text) => {
+          const input = await waitFor(
+            () => {
+              const candidate = promptInput();
+              return candidate instanceof HTMLInputElement && !candidate.disabled ? candidate : undefined;
+            },
+            'an enabled Codex prompt',
+          );
+          const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+          setter?.call(input, text);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          await wait(60);
+          input.closest('form')?.requestSubmit();
+          await waitFor(
+            () => root.dataset.activeTurnId || root.dataset.companionMode === 'listening',
+            'Codex turn acceptance',
+          );
+        };
+        const waitForTurnEnd = () => waitFor(
+          () => !root.dataset.activeTurnId && !document.querySelector('.approval-card'),
+          'Codex turn completion',
+        );
+
+        const provider = await waitFor(
+          () => document.querySelector('[data-adapter-id="codex"]'),
+          'the Codex provider option',
+          15000,
+        );
+        provider.click();
+        const form = await waitFor(
+          () => document.querySelector('[data-provider-form="codex"]'),
+          'the Codex provider form',
+          15000,
+        );
+        mark('provider-selected');
+        const workspaceButton = form.querySelector('.workspace-consent button');
+        if (!(workspaceButton instanceof HTMLButtonElement)) throw new Error('Workspace consent control is unavailable');
+        workspaceButton.click();
+        await waitFor(
+          () => {
+            const value = form.querySelector('.workspace-consent span')?.textContent?.trim();
+            return value && value !== 'No folder selected' ? value : undefined;
+          },
+          'the scoped workspace grant',
+          15000,
+        );
+        mark('workspace-granted');
+        form.requestSubmit();
+        await waitFor(
+          () => root.dataset.activeAdapterId === 'codex' && root.dataset.adapterStatus === 'connected',
+          'the authenticated Codex connection',
+          60000,
+        );
+        mark('connected');
+        const newSession = await waitFor(
+          () => {
+            const candidate = document.querySelector('[data-session-new="true"]');
+            return candidate instanceof HTMLButtonElement && !candidate.disabled
+              ? candidate
+              : undefined;
+          },
+          'the new-session control',
+          15000,
+        );
+        newSession.click();
+        await waitFor(
+          () => {
+            const select = document.querySelector('#adapter-session');
+            return select instanceof HTMLSelectElement && select.value ? select.value : undefined;
+          },
+          'the packaged conformance session',
+          30000,
+        );
+        mark('session-ready');
+
+        await submitPrompt('Reply with exactly DESKY_CODEX_PACKAGED_STREAM_OK and no other text. Do not use tools.');
+        await waitFor(
+          () => response().includes('DESKY_CODEX_PACKAGED_STREAM_OK') && !root.dataset.activeTurnId,
+          'the packaged assistant stream',
+        );
+        mark('stream-proved');
+
+        await submitPrompt(${JSON.stringify([
+          'Run this exact command once:',
+          `node -e "require('node:fs').writeFileSync('${denyMarker}', 'DESKY_PACKAGED_DENY_BAD')"`,
+          'Request sandbox approval if needed. Do not merely describe the command and do not stop before the approval is answered.',
+        ].join('\n'))});
+        const deny = await waitFor(
+          () => document.querySelector('[data-approval-decision="deny"]'),
+          'the deny approval control',
+        );
+        deny.click();
+        await waitForTurnEnd();
+        mark('deny-proved');
+
+        await submitPrompt(${JSON.stringify([
+          'Run this exact command once:',
+          `node -e "require('node:fs').writeFileSync('${allowMarker}', 'DESKY_PACKAGED_ALLOW_OK')"`,
+          'Request sandbox approval if needed. Do not merely describe the command and do not stop before the approval is answered.',
+        ].join('\n'))});
+        const allow = await waitFor(
+          () => document.querySelector('[data-approval-decision="allow-once"]'),
+          'the allow-once approval control',
+        );
+        allow.click();
+        await waitForTurnEnd();
+        mark('allow-proved');
+
+        await submitPrompt(${JSON.stringify([
+          'Run this exact command and wait for it to finish:',
+          `node -e "setTimeout(() => require('node:fs').writeFileSync('${cancellationMarker}', 'DESKY_PACKAGED_CANCEL_BAD'), 10000)"`,
+          'You must execute the command now. Request sandbox approval if needed. Do not explain it instead.',
+        ].join('\n'))});
+        const cancellationAllow = await waitFor(
+          () => document.querySelector('[data-approval-decision="allow-once"]'),
+          'approval for the cancellable command',
+        );
+        cancellationAllow.click();
+        await wait(500);
+        const stop = await waitFor(
+          () => {
+            const candidate = document.querySelector('.prompt-bar .cancel-button');
+            return root.dataset.activeTurnId
+              && candidate instanceof HTMLButtonElement
+              && !candidate.disabled
+              ? candidate
+              : undefined;
+          },
+          'a running packaged Codex tool',
+        );
+        let reconnectObserved = root.dataset.adapterStatus === 'reconnecting';
+        const observer = new MutationObserver(() => {
+          reconnectObserved ||= root.dataset.adapterStatus === 'reconnecting';
+        });
+        observer.observe(root, { attributes: true, attributeFilter: ['data-adapter-status'] });
+        stop.click();
+        await waitFor(
+          () => root.dataset.adapterStatus === 'connected' && !root.dataset.activeTurnId,
+          'Codex process-tree cancellation and reconnect',
+          60000,
+        );
+        observer.disconnect();
+        if (!reconnectObserved) throw new Error('Codex reconnecting state was not observed after Stop');
+        root.dataset.codexReconnectObserved = 'true';
+        await wait(12000);
+        mark('cancellation-proved');
+
+        await submitPrompt('Reply with exactly DESKY_CODEX_PACKAGED_RECOVERY_OK and no other text. Do not use tools.');
+        await waitFor(
+          () => response().includes('DESKY_CODEX_PACKAGED_RECOVERY_OK') && !root.dataset.activeTurnId,
+          'the post-cancellation packaged stream',
+        );
+        mark('passed');
+      })()`);
+      const readOptionalMarker = async (path: string): Promise<string | undefined> => {
+        try {
+          return await readFile(path, 'utf8');
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+          throw error;
+        }
+      };
+      const [denied, allowed, cancelled] = await Promise.all([
+        readOptionalMarker(join(workspace, 'packaged-deny-marker.txt')),
+        readOptionalMarker(join(workspace, 'packaged-allow-marker.txt')),
+        readOptionalMarker(join(workspace, 'packaged-cancellation-marker.txt')),
+      ]);
+      codexFilesystemEvidence = {
+        deniedMarkerAbsent: denied === undefined,
+        allowedMarkerExact: allowed === 'DESKY_PACKAGED_ALLOW_OK',
+        cancelledMarkerAbsent: cancelled === undefined,
+      };
+      if (denied !== undefined
+        || allowed !== 'DESKY_PACKAGED_ALLOW_OK'
+        || cancelled !== undefined) {
+        throw new Error('Packaged Codex filesystem evidence did not match the approval and cancellation decisions');
+      }
     } catch (error) {
       visualExerciseError = String(error);
     }
@@ -658,6 +867,16 @@ async function captureVisualTest(
     motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
     visualExerciseError: ${JSON.stringify(visualExerciseError)},
+    activeAdapterId: document.querySelector('.control-center')?.dataset.activeAdapterId ?? null,
+    adapterStatus: document.querySelector('.control-center')?.dataset.adapterStatus ?? null,
+    selectedAdapterId: document.querySelector('.control-center')?.dataset.selectedAdapterId ?? null,
+    codexUiExercise: document.querySelector('.control-center')?.dataset.codexUiExercise ?? null,
+    codexReconnectObserved: document.querySelector('.control-center')?.dataset.codexReconnectObserved ?? null,
+    adapterOptions: [...document.querySelectorAll('[data-adapter-id]')].map((button) => ({
+      adapterId: button.dataset.adapterId,
+      selected: button.dataset.adapterSelected
+    })),
+    codexFormVisible: Boolean(document.querySelector('[data-provider-form="codex"]')),
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
     marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
     marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,
@@ -689,6 +908,7 @@ async function captureVisualTest(
       workingSetSize: metric.memory?.workingSetSize ?? null,
     })),
     performanceLifecycle,
+    codexFilesystemEvidence,
   };
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());
@@ -704,6 +924,8 @@ function rendererUrl(surface: SurfaceKind): string {
   url.searchParams.set('surface', surface);
   const visualTestState = process.env.DESKY_VISUAL_TEST_STATE;
   if (visualTestState) url.searchParams.set('visualState', visualTestState);
+  const visualTestExercise = process.env.DESKY_VISUAL_TEST_EXERCISE;
+  if (visualTestExercise) url.searchParams.set('visualExercise', visualTestExercise);
   if (process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-unrecoverable') {
     url.searchParams.set('webglRecoveryTimeoutMs', '1200');
   }

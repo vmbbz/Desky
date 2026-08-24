@@ -1,5 +1,7 @@
 # Codex app-server protocol decision — 2026-08-24
 
+> Status update: the planned direct-profile admission sequence completed on 2026-08-24; see `../verification/F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`. Experimental WebSocket and typed client tools remain excluded.
+
 ## Decision
 
 Desky's direct-download Codex adapter will supervise a local `codex app-server` process over its default stdio JSONL transport. It will not use terminal scraping, `codex exec`, or the experimental WebSocket listener.

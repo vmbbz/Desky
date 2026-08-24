@@ -1,5 +1,7 @@
 # F5a.2 Codex lifecycle supervision — 2026-08-24
 
+> Status update: the later direct-profile admission and packaged authenticated matrix passed; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`. The boundary below records what this earlier gate alone established.
+
 ## Claim boundary
 
 This gate implements bounded local app-server replacement, safe thread recovery, OS process-tree teardown and awaited normal application shutdown behind the unregistered Codex adapter. The follow-on typed-action disposition confirmed that client-local tools are experimental and retained truthful unsupported capability; it does not register Codex, claim typed Desky actions, claim a packaged authenticated model/tool/approval matrix, or make the experimental upstream app-server surface production-stable.

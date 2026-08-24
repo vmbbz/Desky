@@ -1,5 +1,7 @@
 # F5a.2 Codex workspace consent — 2026-08-24
 
+> Status update: the form was subsequently exposed only in direct packages and passed packaged authenticated admission; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`. The claim boundary below records this earlier isolated gate.
+
 ## Claim boundary
 
 This gate implements the workspace and sandbox consent contract behind the unregistered Codex adapter. The form is compiled for future direct-profile provider selection but is unreachable because main still registers only OpenClaw. This round does not claim reconnect, process-tree termination, typed Desky actions, packaged model turns, Store compatibility, or Codex production admission.

@@ -26,7 +26,10 @@ import {
 } from '../shared/avatar-assets';
 import type { AgentActionCommand } from '../shared/agent-actions';
 import { openClawCapabilities } from '../shared/adapter-capabilities';
-import type { AdapterConnectionState } from '../shared/agent-adapter';
+import type {
+  AdapterConnectionState,
+  AdapterDescriptor,
+} from '../shared/agent-adapter';
 import {
   codexSandboxDisclosures,
   type CodexSandboxMode,
@@ -74,6 +77,7 @@ const initialGateway: AdapterConnectionState = {
   capabilities: openClawCapabilities(false),
 };
 const visualTestState = new URLSearchParams(window.location.search).get('visualState');
+const visualTestExercise = new URLSearchParams(window.location.search).get('visualExercise');
 const initialAvatarSelection: AvatarSelectionState = {
   activeAvatarId: '15dce553-3d3c-4288-8c03-c69c65167447',
   activeRevisionId: defaultAvatarRevisionId,
@@ -107,6 +111,10 @@ export function App() {
     visualTestState ? 'simulation' : 'runtime',
   );
   const [gateway, setGateway] = useState<AdapterConnectionState>(initialGateway);
+  const [availableAdapters, setAvailableAdapters] = useState<AdapterDescriptor[]>([
+    openClawAdapterDescriptor,
+  ]);
+  const [selectedAdapterId, setSelectedAdapterId] = useState(initialGateway.adapterId);
   const [showConnection, setShowConnection] = useState(true);
   const [controlView, setControlView] = useState<'home' | 'companions'>(
     visualTestState === 'marketplace' ? 'companions' : 'home',
@@ -181,12 +189,14 @@ export function App() {
     });
     void window.desky.adapters.getState().then((next) => {
       setGateway(next);
+      setSelectedAdapterId(next.adapterId);
       setGatewayUrl(next.endpoint);
       if (next.authenticationMethod === 'token' || next.authenticationMethod === 'password') {
         setAuthKind(next.authenticationMethod);
       }
       setShowConnection(next.status !== 'connected');
     });
+    void window.desky.adapters.list().then(setAvailableAdapters);
     const removeState = window.desky.adapters.onState(setGateway);
     const acceptCompanionState = (next: CompanionSnapshot) => {
       if (adapterModeRef.current !== 'runtime') return;
@@ -374,7 +384,7 @@ export function App() {
 
   const connectOpenClaw = () => withBusy(async () => {
     const next = await window.desky.adapters.connect({
-      adapterId: gateway.adapterId,
+      adapterId: selectedAdapterId,
       configuration: {
         gatewayUrl,
         authKind,
@@ -383,6 +393,7 @@ export function App() {
       },
     });
     setGateway(next);
+    setSelectedAdapterId(next.adapterId);
     setCredential('');
     setShowConnection(next.status !== 'connected');
   });
@@ -410,13 +421,14 @@ export function App() {
   const connectCodex = () => withBusy(async () => {
     if (!codexWorkspace) throw new Error('Choose a Codex workspace first.');
     const next = await window.desky.adapters.connect({
-      adapterId: gateway.adapterId,
+      adapterId: selectedAdapterId,
       configuration: {
         workspaceGrantId: codexWorkspace.grantId,
         sandbox: codexSandbox,
       },
     });
     setGateway(next);
+    setSelectedAdapterId(next.adapterId);
     setShowConnection(next.status !== 'connected');
   });
 
@@ -451,6 +463,11 @@ export function App() {
   });
 
   const connected = adapterMode === 'simulation' || gateway.status === 'connected';
+  const selectedAdapter = availableAdapters.find(
+    (descriptor) => descriptor.adapterId === selectedAdapterId,
+  ) ?? gateway.descriptor;
+  const selectedAdapterConnected = gateway.adapterId === selectedAdapter.adapterId
+    && gateway.status === 'connected';
   const hasSession = adapterMode === 'simulation'
     || gateway.descriptor.sessionSelection !== 'required'
     || Boolean(gateway.selectedSessionId);
@@ -598,12 +615,12 @@ export function App() {
       <p>{state.pendingApproval.safeTarget}</p>
       <div>
         {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
-          <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-once'))}>Allow once</button>
+          <button data-approval-decision="allow-once" type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-once'))}>Allow once</button>
         ) : null}
         {state.pendingApproval.allowedDecisions.includes('allow-always') ? (
           <button type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('allow-always'))}>Always</button>
         ) : null}
-        <button className="danger" type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('deny'))}>Deny</button>
+        <button data-approval-decision="deny" className="danger" type="button" disabled={busy} onClick={() => void withBusy(() => resolveApproval('deny'))}>Deny</button>
       </div>
     </section>
   ) : null;
@@ -983,7 +1000,14 @@ export function App() {
   }
 
   return (
-    <main className={`companion control-center companion--${state.mode}`}>
+    <main
+      className={`companion control-center companion--${state.mode}`}
+      data-active-adapter-id={gateway.adapterId}
+      data-adapter-status={gateway.status}
+      data-active-turn-id={gateway.activeTurnId ?? ''}
+      data-companion-mode={state.mode}
+      data-selected-adapter-id={selectedAdapter.adapterId}
+    >
       <header className="control-center__header">
         <div className="brand">
           <span className="brand__mark" aria-hidden="true">D</span>
@@ -1175,7 +1199,17 @@ export function App() {
             <option value="" disabled>Select a session</option>
             {gateway.sessions.map((session) => <option key={session.id} value={session.id}>{session.label}</option>)}
           </select>
-          <button type="button" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.createSession({ label: 'Desky' })); })}>New</button>
+          <button
+            type="button"
+            data-session-new="true"
+            disabled={busy}
+            onClick={() => void withBusy(async () => {
+              const label = visualTestExercise === 'codex-ui'
+                ? `Desky conformance packaged ${new Date().toISOString()}`
+                : 'Desky';
+              setGateway(await window.desky.adapters.createSession({ label }));
+            })}
+          >New</button>
           <button type="button" aria-label="Refresh sessions" disabled={busy} onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.refreshSessions()); })}>↻</button>
         </div>
       ) : null}
@@ -1197,11 +1231,38 @@ export function App() {
             <button type="button" aria-label="Close connection settings" onClick={() => setShowConnection(false)}>×</button>
           </div>
           <div className="mode-switch" role="group" aria-label="Adapter mode">
-            <button type="button" className={adapterMode === 'runtime' ? 'active' : ''} onClick={() => setAdapterMode('runtime')}>{gateway.descriptor.displayName}</button>
+            <button type="button" className={adapterMode === 'runtime' ? 'active' : ''} onClick={() => setAdapterMode('runtime')}>Agent</button>
             <button type="button" className={adapterMode === 'simulation' ? 'active' : ''} onClick={() => { setAdapterMode('simulation'); setShowConnection(false); }}>Simulation</button>
           </div>
-          {adapterMode === 'runtime' && gateway.descriptor.kind === 'openclaw' ? (
-            <form onSubmit={(event) => { event.preventDefault(); void connectOpenClaw(); }}>
+          {adapterMode === 'runtime' ? (
+            <div className="provider-switch" role="radiogroup" aria-label="Agent provider">
+              {availableAdapters.map((descriptor) => (
+                <button
+                  key={descriptor.adapterId}
+                  type="button"
+                  role="radio"
+                  aria-checked={selectedAdapter.adapterId === descriptor.adapterId}
+                  className={selectedAdapter.adapterId === descriptor.adapterId ? 'active' : ''}
+                  data-adapter-id={descriptor.adapterId}
+                  data-adapter-selected={selectedAdapter.adapterId === descriptor.adapterId ? 'true' : 'false'}
+                  onClick={() => {
+                    setSelectedAdapterId(descriptor.adapterId);
+                    setUiError('');
+                  }}
+                >
+                  <strong>{descriptor.displayName}</strong>
+                  <span>{descriptor.kind === 'codex' ? 'Local app-server' : 'Gateway'}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {adapterMode === 'runtime'
+            && selectedAdapter.adapterId !== gateway.adapterId
+            && gateway.status === 'connected' ? (
+              <p className="connection-note">{gateway.descriptor.displayName} remains connected until you connect {selectedAdapter.displayName}.</p>
+            ) : null}
+          {adapterMode === 'runtime' && selectedAdapter.kind === 'openclaw' ? (
+            <form data-provider-form="openclaw" onSubmit={(event) => { event.preventDefault(); void connectOpenClaw(); }}>
               <label htmlFor="gateway-url">Gateway URL</label>
               <input id="gateway-url" value={gatewayUrl} onChange={(event) => setGatewayUrl(event.target.value)} autoCapitalize="none" spellCheck={false} />
               <label htmlFor="auth-kind">Authentication</label>
@@ -1213,23 +1274,23 @@ export function App() {
               <input id="gateway-credential" type="password" value={credential} onChange={(event) => setCredential(event.target.value)} placeholder="Leave blank to use saved access" autoComplete="off" />
               <label className="remember-row"><input type="checkbox" checked={rememberCredential} onChange={(event) => setRememberCredential(event.target.checked)} /> Store with OS credential encryption</label>
               {gateway.insecureLocal ? <p className="connection-warning">Plain WebSocket is accepted only because this is a loopback address.</p> : null}
-              {gateway.status === 'connected' ? (
+              {selectedAdapterConnected ? (
                 <p className={`adapter-capability adapter-capability--${gateway.capabilities.agentActions.availability}`}>
                   Avatar actions: {gateway.capabilities.agentActions.availability === 'available'
                     ? 'typed Jump and Wave ready'
                     : 'Gateway plugin setup required'}
                 </p>
               ) : null}
-              {gateway.pairingRequestId ? <p className="pairing-id">Pairing request: <code>{gateway.pairingRequestId}</code></p> : null}
+              {selectedAdapterConnected && gateway.pairingRequestId ? <p className="pairing-id">Pairing request: <code>{gateway.pairingRequestId}</code></p> : null}
               {uiError ? <p className="connection-error">{uiError}</p> : null}
               <div className="connection-actions">
-                {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
-                <button type="submit" disabled={busy}>{busy ? 'Connecting…' : gateway.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
+                {selectedAdapterConnected ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
+                <button type="submit" disabled={busy}>{busy ? 'Connecting…' : selectedAdapterConnected ? 'Reconnect' : 'Connect'}</button>
               </div>
             </form>
           ) : null}
-          {adapterMode === 'runtime' && gateway.descriptor.kind === 'codex' ? (
-            <form onSubmit={(event) => { event.preventDefault(); void connectCodex(); }}>
+          {adapterMode === 'runtime' && selectedAdapter.kind === 'codex' ? (
+            <form data-provider-form="codex" onSubmit={(event) => { event.preventDefault(); void connectCodex(); }}>
               <div className="workspace-consent">
                 <div>
                   <strong>Workspace</strong>
@@ -1256,10 +1317,11 @@ export function App() {
                 })}
               </fieldset>
               <p className="connection-warning">Approval policy remains On request. Desky never offers unrestricted filesystem access.</p>
+              <p className="adapter-capability adapter-capability--unsupported">Avatar actions are unavailable because Codex client tools are currently experimental.</p>
               {uiError ? <p className="connection-error">{uiError}</p> : null}
               <div className="connection-actions">
-                {gateway.status === 'connected' ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
-                <button type="submit" disabled={busy || !codexWorkspace}>{busy ? 'Connecting…' : gateway.status === 'connected' ? 'Reconnect' : 'Connect'}</button>
+                {selectedAdapterConnected ? <button type="button" className="secondary" onClick={() => void withBusy(async () => { setGateway(await window.desky.adapters.disconnect()); })}>Disconnect</button> : null}
+                <button type="submit" disabled={busy || !codexWorkspace}>{busy ? 'Connecting…' : selectedAdapterConnected ? 'Reconnect' : 'Connect'}</button>
               </div>
             </form>
           ) : null}

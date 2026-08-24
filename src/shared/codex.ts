@@ -21,7 +21,7 @@ export const codexAdapterDescriptor: AdapterDescriptor = Object.freeze({
   kind: 'codex',
   displayName: 'Codex',
   description: 'Run a locally installed Codex app-server.',
-  production: false,
+  production: true,
   distributionProfiles: ['direct'] satisfies AdapterDescriptor['distributionProfiles'],
   sessionSelection: 'required',
   concurrentTurns: false,

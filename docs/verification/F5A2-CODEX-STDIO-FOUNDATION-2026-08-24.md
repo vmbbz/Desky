@@ -1,5 +1,7 @@
 # F5a.2 Codex stdio foundation verification — 2026-08-24
 
+> Status update: this transport was subsequently admitted as the direct-profile production Codex adapter; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`.
+
 ## Scope
 
 This is a real transport foundation, not a selectable or simulated Codex adapter. It establishes the bounded supervised JSONL peer required before semantic runtime work.

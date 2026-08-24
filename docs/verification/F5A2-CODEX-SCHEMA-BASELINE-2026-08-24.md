@@ -1,5 +1,7 @@
 # F5a.2 Codex schema baseline — 2026-08-24
 
+> Status update: later runtime, lifecycle, authenticated and packaged admission gates passed against this baseline; see `F5A2-CODEX-DIRECT-ADMISSION-2026-08-24.md`. The boundary below is intentionally historical.
+
 ## Claim boundary
 
 This gate makes Desky's admitted Codex protocol reproducible without shipping generated upstream source. It does not register Codex, start a model turn, enable reconnect, expose a workspace picker, or claim Store compatibility.
