@@ -415,6 +415,8 @@ The Windows channel decision is locked: the website offers a signed direct downl
 
 Exit: purchase, restore, delivery failure recovery, refund/support correction, monitoring, and incident rollback pass with zero agent/wallet-key custody.
 
+Status: F4x.2a is locally implemented and provider-disabled. The official v2 wire shape is pinned at x402 Foundation revision `aeb0fddd2f9131a46f8f7ee93aca3fca4da98401`; a strict service-only adapter admits only exact EIP-3009 Base Sepolia USDC for an authoritative short-lived `windows-direct` quote and configured merchant. Contract tests cover wrong network/asset/recipient/profile/currency, payload/resource mutation, authorization lifetime, facilitator capability, redirects, content type, size, timeout, payer, and amount. The public testnet facilitator advertised v2 exact Base Sepolia during a live discovery probe. No payment ran. Next: durable unknown/settled evidence and reconciliation, server checkout/browser-wallet handoff, then a funded Base Sepolia matrix.
+
 ### F4x.3 additional rails and storefronts
 
 - Add Solana only after Base operations and demand justify the second rail; reuse the exact order/entitlement semantics.

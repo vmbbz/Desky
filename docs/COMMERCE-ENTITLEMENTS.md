@@ -19,6 +19,7 @@ The first executable slice is deliberately provider-disabled:
 - An asset grant now binds one entitlement event to exact product/catalog/avatar revisions and an explicit delivery state.
 - `src/service/commerce/sqlite-commerce-ledger.ts` is a service-side conformance repository, not an Electron or production-hosted database adapter. It uses strict tables, foreign/unique constraints, WAL, full synchronization, compare-and-swap transitions, exact idempotent replay, and one transaction for verified payment settlement, order grant, entitlement event, and asset grant. Tests prove rollback and close/reopen durability.
 - F4x.1c adds exact clean-device/session-refresh/reconciliation contracts, a fixed-origin HTTPS main client, a framework-neutral hosted HTTP boundary, and a production repository port. The port stores refresh digests—not credentials—and requires transactional compare-and-swap, current/previous digest rotation, reconciliation snapshots, and append-only audit.
+- F4x.2a begins the provider-disabled Base Sepolia pilot with a pinned x402 v2 exact/EIP-3009 profile, strict quote-to-payment admission, and a bounded no-redirect facilitator client. Only `windows-direct`, CAIP-2 `eip155:84532`, Base Sepolia USDC, and the configured merchant recipient are admitted. No wallet, checkout route, facilitator credential, settlement/grant orchestration, or renderer IPC is reachable yet. The source pin and compatibility evidence are in `docs/research/X402-V2-PIN-2026-08-25.md`.
 - Strict Ed25519 JWKS parsing admits only bounded `OKP`/`Ed25519` signing keys. The rotating cache refreshes on expiry or unknown `kid`, admits intentional overlap, supports an emergency release revocation set, and permits stale keys only for a bounded outage window.
 - Refresh material is main-only and OS encrypted through the existing `safeStorage` vault. Clean-device restore requires a one-time code, PKCE verifier, installation identity, and idempotency key. Every refresh rotates the credential/generation and carries a deterministic rotation ID for crash-safe service replay.
 - The distinct `desky-offline-lease+jwt` is installation-bound, revision-exact, and capped at 72 hours. Online verification pins its public key in the encrypted session so offline restart does not require JWKS. Server time and system-monotonic elapsed time detect observed rollback; a monotonic reset/offline reboot or material wall-clock rollback requires reconnection.
@@ -242,6 +243,8 @@ The x402 v2 adapter:
 7. independently validates settlement terms and provider reference;
 8. commits `paid`, emits a grant once, and issues a receipt/access token;
 9. reconciles by callback and polling until a terminal state.
+
+F4x.2a makes the distinction between verification and settlement executable. A successful `/verify` response identifies a payer but is not a transaction and cannot be used as durable payment evidence. A `/settle` timeout is indeterminate because the facilitator may have broadcast the transfer. The next ledger revision must store pre-settlement payment identity separately from transaction evidence and must reconcile an unknown settlement before retry or grant.
 
 Security invariants:
 
