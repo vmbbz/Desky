@@ -81,6 +81,7 @@ The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_T
 - The bearer token is held only by the unregistered main-process client and is redacted from errors. Durable OS credential storage is deliberately not implemented yet; the runtime cannot be registered until it uses the existing vault-grade persistence policy or an equivalent provider-specific store.
 - JSON responses are capped at 512 KiB and individual SSE frames at 256 KiB. Malformed JSON, incomplete/oversized SSE, capability drift, cross-run events, invalid approval choices, and a stream that closes without a terminal event fail closed.
 - Approval scope is never broadened: `allow-always` is offered only when Hermes includes `always`; every local approval route is bound to one run and expires on terminal state or disconnect. Stop remains pending until Hermes emits `run.cancelled`; disconnect records a local cancelled terminal and aborts transport after requesting server stop.
+- Hermes live tests never accept a bearer on the command line or in a committed file. The harness reads `DESKY_HERMES_LIVE_TOKEN` from its process environment, confirms invalid-token errors do not echo the submitted secret, and deletes the sessions it creates. The full model matrix is separately gated because its terminal probes execute on the Hermes host; admission-only verification does not require or imply model/provider authorization.
 
 ## Claude foundation security
 
