@@ -48,6 +48,7 @@ import {
 import type { AgentAdapterRegistry } from './adapters/registry';
 import type { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { readScopedCodexVisualTestWorkspace } from './codex/visual-test-workspace';
+import { shouldDisableAvatarNetwork } from './visual-test-policy';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -216,7 +217,10 @@ export function registerIpc(
 ): void {
   const companion = new CompanionStateHost();
   const animation = new LocalAnimationPreviewHost();
-  const avatarFetcher = process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK === '1'
+  const avatarFetcher = shouldDisableAvatarNetwork(
+    process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK,
+    process.env.DESKY_VISUAL_TEST_EXERCISE,
+  )
     ? async (): Promise<Response> => { throw new Error('Visual-test network is disabled.'); }
     : fetch;
   const avatarCache = new AvatarCache(join(app.getPath('userData'), 'avatar-cache'), avatarFetcher);

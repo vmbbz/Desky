@@ -37,6 +37,8 @@ Final machine-readable results:
 
 The separate final-profile captures reported `openclaw,codex` for direct and only `openclaw` for Store, with `codexFormVisible: false` in Store and no visual exercise error.
 
+Follow-up visual review found that the original manual harness had also set the avatar cache/offline network-denial flag on its fresh profile. The adapter matrix was valid, but the ambient companion consequently showed an unrelated fetch failure. The harness policy now excludes `codex-ui` from avatar network denial. A fresh packaged live acquisition independently returned Milk `ready`, one mapped texture, advancing motion and no clip/exercise error; the offline avatar tests remain denied as designed.
+
 ## Harness security boundary
 
 The native folder picker is never broadly bypassed. The package harness can issue only a read-only grant when all of these are true:

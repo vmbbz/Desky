@@ -54,6 +54,8 @@ Codex never accepts a workspace path through IPC or its opaque adapter configura
 
 The packaged authenticated harness has one narrowly scoped consent substitute: it activates only for the `codex-ui` exercise when the profile, screenshot and read-only workspace are proper descendants of one uniquely named `desky-codex-ui-*` OS-temporary root. Cross-drive paths, traversal, an ordinary root name, incomplete environment contracts and write scope fail closed. Normal applications therefore continue through the native picker. The harness independently records byte-exact allow evidence and absence of denied/cancelled markers after the cancellation survival window; no test workspace or credential enters the package or repository.
 
+The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_TEST_DISABLE_NETWORK`. That legacy flag denies the main-owned avatar fetcher for dedicated cache/offline evidence; applying it to a fresh Codex profile produced a truthful but irrelevant avatar load error. The `codex-ui` policy now keeps live avatar acquisition enabled, while every avatar-specific offline exercise retains the denial behavior.
+
 ## Network policy
 
 - TLS for every non-loopback connection.
