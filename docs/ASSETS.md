@@ -97,3 +97,11 @@ A user-selected local `.vrma` follows a separate session-preview policy. It is v
 - Store screenshots and review notes identify remote content behavior.
 - NFT collections may be browsed only under the applicable store rules; Desky will not link to external purchase flows in restricted storefront builds.
 - Reporting and removal mechanisms are required before community-submitted catalogs are enabled.
+
+## Commercial catalog policy
+
+The public registry record is a candidate, not a premium listing. A paid or free Desky catalog entry requires an immutable admitted revision containing the pinned upstream commit/record hash, exact model hash, joined project licence, embedded VRM permission review, creator/attribution data, compatibility profile, animation-safety profile, and named rights review.
+
+Desky may charge for compatibility-tested delivery, motion profiles, signed updates, collections, and support around a qualifying open work. It must not claim exclusive ownership, conceal the original source, or imply creator endorsement. Licence/source/attribution remain available whether the user is entitled or not. CC-BY admission remains blocked until the exact version/canonical terms, attribution/modification disclosure, and access-control compatibility receive final review; an unversioned registry label is insufficient.
+
+Premium assets are distributed as immutable content-addressed objects through a bounded authorized asset service/CDN. A short-lived access token or signed URL is only delivery authorization; exact SHA-256 and the signed provenance sidecar remain the local truth. The active cached avatar is never deleted merely because the catalog is offline. Detailed product and authorization contracts are in `docs/AVATAR-MARKETPLACE.md` and `docs/COMMERCE-ENTITLEMENTS.md`.

@@ -1,0 +1,351 @@
+# Commerce and entitlement architecture
+
+## Objective
+
+Desky needs one durable answer to a simple question: “May this account/device use this admitted avatar revision?” The answer must remain consistent whether the grant came from the free tier, Apple StoreKit, Microsoft commerce, x402 on Base, x402 on Solana, a promotion, or customer support.
+
+Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
+
+## Trust boundaries
+
+```text
+Untrusted
+  model/agent text | renderer UI | wallet callback parameters | remote catalog
+        │
+        ▼ strict typed requests
+Electron main process
+  release-profile policy | OS vault | hash/cache validation | browser handoff
+        │ HTTPS, pinned schemas and origins
+        ▼
+Commerce service
+  offers | orders | payment adapters | reconciliation | entitlement ledger
+        │                              │
+        ▼                              ▼
+facilitator/store verification     signed catalog + asset gateway/CDN
+```
+
+The renderer can request a quote or display a verified result. It cannot select a merchant recipient, token contract, price, entitlement scope, catalog signature key, or asset URL.
+
+## Domain model
+
+### Product and offer
+
+`Product` is a stable grant target: an avatar, pack, or catalog pass. `Offer` is a region/channel-specific way to obtain it.
+
+```ts
+interface Offer {
+  offerId: string;
+  productId: string;
+  revision: number;
+  releaseProfiles: ReleaseProfile[];
+  regions: string[];
+  priceBookId: string;
+  providers: CommerceProviderId[];
+  startsAt: string;
+  endsAt?: string;
+  state: "draft" | "active" | "paused" | "retired";
+}
+```
+
+Prices are authoritative only in a server-issued quote or native store product response. Catalog price labels are display hints and must never authorize a charge.
+
+### Order and payment attempt
+
+```ts
+interface Order {
+  orderId: string;
+  accountId: string;
+  offerId: string;
+  offerRevision: number;
+  idempotencyKey: string;
+  currency: string;
+  amountAtomic: string;
+  state:
+    | "created"
+    | "awaiting-approval"
+    | "awaiting-settlement"
+    | "paid"
+    | "granted"
+    | "cancelled"
+    | "expired"
+    | "refunded"
+    | "disputed";
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface PaymentAttempt {
+  attemptId: string;
+  orderId: string;
+  provider: CommerceProviderId;
+  providerReference?: string;
+  network?: string;
+  asset?: string;
+  recipient?: string;
+  quoteExpiresAt: string;
+  state: "created" | "submitted" | "verified" | "settled" | "failed";
+}
+```
+
+Amounts are strings in atomic units. Floating-point arithmetic is forbidden. An idempotency key is unique for account/offer/intent and prevents rapid repeated clicks or callbacks from creating duplicate orders.
+
+### Entitlement ledger
+
+Entitlements are append-only grants and reversals, projected into current access:
+
+```ts
+interface EntitlementEvent {
+  eventId: string;
+  accountId: string;
+  productId: string;
+  type: "grant" | "revoke" | "expire" | "refund" | "support-restore";
+  source: "free" | "storekit" | "microsoft" | "x402-base" | "x402-solana" | "support";
+  sourceReference: string;
+  effectiveAt: string;
+  expiresAt?: string;
+  reasonCode: string;
+}
+```
+
+The projection answers whether a product is currently granted. It never mutates or erases payment history. Support changes create explicit events.
+
+### Asset grant
+
+A product entitlement maps to explicit admitted avatar revision IDs. This lets Desky update presentation metadata without silently changing the exact model bytes a perpetual buyer received. Security/takedown updates can suspend delivery while preserving the audit trail and defined customer remedy.
+
+## Access tokens
+
+### Token purpose
+
+The commerce service issues a short-lived access JWT only after reading the current entitlement projection. The token authorizes bounded catalog/asset operations and is not a receipt.
+
+Suggested protected claims:
+
+```json
+{
+  "iss": "https://commerce.desky.example",
+  "aud": "desky-assets",
+  "sub": "opaque-account-id",
+  "iat": 0,
+  "nbf": 0,
+  "exp": 0,
+  "jti": "unique-token-id",
+  "scope": ["catalog:read", "asset:read"],
+  "grants": ["product:avatar.milk"],
+  "catalogVersion": "..."
+}
+```
+
+Production rules:
+
+- asymmetric EdDSA or ES256 signing after dependency/platform review;
+- explicit accepted algorithm list; `none` and algorithm confusion fail closed;
+- `kid` mapped through HTTPS JWKS with bounded caching and rotation overlap;
+- exact issuer and audience validation;
+- short expiry, initially 5–15 minutes;
+- bounded clock skew;
+- unique `jti` for incident correlation, not routine per-request server lookup;
+- no email, wallet address, payment transaction, source URL, price, or secret;
+- distinct token type/audience from login, refresh, admin, and signed catalog artifacts.
+
+Refresh/recovery credentials are opaque, rotating, revocable values stored only in the OS credential vault. They are never placed in renderer storage.
+
+### Offline lease
+
+Installed content may continue through a signed offline lease containing only product/revision grants and a bounded expiry. Initial target: 72 hours, tunable by incident and support evidence. Free avatars do not require a lease. A perpetual purchase should recover automatically when connectivity returns.
+
+Offline leases are not extended by changing the system clock. Main records the last trusted server time and monotonic elapsed time where the platform permits. Clock anomalies produce a clear reconnect-to-verify message, not silent data deletion.
+
+## Commerce-provider interface
+
+```ts
+interface CommerceProvider {
+  readonly id: CommerceProviderId;
+  isAvailable(context: ReleaseCommerceContext): Promise<Availability>;
+  createQuote(input: QuoteRequest): Promise<VerifiedQuote>;
+  beginApproval(quote: VerifiedQuote): Promise<ApprovalHandoff>;
+  reconcile(orderId: string): Promise<OrderSnapshot>;
+  restore(accountId: string): Promise<RestoreResult>;
+}
+```
+
+Provider implementations never write entitlements directly. They return verified payment/store evidence to the commerce service, which performs idempotent order transition and entitlement issuance.
+
+### Free provider
+
+The first implementation grants allowlisted free product IDs locally/from the signed catalog without an account, payment, or network secret. It proves the marketplace and activation domain before commerce exists.
+
+### x402 provider
+
+The x402 v2 adapter:
+
+1. asks the commerce service for a short-lived exact quote;
+2. receives allowlisted `scheme`, CAIP-2 `network`, atomic USDC amount, asset address/mint, recipient, nonce/correlation, and expiry;
+3. shows those verified terms on Desky's trusted human approval surface;
+4. opens the system browser/registered wallet flow only after deliberate confirmation;
+5. submits the signed payment payload to the resource server;
+6. verifies/settles through the configured facilitator;
+7. independently validates settlement terms and provider reference;
+8. commits `paid`, emits a grant once, and issues a receipt/access token;
+9. reconciles by callback and polling until a terminal state.
+
+Security invariants:
+
+- only exact x402 v2 is admitted for initial purchases;
+- production network, USDC asset/mint, merchant recipient, and facilitator origins are configuration allowlists;
+- a wallet or model cannot replace server-issued terms;
+- quote expiry is enforced;
+- nonce/replay protection is required;
+- Base and Solana use separate adapters and conformance fixtures;
+- the public x402.org test facilitator is never used for mainnet;
+- merchant signing/settlement credentials remain server-side;
+- no agent or renderer receives a wallet private key;
+- a successful chain transfer with mismatched order terms goes to manual reconciliation, never an automatic grant.
+
+The initial production rail is Base only. Solana is added only after the shared order/entitlement model has proven restore, refund, monitoring, and support behavior. Multi-chain from day one would double failure modes without improving the marketplace product.
+
+### StoreKit provider
+
+The Mac App Store provider uses StoreKit products and server-verifiable transaction evidence. It supports purchase, restore, refund/revocation updates, and family-sharing policy where configured. The MAS renderer and main process contain no reachable x402 checkout path unless a future explicit entitlement and regional implementation are approved.
+
+### Microsoft provider
+
+The Microsoft Store profile may use the third-party x402 provider if current policy, declaration, certification, regional legal review, and review notes approve it. A Microsoft commerce provider can be added behind the same interface if the owner chooses Store-managed checkout. Direct Windows uses x402 without inheriting Store-specific APIs.
+
+## Release-profile capability matrix
+
+| Profile | Free | x402 Base | x402 Solana | Native store commerce | External checkout UI |
+| --- | --- | --- | --- | --- | --- |
+| Windows direct | yes | planned | later | no | planned |
+| Microsoft Store | yes | certification-gated | certification-gated | optional | policy-gated |
+| macOS direct | yes | planned | later | no | planned |
+| Mac App Store | yes | disabled by default | disabled by default | StoreKit if premium ships | disabled unless eligible entitlement exists |
+
+Capabilities are compiled/signed release configuration plus runtime storefront eligibility, not a renderer setting, remote feature flag alone, URL parameter, or agent instruction.
+
+## Human approval contract
+
+Before signing, Desky shows:
+
+- companion/product and admitted revision;
+- creator/source/licence;
+- total fiat reference and exact USDC amount;
+- network and recognizable network name;
+- shortened merchant recipient with a details expander;
+- offer/quote expiry;
+- what is granted and whether it expires;
+- refund/support link;
+- `Cancel` and a single deliberate continue action.
+
+The approval view is owned by Desky/main and rehydrates the server-verified quote. Model-generated text cannot overlay, obscure, or substitute it. Accessibility names include amount and action. Closing the window cancels the local handoff but does not assume an already submitted transaction failed; reconciliation continues safely.
+
+## Recovery and reconciliation
+
+### Required paths
+
+- app closes before wallet opens;
+- user rejects wallet signature;
+- wallet signs after quote expiry;
+- facilitator verify succeeds but settle times out;
+- settlement completes but callback is lost;
+- duplicate callbacks and user retry;
+- wrong network/asset/recipient/amount;
+- Base/Solana reorg or provider reports reversal;
+- StoreKit refund/revocation;
+- account or device replacement;
+- entitlement service unavailable;
+- catalog asset suspended after purchase;
+- JWT signing-key rotation or compromise.
+
+Every provider reference is unique. Background reconciliation is bounded, observable, and safe to retry. Support can search by Desky order ID and provider reference, then issue an auditable correction without editing a JWT or database row in place.
+
+## Threat model and controls
+
+| Threat | Control |
+| --- | --- |
+| forged/modified catalog | asymmetric signature, schema parser, version/expiry policy |
+| renderer changes displayed price | verified quote rendered from typed main projection; server validates all terms |
+| model requests malicious recipient | recipient/network/asset ignored from agent inputs and enforced by allowlist |
+| replay/duplicate settlement | x402 nonce, provider reference uniqueness, order idempotency, append-only grant event |
+| stolen access JWT | short expiry, narrow audience/scope, OS-vault refresh, no raw asset URL in token |
+| JWT algorithm confusion | pinned algorithm and key use; issuer/audience/type validation per RFC 8725 |
+| CDN scraping | signed short-TTL URLs, rate limits, entitlement checks; no claim of perfect DRM |
+| cache substitution | content-addressed filename, exact SHA-256, signed provenance sidecar, reparse on read |
+| support/admin abuse | least privilege, MFA, two-person paid-catalog changes, immutable audit events |
+| chain/provider outage | installed offline lease, retry/reconcile, second rail only after operational maturity |
+| refund then indefinite use | stop token/lease renewal, apply documented offline grace, preserve support evidence |
+| store-policy leakage | signed release capability profile, build tests proving disabled providers have no route |
+
+## Service data and privacy
+
+Minimum server records include opaque account ID, orders, payment references, grant events, catalog/product IDs, region/tax records required by law, and security/audit events. Wallet addresses are personal/security-sensitive identifiers and are not analytics dimensions.
+
+Conversation text, gateway prompts, tool transcripts, and agent-provider credentials never enter commerce services. Agents receive only bounded catalog and entitlement answers requested by the user.
+
+Account deletion removes optional profile data and revokes credentials, while legally required financial records follow a disclosed retention schedule. The privacy policy must explain this distinction before paid launch.
+
+## Observability and service objectives
+
+Track without conversation content:
+
+- quote creation and expiry;
+- approval handoff result;
+- verification/settlement latency by provider/network;
+- reconciliation age and terminal failure reason;
+- payment-to-grant latency;
+- duplicate prevention events;
+- token issuance/verification failures by reason;
+- asset authorization/download/hash result;
+- restore and offline-lease result.
+
+Initial objectives:
+
+- zero duplicate charges caused by Desky retries;
+- 99.9% of verified settled payments issue or recover a grant within five minutes;
+- 99.5% entitlement restore success excluding invalid credentials/provider outage;
+- 100% recipient/asset/network mismatches fail closed;
+- existing installed companion remains usable during catalog outage.
+
+## Verification gates
+
+### Contract
+
+- schema fuzzing and unknown-field/version rejection;
+- amount atomic-string bounds and no float conversions;
+- idempotent order/grant transitions;
+- provider adapter conformance fixtures;
+- JWT wrong algorithm/key/issuer/audience/type/expiry rejection;
+- signing-key rotation overlap and emergency revocation;
+- release-profile provider unreachability tests.
+
+### Integration
+
+- Base Sepolia exact USDC success, rejection, expiry, retry, callback loss, and duplicate;
+- Solana devnet equivalent before any Solana mainnet work;
+- StoreKit sandbox purchase/restore/refund when that provider starts;
+- clean-device restore and OS-vault migration behavior;
+- settled-payment/delivery-failure recovery;
+- offline lease through network and clock anomalies.
+
+### Packaged experience
+
+- screen-reader and keyboard purchase/restore path;
+- browser/wallet focus returns to Desky without stealing focus unexpectedly;
+- no secret/payment payload in renderer logs or diagnostic export;
+- Windows direct, Microsoft Store, macOS direct, and MAS each expose only allowed providers;
+- uninstall/cache/account-deletion behavior matches disclosures.
+
+## Owner decisions before production commerce
+
+1. Legal publisher and selling entity.
+2. Source-code licence and commercial-service terms.
+3. Merchant wallet custody/signing and incident authority.
+4. Facilitator selection, SLA, fees, data handling, sanctions controls, and fallback.
+5. Tax/VAT/GST merchant-of-record strategy and supported countries.
+6. Refund, charge dispute, takedown, and customer-support policy.
+7. Account identity, wallet binding, recovery, and device limits.
+8. Final offer types and validated prices.
+9. StoreKit versus free-only Mac App Store launch.
+10. Privacy, terms, support, and security-contact URLs.
+
+No mainnet payment code is release-ready until these decisions have named owners and acceptance evidence.

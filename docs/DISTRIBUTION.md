@@ -30,6 +30,7 @@ The Store build remains useful and complete through authenticated remote gateway
 - Review account or fully featured simulation/remote demo path.
 - Content, privacy, encryption/export, and NFT disclosures completed.
 - Universal arm64/x64 build unless product data justifies separate architectures.
+- Use StoreKit for digital avatar unlocks if premium content ships in this profile. x402 and external purchase calls to action are disabled unless Desky later qualifies for, implements, and re-verifies a storefront-specific Apple entitlement.
 
 ### Direct macOS
 
@@ -38,6 +39,7 @@ The Store build remains useful and complete through authenticated remote gateway
 - Stapled ticket and Gatekeeper verification on a clean machine.
 - Signed update feed with rollback plan.
 - Clear first-run disclosure before launching local agent processes.
+- May offer the separately disclosed x402 checkout after legal, wallet-handoff, tax, and entitlement-service gates pass.
 
 ## Windows requirements
 
@@ -48,6 +50,7 @@ The Store build remains useful and complete through authenticated remote gateway
 - Run Windows App Certification Kit before submission.
 - Test clean install, upgrade, uninstall, protocol registration, file access, and multi-monitor behavior.
 - Store submission packages are re-signed by Microsoft; direct packages still require publisher signing.
+- Non-game third-party commerce is a planned capability, not an assumption: declare it accurately, document it in review notes, and keep x402 behind certification, regional, and legal gates. A Microsoft-commerce provider remains an interchangeable option.
 
 ### Direct Windows
 
@@ -55,6 +58,18 @@ The Store build remains useful and complete through authenticated remote gateway
 - Verify SmartScreen reputation plan and timestamping.
 - Signed update channel separated from Store-managed updates.
 - Test standard-user install and uninstall without residue outside documented user data.
+- May offer x402 after the same production commerce and entitlement gates as direct macOS.
+
+## Commerce capability matrix
+
+| Channel | Free grants | x402 | Native store commerce | Default paid-content posture |
+| --- | --- | --- | --- | --- |
+| Windows direct | yes | planned | no | x402 after production gates |
+| Microsoft Store | yes | certification-gated | optional | third-party or Microsoft provider after review |
+| macOS direct | yes | planned | no | x402 after production gates |
+| Mac App Store | yes | disabled by default | StoreKit | StoreKit or free-only launch |
+
+This matrix is enforced by signed build/runtime capability, not renderer visibility or a remote flag alone. Direct distribution is a distinct supported channel and must never be described as bypassing a store. See `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ## Store identity blockers
 

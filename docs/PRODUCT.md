@@ -74,6 +74,8 @@ Desky v1 will not:
 - Guarantee that every avatar supports every animation.
 - Sell NFTs or provide an NFT marketplace.
 - Treat token ownership as a substitute for asset licensing.
+- Claim that a Desky unlock transfers exclusive ownership of an open-source avatar.
+- Let an agent, gateway, or renderer silently authorize a purchase or hold wallet authority.
 - Expose unrestricted local-process control in the Mac App Store build.
 - Add a social feed, character economy, or plugin marketplace before the core companion loop is reliable.
 
@@ -82,9 +84,12 @@ Desky v1 will not:
 The architecture supports a free open-source core and paid convenience without locking agent choice:
 
 - Free core companion and adapter SDK.
-- Optional paid character/animation packs with auditable licences.
+- Three permanent, fully functional free companions selected through compatibility and rights admission.
+- Optional Desky-ready avatar and animation-profile unlocks with auditable licences, provenance, updates, and support. Original source and licence remain visible; payment grants Desky service access, not exclusive copyright.
 - Optional hosted relay or synchronization service, never required for local gateways.
 - Store purchase for convenience; direct-download builds for advanced local integrations.
+
+The marketplace, motion-personality presets, free-tier promise, catalog admission, and staged rollout are specified in `docs/AVATAR-MARKETPLACE.md`. Payments are optional provider adapters behind the durable entitlement contract in `docs/COMMERCE-ENTITLEMENTS.md`; x402 is one direct-distribution rail, not the product database or agent architecture.
 
 Pricing and source licence are owner decisions. They must be settled before public beta and reflected consistently in the app, website, repositories, and store metadata.
 

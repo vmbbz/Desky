@@ -127,6 +127,24 @@ The main-process avatar asset broker fetches `projects.json`, then collection-sp
 
 Disk caching remains open. When added, exact model bytes and their provenance sidecar must be written atomically, bounded by policy, and revalidated on every read; documentation must not imply that current network loads survive offline launch.
 
+The upstream registry is a candidate source, not Desky's commercial catalog. The planned admission pipeline pins the source commit and exact record/model hashes, reviews project plus embedded VRM permissions, executes the compatibility matrix, and emits an immutable admitted revision. A separately signed presentation catalog maps those revisions to localized metadata, release-profile availability, motion-safety profiles, and opaque offer IDs. Price labels are never charge authority.
+
+Production premium delivery uses content-addressed immutable object storage/CDN with short-lived authorization and exact hash verification. GitHub, Arweave, and IPFS may remain provenance/source locations; no GitHub PAT proxy or renderer-accessible general fetch surface becomes the entitlement boundary. The full catalog contract is in `docs/AVATAR-MARKETPLACE.md`.
+
+### Commerce and entitlements
+
+Commerce is a provider-neutral service boundary, separate from gateway adapters and avatar rendering:
+
+```text
+verified offer -> human approval -> commerce provider -> durable order
+       -> append-only entitlement grant -> short-lived access JWT
+       -> authorized immutable asset -> main-process verification/cache
+```
+
+Free, StoreKit, Microsoft commerce, x402 Base/Solana, promotion, and support grants project into the same product entitlement model. Payment settlement never writes access directly, and a JWT is never the durable purchase record. The entitlement service owns idempotent orders, reconciliation, refunds/revocations, restore, key rotation, and bounded offline leases. Main owns OS-vault credentials and release-profile enforcement; the renderer receives only typed catalog, quote, order, and install projections.
+
+An agent-facing commerce capability is read-mostly and provider-neutral. Agents may search the catalog, inspect entitlement status, and prepare a trusted checkout deep link. They cannot supply price/network/asset/recipient authority, sign a wallet transaction, or bypass the local human approval surface. See `docs/COMMERCE-ENTITLEMENTS.md`.
+
 ### Avatar renderer
 
 - WebGL renderer with alpha enabled.

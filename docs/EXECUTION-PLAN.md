@@ -12,15 +12,18 @@ The governing rule is: parallel work may proceed when boundaries are already sta
 F1 foundation ── F2 OpenClaw core ── F3b motion foundation
                                       │
                                       ├── F3c desktop presence ── F3d resilience ── F4 daily control center ── F6 Store beta
-                                      │              │
+                                      │              │                       │
+                                      │              │                       └── F4x commerce (after free marketplace proof)
                                       │              └── packaged Windows/macOS state and performance evidence
                                       │
                                       ├── F5a generic adapter host ── Codex ── Claude ── Hermes
                                       │
-                                      └── asset lane: approved clips + binary VRM suite + persistent provenance
+                                      └── asset lane ── admitted catalog + 3 free avatars + persistent provenance
 
-F2 verification lane: remote WSS + clean pairing/rotation + macOS Keychain ────────────────────────┘
-Owner lane: licence + publisher/accounts + business/privacy/support decisions ────────────────────┘
+F4 product lane: motion personality ── payment-free marketplace ── entitlement service ── x402 Base pilot
+                                                                                     └── Solana/store providers later
+F2 verification lane: remote WSS + clean pairing/rotation + macOS Keychain ───────────────────────────┘
+Owner lane: licence + publisher/accounts + business/tax/privacy/support/merchant decisions ──────────┘
 ```
 
 ## Why F3c proceeds before Claude and Hermes
@@ -117,6 +120,26 @@ Status: queued; system reduced-motion detection already exists.
 
 This lane does not block F3c because deterministic procedural state fallbacks already exist. It blocks the final expressive-runtime and Store provenance exits.
 
+### F4 marketplace foundation
+
+- Add user-facing `Paused`, `Quiet`, `Balanced`, `Lively`, and category-based `Custom` motion policy without exposing clip filenames.
+- Define strict admitted-avatar revision and signed presentation-catalog contracts; the upstream Open Source Avatars registry remains untrusted candidate input.
+- Use real binary evidence to select three CC0 free companions across representative style/VRM/performance classes.
+- Add content-addressed cache/provenance, isolated preview, transactional activation, restart/offline recovery, and disposal tests.
+- Build the first-class Companions route with a `free` entitlement provider only. Locked/checkout states may be test fixtures only when unmistakably marked development simulation.
+
+This is the smallest credible next product slice. It deliberately contains no wallet, blockchain SDK, mainnet dependency, or premium claim. Its contracts are in `docs/AVATAR-MARKETPLACE.md`.
+
+### F4x commerce and entitlement lane
+
+- Start only after the payment-free marketplace is reliable and the owner/legal gate is assigned.
+- Build durable products/offers/orders/payment attempts/append-only entitlement events, restore/refund/support paths, strict short-lived JWT access, JWKS rotation, and bounded offline lease before a payment adapter.
+- Add x402 v2/Base Sepolia exact-USDC conformance, then a capped direct-build mainnet pilot after facilitator/merchant/tax/incident review.
+- Add Solana only after Base operations prove demand and reliability; add StoreKit/Microsoft providers per the release-profile matrix.
+- Keep provider-neutral agent catalog discovery separate from gateway transports. An agent may prepare checkout, but a trusted local human surface authorizes every payment.
+
+F4x must not block the free companion or adapter platform. Its complete contract and failure matrix are in `docs/COMMERCE-ENTITLEMENTS.md`.
+
 ### F2 verification completion
 
 - Verify cancellation while assistant text is streaming.
@@ -141,7 +164,8 @@ Store submission remains downstream of engineering and owner-controlled inputs:
 
 - select the Desky source-code licence;
 - establish publisher legal identity and Apple/Microsoft accounts;
-- choose the commercial model, hosted-relay policy, NFT-origin catalog policy, and supported OS versions;
+- choose avatar offers/prices, tax/merchant/refund/account policy, hosted-relay policy, NFT-origin source-catalog policy, and supported OS versions;
+- choose merchant wallet custody, production facilitator, selling regions, and whether Mac App Store is free-only or StoreKit-enabled;
 - provide privacy, support, and security-contact URLs;
 - create signing/notarization and MSIX/Mac App Store pipelines;
 - resolve the Electron Forge development-tool advisory chain without applying npm's incompatible forced downgrade;

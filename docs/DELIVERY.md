@@ -268,7 +268,11 @@ Deliverables:
 
 - Onboarding and runtime connection management.
 - Accessible transcript and approval center.
-- Avatar browser with licence/attribution views.
+- First-class Companions marketplace route with search, filters, detail, isolated preview, licence/attribution/source, install/update state, and transactional activation.
+- Motion-personality controls: Paused, Quiet, Balanced, Lively, and accessible category-based Custom behavior.
+- Three permanent CC0 free companions selected from binary rights/compatibility/performance evidence, not placeholder catalog records.
+- Signed normalized catalog and admitted-revision schemas, content-addressed cache, provenance sidecars, offline restore, and corrupt-cache recovery.
+- Commerce-neutral entitlement provider boundary whose first and only implementation is `free`; paid UI fixtures remain visibly development-only.
 - Window placement, tray, click-through, hotkeys, and notification controls.
 - Cache, privacy, deletion, and diagnostic export controls.
 
@@ -277,6 +281,56 @@ Exit gate:
 - Full keyboard and screen-reader critical path.
 - Multi-monitor and sleep/wake recovery tests.
 - No security-sensitive action depends solely on animation.
+- Three admitted avatars pass the packaged VRM 0.x/1.0, animation-state, replacement, GPU, provenance, restart, offline, and disposal matrix on supported Windows/macOS devices.
+- Twenty consecutive avatar switches produce no leak, crash, stale entitlement, or loss of the previously working companion.
+
+The authoritative marketplace plan is `docs/AVATAR-MARKETPLACE.md`. F4 does not require blockchain code and must prove the catalog/product value before F4x begins.
+
+## F4x — commerce and entitlement program
+
+F4x is downstream of the free marketplace foundation and can progress beside later adapter work without coupling commerce to a gateway provider.
+
+### F4x.0 owner/legal gate
+
+- Publisher/selling entity, source licence, service terms, selling regions, tax strategy, privacy/support/refund policy, merchant custody, and storefront posture are named decisions.
+- Public language says `Unlock for Desky`; source/licence/attribution remain visible and no exclusive-ownership claim is made.
+- Mac App Store chooses StoreKit products or free-only launch; direct distribution is never described as store bypass.
+
+### F4x.1 durable entitlement service
+
+- Product, offer, exact-price quote, order, payment attempt, append-only entitlement event, asset grant, refund, and audit contracts.
+- Short-lived signed access JWT with strict issuer/audience/algorithm/type validation, JWKS rotation, OS-vault refresh, and bounded offline lease.
+- Restore, support grant, device recovery, takedown, refund/revocation, and idempotent reconciliation.
+- No production payment provider in this slice.
+
+Exit: adversarial contract suite and clean-device restore pass; JWT is demonstrably not the durable ledger.
+
+### F4x.2 x402 Base direct-build pilot
+
+- Pin and audit x402 v2; pass Base Sepolia exact-USDC success/failure/replay/expiry/duplicate/callback-loss tests.
+- Trusted human approval shows verified product, amount, USDC asset, CAIP-2 network, merchant recipient, expiry, and grant.
+- Select and operationally review a production facilitator; merchant credentials remain server-side.
+- Mainnet starts as a capped direct Windows/macOS canary only.
+
+Exit: purchase, restore, delivery failure recovery, refund/support correction, monitoring, and incident rollback pass with zero agent/wallet-key custody.
+
+### F4x.3 additional rails and storefronts
+
+- Add Solana only after Base operations and demand justify the second rail; reuse the exact order/entitlement semantics.
+- Add StoreKit for Mac App Store paid content and Microsoft commerce only if chosen; enforce provider unreachability in disabled profiles.
+- Reverify current Apple/Microsoft rules immediately before submission.
+
+Exit: one product grant behaves consistently across enabled providers and every packaged release profile exposes only allowed commerce.
+
+### F4x.4 agent discovery
+
+- Provider-neutral read-only catalog and entitlement tools plus prepare-checkout deep link.
+- OpenClaw is the first conformance adapter; later Claude/Hermes/Codex adapters map native discovery into the same capability.
+- Every payment requires the independent local human approval; model-supplied price/network/asset/recipient is ignored.
+
+Exit: adversarial prompt/tool tests prove the agent can recommend and prepare but cannot spend or mutate commerce authority.
+
+The security and protocol authority is `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ## F5 — additional runtimes
 
@@ -319,19 +373,22 @@ These decisions are deliberately not guessed:
 
 1. Source-code licence and whether commercial forks must contribute changes.
 2. Publisher legal entity and store accounts.
-3. Free, paid, freemium, or supporter-funded model.
+3. Final avatar offer types/prices, free-tier commitment, tax/merchant-of-record strategy, refund policy, and selling regions.
 4. Whether Desky operates a hosted relay.
-5. Whether NFT-origin collections appear in Store builds.
+5. Whether NFT-origin source collections appear as ordinary licensed assets in Store builds; token ownership remains irrelevant and no NFT marketplace is planned.
 6. Security and support contact addresses.
 7. Minimum supported OS versions after hardware testing.
+8. Merchant wallet custody, production x402 facilitator, account/wallet recovery, and offline-lease policy.
+9. Whether the Mac App Store launches free-only or with StoreKit avatar products.
 
 ## Immediate next rounds
 
-1. Complete the remaining local-VRMA matrix by interrupting active playback with a newly entered authoritative companion state and repeat the packaged lane on macOS.
-2. Package-review the revised idle/thinking/speaking semantics and the Phone Check/Formal Walk/Dance Break autonomous bag on Milk; run a separate live Wave invocation.
-3. Start F5a generic adapter-host extraction from the implemented capability slice before a second production adapter or final F4 connection management; OpenClaw must remain the first conformance implementation.
-4. In parallel, finish visual admission of the approved Quaternius library, build the binary VRM 0.x/1.0 suite, and persist provenance-bearing cache records.
-5. Complete response-stream interruption, remote `wss://`, clean pairing/rotation, and macOS Keychain verification.
-6. Establish reference Windows and macOS devices for performance, packaging, and lifecycle evidence.
+1. Implement motion-personality presets/categories and prove reduced-motion/ownership behavior on the current admitted motion library.
+2. Implement strict admitted-avatar and signed-presentation catalog schemas, then use binary evidence to select the three CC0 free companions.
+3. Build the payment-free Companions route, provenance/licence views, isolated preview, content-addressed cache, and transactional activation with a `free` entitlement provider only.
+4. Complete the remaining local-VRMA interruption, live Wave, revised state semantics, representative binary VRM 0.x/1.0, and macOS packaged matrices alongside the catalog work.
+5. Start F5a generic adapter-host extraction before a second production adapter or final connection UX; keep commerce capability separate and make OpenClaw the first action/discovery conformance implementation.
+6. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
+7. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

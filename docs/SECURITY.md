@@ -24,6 +24,9 @@ Desky processes untrusted agent text, tool metadata, avatar files, catalog JSON,
 - The companion cannot animate an approval as accepted before runtime acknowledgement.
 - Dangerous permission modes require explicit onboarding disclosure and persistent visible status.
 - Agent-originated avatar actions require an exact registered tool, selected session, live turn, bounded deduplication identity, and a finite Wave/Jump enum. Other arguments are discarded before IPC; text never selects motion.
+- Agent-originated commerce is recommendation/preparation only. The trusted offer is reloaded independently of model text; price, stablecoin, network, recipient, expiry, and grant scope come only from the commerce service and require explicit human approval.
+- Payment settlement, durable entitlement, short-lived JWT authorization, and asset delivery are separate trust decisions. JWTs never replace the append-only order/entitlement ledger.
+- Release profiles fail closed: a commerce provider disabled for Mac App Store, Microsoft Store, region, or runtime eligibility has no renderer route or main-process command, not merely a hidden button.
 - Visual-only actions are reversible and local. Any future action with external side effects must use the runtime's ordinary tool and approval authority instead of this lane.
 
 ## Local process supervision

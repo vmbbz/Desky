@@ -152,6 +152,12 @@ Animation is composed from explicit layers:
 - Reduced-motion mode removes travel, bounce, and full-body loops. It retains a static pose change, text, and a short opacity transition where allowed.
 - Pause animation freezes on a neutral readable pose and suspends the render loop where possible.
 
+### Motion personality controls
+
+Normal users choose `Paused`, `Quiet`, `Balanced`, `Lively`, or `Custom`, not individual animation filenames. `Balanced` is the default. `Custom` exposes simple levels for Presence, Conversation, Reactions, Playful, and Locomotion/Fantasy plus a calmness/frequency control. The complete policy and category meanings are defined in `docs/AVATAR-MARKETPLACE.md`.
+
+The setting changes decorative cadence and eligible semantic programs, never normalized state truth or safety priority. System/in-app reduced motion remains stricter than every personality preset. Per-avatar compatibility profiles may remove unsafe categories or programs. Explicit typed user/agent actions remain deliberate and bounded; a lively preset does not authorize a gateway or model to select arbitrary clips.
+
 ## Dialogue and input
 
 ### Speech bubble
