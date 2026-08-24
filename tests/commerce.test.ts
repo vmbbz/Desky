@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   appendEntitlementEvent,
+  parseAssetGrant,
   parseCommerceOffer,
   parseCommerceOrder,
   parseCommerceProduct,
   parseEntitlementEvent,
   parsePaymentAttempt,
+  parseVerifiedCommerceQuote,
   projectEntitlement,
   resolveCommerceRuntimePolicy,
   transitionCommerceOrder,
@@ -22,6 +24,7 @@ function order(overrides: Partial<CommerceOrder> = {}): CommerceOrder {
   return {
     schemaVersion: 1,
     orderId: 'order:1',
+    quoteId: 'quote:1',
     accountId: 'account:1',
     offerId: 'offer:banana',
     offerRevision: 1,
@@ -40,6 +43,7 @@ function attempt(overrides: Partial<PaymentAttempt> = {}): PaymentAttempt {
     schemaVersion: 1,
     attemptId: 'attempt:1',
     orderId: 'order:1',
+    quoteId: 'quote:1',
     provider: 'x402-base',
     quoteExpiresAt: '2026-08-24T20:05:00.000Z',
     state: 'created',
@@ -85,6 +89,52 @@ describe('commerce contracts', () => {
       endsAt: '2026-09-24T20:00:00.000Z',
       state: 'active',
     }).providers).toEqual(['x402-base']);
+  });
+
+  it('binds verified quotes to exact provider settlement terms', () => {
+    const quote = parseVerifiedCommerceQuote({
+      schemaVersion: 1,
+      quoteId: 'quote:1',
+      accountId: 'account:1',
+      offerId: 'offer:banana',
+      offerRevision: 1,
+      productId: 'avatar:banana',
+      productRevision: 1,
+      avatarRevisionIds: ['banana:revision:1'],
+      catalogVersion: 'catalog:2026-08-24',
+      provider: 'x402-base',
+      releaseProfile: 'windows-direct',
+      region: 'ZA',
+      currency: 'USDC',
+      amountAtomic: '1000000',
+      network: 'eip155:84532',
+      asset: '0x0000000000000000000000000000000000000001',
+      recipient: '0x0000000000000000000000000000000000000002',
+      issuedAt: createdAt,
+      expiresAt: '2026-08-24T20:05:00.000Z',
+    });
+    expect(quote.network).toBe('eip155:84532');
+    expect(() => parseVerifiedCommerceQuote({ ...quote, recipient: undefined }))
+      .toThrow('requires exact network, asset, and recipient');
+    expect(() => parseVerifiedCommerceQuote({
+      ...quote,
+      provider: 'microsoft',
+    })).toThrow('cannot contain x402 settlement terms');
+  });
+
+  it('parses an exact revision-bound asset grant', () => {
+    expect(parseAssetGrant({
+      schemaVersion: 1,
+      grantId: 'grant:1',
+      accountId: 'account:1',
+      productId: 'avatar:banana',
+      productRevision: 1,
+      avatarRevisionIds: ['banana:revision:1'],
+      entitlementEventId: 'event:1',
+      catalogVersion: 'catalog:2026-08-24',
+      state: 'active',
+      issuedAt: createdAt,
+    }).avatarRevisionIds).toEqual(['banana:revision:1']);
   });
 
   it('rejects unknown fields, duplicate revisions, and non-payment offer sources', () => {

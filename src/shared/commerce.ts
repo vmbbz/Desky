@@ -49,6 +49,28 @@ export interface CommerceOffer {
   state: CommerceOfferState;
 }
 
+export interface VerifiedCommerceQuote {
+  schemaVersion: 1;
+  quoteId: string;
+  accountId: string;
+  offerId: string;
+  offerRevision: number;
+  productId: string;
+  productRevision: number;
+  avatarRevisionIds: string[];
+  catalogVersion: string;
+  provider: Exclude<CommerceProviderId, 'free' | 'support'>;
+  releaseProfile: CommerceReleaseProfile;
+  region: string;
+  currency: string;
+  amountAtomic: string;
+  network?: string;
+  asset?: string;
+  recipient?: string;
+  issuedAt: string;
+  expiresAt: string;
+}
+
 export const commerceOrderStates = [
   'created',
   'awaiting-approval',
@@ -65,6 +87,7 @@ export type CommerceOrderState = (typeof commerceOrderStates)[number];
 export interface CommerceOrder {
   schemaVersion: 1;
   orderId: string;
+  quoteId: string;
   accountId: string;
   offerId: string;
   offerRevision: number;
@@ -83,6 +106,7 @@ export interface PaymentAttempt {
   schemaVersion: 1;
   attemptId: string;
   orderId: string;
+  quoteId: string;
   provider: CommerceProviderId;
   providerReference?: string;
   network?: string;
@@ -120,6 +144,23 @@ export interface EntitlementProjection {
   status: 'not-granted' | 'granted' | 'expired';
   lastEventId?: string;
   source?: CommerceProviderId;
+  expiresAt?: string;
+}
+
+export const assetGrantStates = ['active', 'suspended', 'revoked', 'expired'] as const;
+export type AssetGrantState = (typeof assetGrantStates)[number];
+
+export interface AssetGrant {
+  schemaVersion: 1;
+  grantId: string;
+  accountId: string;
+  productId: string;
+  productRevision: number;
+  avatarRevisionIds: string[];
+  entitlementEventId: string;
+  catalogVersion: string;
+  state: AssetGrantState;
+  issuedAt: string;
   expiresAt?: string;
 }
 
@@ -262,9 +303,67 @@ export function parseCommerceOffer(value: unknown): CommerceOffer {
   return offer;
 }
 
+export function parseVerifiedCommerceQuote(value: unknown): VerifiedCommerceQuote {
+  const source = readExactRecord(value, [
+    'schemaVersion', 'quoteId', 'accountId', 'offerId', 'offerRevision', 'productId',
+    'productRevision', 'avatarRevisionIds', 'catalogVersion', 'provider', 'releaseProfile', 'region',
+    'currency', 'amountAtomic',
+    'network', 'asset', 'recipient', 'issuedAt', 'expiresAt',
+  ], 'verified quote');
+  if (source.schemaVersion !== 1) throw new Error('Invalid commerce verified quote.');
+  const provider = readEnum(source.provider, commerceProviderIds, 'quote provider');
+  if (provider === 'free' || provider === 'support') {
+    throw new Error('A verified quote requires a payment provider.');
+  }
+  const region = readString(source.region, 'quote region', 2);
+  const currency = readString(source.currency, 'quote currency', 12);
+  const amountAtomic = readString(source.amountAtomic, 'quote atomic amount', 39);
+  const quote: VerifiedCommerceQuote = {
+    schemaVersion: 1,
+    quoteId: readIdentifier(source.quoteId, 'quote ID'),
+    accountId: readIdentifier(source.accountId, 'account ID'),
+    offerId: readIdentifier(source.offerId, 'offer ID'),
+    offerRevision: readRevision(source.offerRevision, 'offer revision'),
+    productId: readIdentifier(source.productId, 'product ID'),
+    productRevision: readRevision(source.productRevision, 'product revision'),
+    avatarRevisionIds: readUniqueIdentifiers(source.avatarRevisionIds, 'quote avatar revision IDs', 1_000),
+    catalogVersion: readIdentifier(source.catalogVersion, 'catalog version'),
+    provider,
+    releaseProfile: readEnum(source.releaseProfile, commerceReleaseProfiles, 'release profile'),
+    region,
+    currency,
+    amountAtomic,
+    network: source.network === undefined ? undefined : readString(source.network, 'quote network', 120),
+    asset: source.asset === undefined ? undefined : readString(source.asset, 'quote asset', 160),
+    recipient: source.recipient === undefined
+      ? undefined : readString(source.recipient, 'quote recipient', 160),
+    issuedAt: readTimestamp(source.issuedAt, 'quote issue timestamp'),
+    expiresAt: readTimestamp(source.expiresAt, 'quote expiry'),
+  };
+  if (!regionPattern.test(quote.region)
+    || !currencyPattern.test(quote.currency)
+    || !atomicAmountPattern.test(quote.amountAtomic)) {
+    throw new Error('Invalid commerce verified quote amount or region.');
+  }
+  if (Date.parse(quote.expiresAt) <= Date.parse(quote.issuedAt)) {
+    throw new Error('Commerce quote expiry must be after issue time.');
+  }
+  const hasChainTerms = quote.network !== undefined
+    || quote.asset !== undefined
+    || quote.recipient !== undefined;
+  if (quote.provider === 'x402-base' || quote.provider === 'x402-solana') {
+    if (!quote.network || !quote.asset || !quote.recipient) {
+      throw new Error('An x402 quote requires exact network, asset, and recipient terms.');
+    }
+  } else if (hasChainTerms) {
+    throw new Error('A native-store quote cannot contain x402 settlement terms.');
+  }
+  return quote;
+}
+
 export function parseCommerceOrder(value: unknown): CommerceOrder {
   const source = readExactRecord(value, [
-    'schemaVersion', 'orderId', 'accountId', 'offerId', 'offerRevision', 'idempotencyKey',
+    'schemaVersion', 'orderId', 'quoteId', 'accountId', 'offerId', 'offerRevision', 'idempotencyKey',
     'currency', 'amountAtomic', 'state', 'createdAt', 'updatedAt',
   ], 'order');
   if (source.schemaVersion !== 1) throw new Error('Invalid commerce order.');
@@ -276,6 +375,7 @@ export function parseCommerceOrder(value: unknown): CommerceOrder {
   const order: CommerceOrder = {
     schemaVersion: 1,
     orderId: readIdentifier(source.orderId, 'order ID'),
+    quoteId: readIdentifier(source.quoteId, 'quote ID'),
     accountId: readIdentifier(source.accountId, 'account ID'),
     offerId: readIdentifier(source.offerId, 'offer ID'),
     offerRevision: readRevision(source.offerRevision, 'offer revision'),
@@ -294,7 +394,7 @@ export function parseCommerceOrder(value: unknown): CommerceOrder {
 
 export function parsePaymentAttempt(value: unknown): PaymentAttempt {
   const source = readExactRecord(value, [
-    'schemaVersion', 'attemptId', 'orderId', 'provider', 'providerReference', 'network',
+    'schemaVersion', 'attemptId', 'orderId', 'quoteId', 'provider', 'providerReference', 'network',
     'asset', 'recipient', 'quoteExpiresAt', 'state',
   ], 'payment attempt');
   if (source.schemaVersion !== 1) throw new Error('Invalid commerce payment attempt.');
@@ -306,6 +406,7 @@ export function parsePaymentAttempt(value: unknown): PaymentAttempt {
     schemaVersion: 1,
     attemptId: readIdentifier(source.attemptId, 'attempt ID'),
     orderId: readIdentifier(source.orderId, 'order ID'),
+    quoteId: readIdentifier(source.quoteId, 'quote ID'),
     provider,
     providerReference: source.providerReference === undefined
       ? undefined : readString(source.providerReference, 'provider reference', 256),
@@ -345,6 +446,31 @@ export function parseEntitlementEvent(value: unknown): EntitlementEvent {
     throw new Error('Entitlement expiry must be after its effective time.');
   }
   return event;
+}
+
+export function parseAssetGrant(value: unknown): AssetGrant {
+  const source = readExactRecord(value, [
+    'schemaVersion', 'grantId', 'accountId', 'productId', 'productRevision',
+    'avatarRevisionIds', 'entitlementEventId', 'catalogVersion', 'state', 'issuedAt', 'expiresAt',
+  ], 'asset grant');
+  if (source.schemaVersion !== 1) throw new Error('Invalid commerce asset grant.');
+  const grant: AssetGrant = {
+    schemaVersion: 1,
+    grantId: readIdentifier(source.grantId, 'grant ID'),
+    accountId: readIdentifier(source.accountId, 'account ID'),
+    productId: readIdentifier(source.productId, 'product ID'),
+    productRevision: readRevision(source.productRevision, 'product revision'),
+    avatarRevisionIds: readUniqueIdentifiers(source.avatarRevisionIds, 'avatar revision IDs', 1_000),
+    entitlementEventId: readIdentifier(source.entitlementEventId, 'entitlement event ID'),
+    catalogVersion: readIdentifier(source.catalogVersion, 'catalog version'),
+    state: readEnum(source.state, assetGrantStates, 'asset grant state'),
+    issuedAt: readTimestamp(source.issuedAt, 'asset grant issue timestamp'),
+    expiresAt: readOptionalTimestamp(source.expiresAt, 'asset grant expiry'),
+  };
+  if (grant.expiresAt && Date.parse(grant.expiresAt) <= Date.parse(grant.issuedAt)) {
+    throw new Error('Asset grant expiry must be after issue time.');
+  }
+  return grant;
 }
 
 const orderTransitions: Record<CommerceOrderState, readonly CommerceOrderState[]> = {

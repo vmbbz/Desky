@@ -6,7 +6,7 @@ Desky needs one durable answer to a simple question: “May this account/device 
 
 Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
 
-## Implemented foundation — F4x.1a, 2026-08-24
+## Implemented foundation — F4x.1a–b, 2026-08-24
 
 The first executable slice is deliberately provider-disabled:
 
@@ -15,8 +15,11 @@ The first executable slice is deliberately provider-disabled:
 - Entitlement events append without mutation. Exact event replay is idempotent; event-ID collisions and duplicate source/type references fail. Projection handles time-bounded grants, refunds/revocations/expiry, and explicit support restoration without treating payment or a JWT as the ledger.
 - `src/main/commerce/access-token.ts` verifies compact Ed25519 JWS tokens with exact `alg=EdDSA`, `typ=desky-access+jwt`, admitted `kid`, issuer, audience, numeric-date, maximum-lifetime, scope, grant, and claim-field policy. Signature verification occurs before claims are interpreted. Unknown claims, algorithm confusion, wrong keys, tampering, future/expired/overlong tokens, duplicate scopes/grants, and oversized encodings fail closed.
 - The runtime commerce policy resolves the four Windows/macOS direct/store release profiles but enables only `free`. StoreKit, Microsoft, x402 Base, x402 Solana, support mutation, external checkout, and production payments remain unreachable.
+- F4x.1b adds an exact authoritative quote that binds account, offer/product/catalog revisions, exact avatar revisions, provider, release profile, region, atomic amount, expiry, and provider settlement terms. x402 quotes require network/asset/recipient together; native-store quotes reject those chain fields.
+- An asset grant now binds one entitlement event to exact product/catalog/avatar revisions and an explicit delivery state.
+- `src/service/commerce/sqlite-commerce-ledger.ts` is a service-side conformance repository, not an Electron or production-hosted database adapter. It uses strict tables, foreign/unique constraints, WAL, full synchronization, compare-and-swap transitions, exact idempotent replay, and one transaction for verified payment settlement, order grant, entitlement event, and asset grant. Tests prove rollback and close/reopen durability.
 
-This is not yet the durable network service. JWKS retrieval/rotation, refresh credentials in the OS vault, durable storage/transactions, clean-device restore, offline leases, quotes, reconciliation, asset grants, and every payment provider remain open. No checkout or paid UI is exposed.
+This is not yet the deployed durable network service. The SQLite adapter proves repository semantics locally; production still requires a hosted transactional database adapter, migrations/backups, authenticated service API, JWKS retrieval/rotation, refresh credentials in the OS vault, clean-device restore, offline leases, reconciliation workers, and operational evidence. Every payment provider remains open. No checkout or paid UI is exposed.
 
 The current protocol authority is x402 v2. Its HTTP transport uses `PAYMENT-REQUIRED` and `PAYMENT-SIGNATURE`; `PaymentRequirements.amount` is an atomic-unit string, networks use CAIP-2, and verify/settle are distinct facilitator operations. Desky will admit only the exact Base pair selected by server and release policy after F4x.1 completes; it will not infer v2 from legacy v1 headers or wallet callbacks.
 
@@ -63,11 +66,14 @@ interface Offer {
 
 Prices are authoritative only in a server-issued quote or native store product response. Catalog price labels are display hints and must never authorize a charge.
 
+The executable `VerifiedCommerceQuote` binds the account, exact offer/product/catalog revisions, exact avatar revisions, release profile, region, payment provider, atomic amount, issue/expiry times, and—only for x402—the exact network, asset, and recipient. Orders and payment attempts both carry its `quoteId`; independently supplied renderer or agent terms never become authority.
+
 ### Order and payment attempt
 
 ```ts
 interface Order {
   orderId: string;
+  quoteId: string;
   accountId: string;
   offerId: string;
   offerRevision: number;
@@ -91,6 +97,7 @@ interface Order {
 interface PaymentAttempt {
   attemptId: string;
   orderId: string;
+  quoteId: string;
   provider: CommerceProviderId;
   providerReference?: string;
   network?: string;
@@ -126,6 +133,22 @@ The projection answers whether a product is currently granted. It never mutates 
 ### Asset grant
 
 A product entitlement maps to explicit admitted avatar revision IDs. This lets Desky update presentation metadata without silently changing the exact model bytes a perpetual buyer received. Security/takedown updates can suspend delivery while preserving the audit trail and defined customer remedy.
+
+The executable grant also binds `productRevision`, `entitlementEventId`, `catalogVersion`, issue/expiry, and `active | suspended | revoked | expired`. The atomic settlement transaction accepts only an active grant whose account, product, product revision, avatar revisions, event, and issue time exactly match the verified quote and entitlement event.
+
+### Transactional repository semantics
+
+The conformance repository proves the minimum behavior every production adapter must match:
+
+- quote, order, attempt, event, and grant identifiers are immutable; exact replay succeeds and collisions fail;
+- account/idempotency keys and provider references are unique;
+- order/attempt state changes use compare-and-swap to detect concurrent writers;
+- settlement requires `awaiting-settlement` plus a `verified` attempt before quote expiry;
+- quote, order, attempt, settlement evidence, entitlement event, and asset grant must match exactly;
+- payment `settled`, order `granted`, the append-only event, and the asset grant commit in one transaction or all roll back;
+- close/reopen retains the exact ledger and cannot issue a second grant for an exact replay.
+
+SQLite is used only for deterministic local conformance and crash/reopen testing. The hosted service must implement these invariants with a production-supported transactional database, migration discipline, backups, restore drills, and multi-instance concurrency tests.
 
 ## Access tokens
 
@@ -224,14 +247,14 @@ The Mac App Store provider uses StoreKit products and server-verifiable transact
 
 ### Microsoft provider
 
-The Microsoft Store profile may use the third-party x402 provider if current policy, declaration, certification, regional legal review, and review notes approve it. A Microsoft commerce provider can be added behind the same interface if the owner chooses Store-managed checkout. Direct Windows uses x402 without inheriting Store-specific APIs.
+Microsoft Store policy 7.19 currently permits secure third-party purchase APIs for digital goods in non-game PC apps, but it does not specifically pre-approve x402. Initiating cryptocurrency transactions brings company-account and financial-transaction requirements. The initial Microsoft Store release is therefore free-only. A later Store profile may enable x402 only after then-current policy, company identity, declarations, certification, regional legal review, reviewer notes, explicit provider/authentication/confirmation controls, and marketplace/content obligations pass. A Microsoft commerce provider remains interchangeable. Direct Windows uses its own reviewed x402 capability without inheriting Store APIs. See `docs/research/MICROSOFT-STORE-X402-POLICY-2026-08-24.md`.
 
 ## Release-profile capability matrix
 
 | Profile | Free | x402 Base | x402 Solana | Native store commerce | External checkout UI |
 | --- | --- | --- | --- | --- | --- |
 | Windows direct | yes | planned | later | no | planned |
-| Microsoft Store | yes | certification-gated | certification-gated | optional | policy-gated |
+| Microsoft Store | yes | disabled for initial release; later certification-gated | disabled | optional later | disabled for initial release |
 | macOS direct | yes | planned | later | no | planned |
 | Mac App Store | yes | disabled by default | disabled by default | StoreKit if premium ships | disabled unless eligible entitlement exists |
 

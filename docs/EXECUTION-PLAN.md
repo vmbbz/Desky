@@ -142,7 +142,9 @@ This is the smallest credible next product slice. It deliberately contains no wa
 - Add Solana only after Base operations prove demand and reliability; add StoreKit/Microsoft providers per the release-profile matrix.
 - Keep provider-neutral agent catalog discovery separate from gateway transports. An agent may prepare checkout, but a trusted local human surface authorizes every payment.
 
-Status: F4x.1a now provides strict executable product/offer/order/payment/entitlement contracts, forward-only idempotent transitions, append-only access projection, and main-process Ed25519 access-token verification. All paid providers and checkout routes remain unreachable across release profiles. Next is the durable service boundary: exact quote/asset-grant contracts, transactional repository semantics, JWKS plus OS-vault refresh, offline lease and clean-device restore. Only then does the Base Sepolia x402 v2 adapter begin.
+Status: F4x.1a–b now provide strict product/offer/order/payment/event contracts, authoritative quote and revision-bound asset-grant contracts, forward-only projection, strict Ed25519 access-token verification, and a SQLite service conformance repository proving atomic settlement/grant rollback, uniqueness, compare-and-swap, exact replay, and close/reopen durability. This repository is not the production hosted service and is absent from Electron's import graph. All paid providers and checkout routes remain unreachable. Next: production repository/API boundary, JWKS plus OS-vault rotating refresh, bounded offline lease, reconciliation/restore, and clean-device evidence. Base Sepolia starts only after those F4x.1 exits.
+
+Microsoft Store launches free-only by default. Its later x402 gate follows `docs/research/MICROSOFT-STORE-X402-POLICY-2026-08-24.md`; direct Windows remains the first candidate pilot.
 
 F4x must not block the free companion or adapter platform. Its complete contract and failure matrix are in `docs/COMMERCE-ENTITLEMENTS.md`.
 

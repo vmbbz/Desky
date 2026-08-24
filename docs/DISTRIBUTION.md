@@ -51,6 +51,7 @@ The Store build remains useful and complete through authenticated remote gateway
 - Test clean install, upgrade, uninstall, protocol registration, file access, and multi-monitor behavior.
 - Store submission packages are re-signed by Microsoft; direct packages still require publisher signing.
 - Non-game third-party commerce is a planned capability, not an assumption: declare it accurately, document it in review notes, and keep x402 behind certification, regional, and legal gates. A Microsoft-commerce provider remains an interchangeable option.
+- The initial Store release is free-only. Current Microsoft policy 7.19 allows secure third-party commerce for non-game PC digital goods but does not specifically approve x402; cryptocurrency initiation also triggers company-account/financial-transaction requirements. The mandatory evidence checklist is `docs/research/MICROSOFT-STORE-X402-POLICY-2026-08-24.md`.
 
 ### Direct Windows
 
@@ -65,7 +66,7 @@ The Store build remains useful and complete through authenticated remote gateway
 | Channel | Free grants | x402 | Native store commerce | Default paid-content posture |
 | --- | --- | --- | --- | --- |
 | Windows direct | yes | planned | no | x402 after production gates |
-| Microsoft Store | yes | certification-gated | optional | third-party or Microsoft provider after review |
+| Microsoft Store | yes | disabled initially; later certification-gated | optional later | free-only launch |
 | macOS direct | yes | planned | no | x402 after production gates |
 | Mac App Store | yes | disabled by default | StoreKit | StoreKit or free-only launch |
 
