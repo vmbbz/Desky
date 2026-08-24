@@ -1,6 +1,11 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { isAbsolute, basename } from 'node:path';
 
+import {
+  createCodexProcessTreeTerminator,
+  type CodexProcessTreeTerminator,
+} from './process-tree';
+
 type RpcId = number | string;
 
 interface RpcError {
@@ -18,7 +23,13 @@ export interface CodexServerRequest extends CodexServerNotification {
   id: RpcId;
 }
 
+export interface CodexClientClose {
+  reason: string;
+  reconnectable: boolean;
+}
+
 export interface CodexProcessPort {
+  readonly pid?: number;
   readonly stdin: NodeJS.WritableStream;
   readonly stdout: NodeJS.ReadableStream;
   readonly stderr: NodeJS.ReadableStream;
@@ -68,6 +79,7 @@ export function createCodexProcessFactory(
     shell: false,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
+    detached: process.platform !== 'win32',
   }) as ChildProcessWithoutNullStreams;
 }
 
@@ -84,13 +96,15 @@ export class CodexAppServerClient {
   private readonly pending = new Map<number, PendingRequest>();
   private readonly notificationListeners = new Set<(value: CodexServerNotification) => void>();
   private readonly requestListeners = new Set<(value: CodexServerRequest) => void>();
-  private readonly closeListeners = new Set<(reason: string) => void>();
+  private readonly closeListeners = new Set<(value: CodexClientClose) => void>();
   private closing = false;
+  private termination?: Promise<void>;
 
   constructor(
     private readonly processFactory: CodexProcessFactory,
     private readonly clientVersion: string,
     private readonly requestTimeoutMs = defaultRequestTimeoutMs,
+    private readonly terminateProcessTree: CodexProcessTreeTerminator = createCodexProcessTreeTerminator(),
   ) {}
 
   async connect(): Promise<unknown> {
@@ -157,7 +171,7 @@ export class CodexAppServerClient {
     return () => this.requestListeners.delete(listener);
   }
 
-  onClose(listener: (reason: string) => void): () => void {
+  onClose(listener: (value: CodexClientClose) => void): () => void {
     this.closeListeners.add(listener);
     return () => this.closeListeners.delete(listener);
   }
@@ -173,15 +187,19 @@ export class CodexAppServerClient {
       .slice(-240);
   }
 
-  close(): void {
-    if (!this.process) return;
+  async close(): Promise<void> {
+    if (!this.process) {
+      await this.termination;
+      return;
+    }
     this.closing = true;
-    this.process.stdin.end();
-    this.process.kill('SIGTERM');
-    this.rejectPending(new Error('Codex app-server connection closed.'));
+    const child = this.process;
     this.process = undefined;
+    this.rejectPending(new Error('Codex app-server connection closed.'));
     this.stdoutBuffer = Buffer.alloc(0);
     this.stderrBuffer = Buffer.alloc(0);
+    this.termination = this.terminateProcessTree(child);
+    await this.termination;
   }
 
   private write(message: object): void {
@@ -255,16 +273,44 @@ export class CodexAppServerClient {
     const child = this.process;
     this.process = undefined;
     this.closing = true;
-    child?.kill('SIGTERM');
-    for (const listener of this.closeListeners) listener(message);
+    this.termination = child
+      ? this.terminateProcessTree(child)
+      : Promise.resolve();
+    void this.termination.then(
+      () => {
+        for (const listener of this.closeListeners) listener({ reason: message, reconnectable: false });
+      },
+      () => {
+        for (const listener of this.closeListeners) {
+          listener({
+            reason: `${message} Codex process-tree termination failed.`,
+            reconnectable: false,
+          });
+        }
+      },
+    );
   }
 
   private handleExit(code: number | null, signal: NodeJS.Signals | null): void {
     if (!this.process && this.closing) return;
     const reason = this.closing ? 'Codex app-server connection closed.' : safeExitMessage(code, signal);
+    const child = this.process;
     this.process = undefined;
     this.rejectPending(new Error(reason));
-    for (const listener of this.closeListeners) listener(reason);
+    this.termination = child ? this.terminateProcessTree(child, true) : Promise.resolve();
+    void this.termination.then(
+      () => {
+        for (const listener of this.closeListeners) listener({ reason, reconnectable: true });
+      },
+      () => {
+        for (const listener of this.closeListeners) {
+          listener({
+            reason: `${reason} Codex process-tree termination failed.`,
+            reconnectable: false,
+          });
+        }
+      },
+    );
   }
 
   private rejectPending(error: Error): void {

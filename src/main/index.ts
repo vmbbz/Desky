@@ -15,6 +15,7 @@ import { AgentAdapterRegistry } from './adapters/registry';
 import { OpenClawRuntime } from './adapters/openclaw-runtime';
 import { getDistributionProfile } from './capabilities';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
+import { installBoundedApplicationShutdown } from './bounded-shutdown';
 
 let windows: DeskyWindowManager | undefined;
 
@@ -50,10 +51,10 @@ void app.whenReady().then(() => {
   registerIpc(adapters, windowManager, codexWorkspaceGrants);
   windowManager.createInitialWindows();
 
-  app.on('before-quit', () => {
+  installBoundedApplicationShutdown(app, async () => {
     windows?.dispose();
     codexWorkspaceGrants.clear();
-    void adapters.dispose();
+    await adapters.dispose();
   });
 
   app.on('activate', () => {

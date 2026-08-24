@@ -37,4 +37,4 @@ These choices follow the official Codex app-server `cwd`, `approvalPolicy`, and 
 
 ## Next gate
 
-Bounded automatic restart/reconnect with jitter/backoff and process-tree termination evidence. The provider remains unregistered and `production: false`.
+Completed in `F5A2-CODEX-LIFECYCLE-2026-08-24.md`: bounded automatic restart/reconnect and real Windows process-tree termination evidence. The provider remains unregistered and `production: false`.

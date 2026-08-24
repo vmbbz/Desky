@@ -2,7 +2,7 @@
 
 ## Scope and claim boundary
 
-This round implements and tests the provider runtime behind the generic port, but does not register or expose it. Codex remains direct-only, `production: false`, reconnect unavailable, and typed agent actions unavailable.
+This round implements and tests the provider runtime behind the generic port, but does not register or expose it. Codex remains direct-only, `production: false`, and typed agent actions unavailable. Bounded reconnect was completed by the later lifecycle gate recorded in `F5A2-CODEX-LIFECYCLE-2026-08-24.md`.
 
 ## Executable and schema admission
 
@@ -38,7 +38,7 @@ This round implements and tests the provider runtime behind the generic port, bu
 
 ## Remaining admission gates
 
-- Bounded automatic restart/reconnect and process-tree termination evidence.
+- ~~Bounded automatic restart/reconnect and process-tree termination evidence.~~ Completed in `F5A2-CODEX-LIFECYCLE-2026-08-24.md`.
 - Stable structured Desky action discovery or truthful continued unsupported status.
 - Direct-profile connection UI and registry admission only after the above.
 - Packaged authenticated real turn, assistant stream, tool approval allow/deny, interruption during tool execution, recovery, CLI upgrade mismatch, and process-crash matrix on Windows and macOS.

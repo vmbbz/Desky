@@ -10,6 +10,7 @@ import {
 } from '../src/main/codex/app-server-client';
 
 class FixtureProcess extends EventEmitter implements CodexProcessPort {
+  readonly pid = 9_001;
   readonly stdin = new PassThrough();
   readonly stdout = new PassThrough();
   readonly stderr = new PassThrough();
@@ -47,7 +48,12 @@ class FixtureProcess extends EventEmitter implements CodexProcessPort {
 
 async function initializedClient() {
   const process = new FixtureProcess();
-  const client = new CodexAppServerClient(() => process, '0.1.0', 100);
+  const client = new CodexAppServerClient(
+    () => process,
+    '0.1.0',
+    100,
+    async (root) => { root.kill('SIGKILL'); },
+  );
   const connection = client.connect();
   expect(process.received[0]).toEqual({
     id: 1,
@@ -67,7 +73,7 @@ describe('CodexAppServerClient', () => {
     expect(process.received[2]).toEqual({ id: 2, method: 'thread/list', params: { limit: 20 } });
     process.send({ id: 2, result: { data: [{ id: 'thread-1' }] } });
     await expect(result).resolves.toEqual({ data: [{ id: 'thread-1' }] });
-    client.close();
+    await client.close();
     expect(process.killed).toBe(true);
   });
 
@@ -117,10 +123,18 @@ describe('CodexAppServerClient', () => {
     process.stdout.write('not-json\n');
     await expect(pending).rejects.toThrow('emitted invalid JSON');
     expect(process.killed).toBe(true);
-    expect(close).toHaveBeenCalledWith('Codex app-server emitted invalid JSON.');
+    expect(close).toHaveBeenCalledWith({
+      reason: 'Codex app-server emitted invalid JSON.',
+      reconnectable: false,
+    });
 
     const oversizedProcess = new FixtureProcess();
-    const oversized = new CodexAppServerClient(() => oversizedProcess, '0.1.0');
+    const oversized = new CodexAppServerClient(
+      () => oversizedProcess,
+      '0.1.0',
+      20_000,
+      async (root) => { root.kill('SIGKILL'); },
+    );
     const connecting = oversized.connect();
     oversizedProcess.stdout.write('x'.repeat(1_048_577));
     await expect(connecting).rejects.toThrow('oversized JSONL message');
