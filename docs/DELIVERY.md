@@ -417,6 +417,8 @@ Exit: purchase, restore, delivery failure recovery, refund/support correction, m
 
 Status: F4x.2a is locally implemented and provider-disabled. The official v2 wire shape is pinned at x402 Foundation revision `aeb0fddd2f9131a46f8f7ee93aca3fca4da98401`; a strict service-only adapter admits only exact EIP-3009 Base Sepolia USDC for an authoritative short-lived `windows-direct` quote and configured merchant. Contract tests cover wrong network/asset/recipient/profile/currency, payload/resource mutation, authorization lifetime, facilitator capability, redirects, content type, size, timeout, payer, and amount. The public testnet facilitator advertised v2 exact Base Sepolia during a live discovery probe. No payment ran. Next: durable unknown/settled evidence and reconciliation, server checkout/browser-wallet handoff, then a funded Base Sepolia matrix.
 
+F4x.2b is locally implemented: immutable authorization evidence is separate from append-only settlement observations; timeout/callback loss remains unknown, pending and transaction reuse are explicit, terminal state cannot regress, unresolved payment blocks retry/order closure, and only exact settled evidence can atomically issue an entitlement/grant. The production repository port carries the same records. No funded payment ran. Next: hosted checkout endpoints and explicit browser/wallet handoff, followed by the funded Base Sepolia success/rejection/expiry/replay/timeout/callback-loss/restart matrix.
+
 ### F4x.3 additional rails and storefronts
 
 - Add Solana only after Base operations and demand justify the second rail; reuse the exact order/entitlement semantics.

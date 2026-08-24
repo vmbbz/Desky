@@ -174,6 +174,8 @@ F4x.1a–b make the contract and repository semantics executable without enablin
 
 F4x.1c adds the provider-disabled recovery boundary: exact restore/refresh/reconciliation schemas, fixed HTTPS routes, production repository interfaces, strict rotating JWKS, OS-encrypted rotating refresh state, installation-bound offline leases with pinned verification key/trusted-time checks, and an online-before-persist reconciliation coordinator. Service-only code remains outside Electron; main receives no price/payment authority and exposes no commerce IPC. ADR 0004 records the boundary and its offline-clock limitation.
 
+F4x.2a–b pin the provider-disabled Base Sepolia x402 v2 exact/EIP-3009 boundary and make indeterminate settlement durable. Verification produces immutable authorization evidence, never a transaction claim. Append-only observations monotonically reconcile timeout/callback loss through unknown/pending to settled or failed, with transaction reuse blocked across authorizations. Granting requires one exact durable settled observation; unknown/pending/settled-but-ungranted orders cannot close or retry. ADR 0005 records this correctness boundary. No wallet, checkout route, paid IPC, or production provider is enabled.
+
 An agent-facing commerce capability is read-mostly and provider-neutral. Agents may search the catalog, inspect entitlement status, and prepare a trusted checkout deep link. They cannot supply price/network/asset/recipient authority, sign a wallet transaction, or bypass the local human approval surface. See `docs/COMMERCE-ENTITLEMENTS.md`.
 
 ### Avatar renderer

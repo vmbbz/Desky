@@ -6,6 +6,10 @@ import type {
   VerifiedCommerceQuote,
 } from '../../shared/commerce';
 import type { CommerceReconciliationSnapshot } from '../../shared/commerce-recovery';
+import type {
+  PaymentAuthorizationEvidence,
+  PaymentSettlementObservation,
+} from '../../shared/commerce-settlement';
 
 export interface CommerceRefreshSessionRecord {
   sessionId: string;
@@ -35,6 +39,13 @@ export interface CommerceRepositoryReader {
   getQuote(quoteId: string): Promise<VerifiedCommerceQuote | undefined>;
   getOrder(orderId: string): Promise<CommerceOrder | undefined>;
   getPaymentAttempt(attemptId: string): Promise<PaymentAttempt | undefined>;
+  getPaymentAuthorization(authorizationId: string): Promise<PaymentAuthorizationEvidence | undefined>;
+  getSettlementObservation(
+    observationId: string,
+  ): Promise<PaymentSettlementObservation | undefined>;
+  getLatestSettlementObservation(
+    authorizationId: string,
+  ): Promise<PaymentSettlementObservation | undefined>;
   getRefreshSession(sessionId: string): Promise<CommerceRefreshSessionRecord | undefined>;
   getReconciliationSnapshot(accountId: string): Promise<CommerceReconciliationSnapshot>;
   listEntitlementEvents(accountId: string, productId?: string): Promise<EntitlementEvent[]>;
@@ -47,6 +58,12 @@ export interface CommerceRepositoryTransaction extends CommerceRepositoryReader 
   updateOrder(expected: CommerceOrder, next: CommerceOrder): Promise<void>;
   insertPaymentAttempt(attempt: PaymentAttempt): Promise<'inserted' | 'exact-replay'>;
   updatePaymentAttempt(expected: PaymentAttempt, next: PaymentAttempt): Promise<void>;
+  insertPaymentAuthorization(
+    evidence: PaymentAuthorizationEvidence,
+  ): Promise<'inserted' | 'exact-replay'>;
+  appendSettlementObservation(
+    observation: PaymentSettlementObservation,
+  ): Promise<'inserted' | 'exact-replay'>;
   appendEntitlementEvent(event: EntitlementEvent): Promise<'inserted' | 'exact-replay'>;
   insertAssetGrant(grant: AssetGrant): Promise<'inserted' | 'exact-replay'>;
   insertRefreshSession(session: CommerceRefreshSessionRecord): Promise<void>;

@@ -99,7 +99,15 @@ export interface CommerceOrder {
   updatedAt: string;
 }
 
-export const paymentAttemptStates = ['created', 'submitted', 'verified', 'settled', 'failed'] as const;
+export const paymentAttemptStates = [
+  'created',
+  'submitted',
+  'verified',
+  'settlement-unknown',
+  'settlement-pending',
+  'settled',
+  'failed',
+] as const;
 export type PaymentAttemptState = (typeof paymentAttemptStates)[number];
 
 export interface PaymentAttempt {
@@ -108,7 +116,6 @@ export interface PaymentAttempt {
   orderId: string;
   quoteId: string;
   provider: CommerceProviderId;
-  providerReference?: string;
   network?: string;
   asset?: string;
   recipient?: string;
@@ -394,7 +401,7 @@ export function parseCommerceOrder(value: unknown): CommerceOrder {
 
 export function parsePaymentAttempt(value: unknown): PaymentAttempt {
   const source = readExactRecord(value, [
-    'schemaVersion', 'attemptId', 'orderId', 'quoteId', 'provider', 'providerReference', 'network',
+    'schemaVersion', 'attemptId', 'orderId', 'quoteId', 'provider', 'network',
     'asset', 'recipient', 'quoteExpiresAt', 'state',
   ], 'payment attempt');
   if (source.schemaVersion !== 1) throw new Error('Invalid commerce payment attempt.');
@@ -408,8 +415,6 @@ export function parsePaymentAttempt(value: unknown): PaymentAttempt {
     orderId: readIdentifier(source.orderId, 'order ID'),
     quoteId: readIdentifier(source.quoteId, 'quote ID'),
     provider,
-    providerReference: source.providerReference === undefined
-      ? undefined : readString(source.providerReference, 'provider reference', 256),
     network: source.network === undefined ? undefined : readString(source.network, 'network', 120),
     asset: source.asset === undefined ? undefined : readString(source.asset, 'asset', 160),
     recipient: source.recipient === undefined ? undefined : readString(source.recipient, 'recipient', 160),
@@ -502,7 +507,9 @@ export function transitionCommerceOrder(
 const attemptTransitions: Record<PaymentAttemptState, readonly PaymentAttemptState[]> = {
   created: ['submitted', 'failed'],
   submitted: ['verified', 'failed'],
-  verified: ['settled', 'failed'],
+  verified: ['settlement-unknown', 'settlement-pending', 'settled', 'failed'],
+  'settlement-unknown': ['settlement-pending', 'settled', 'failed'],
+  'settlement-pending': ['settled', 'failed'],
   settled: [],
   failed: [],
 };

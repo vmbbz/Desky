@@ -6,7 +6,7 @@ Desky needs one durable answer to a simple question: “May this account/device 
 
 Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
 
-## Implemented foundation — F4x.1a–c, 2026-08-25
+## Implemented foundation — F4x.1a–F4x.2b, 2026-08-25
 
 The first executable slice is deliberately provider-disabled:
 
@@ -24,6 +24,7 @@ The first executable slice is deliberately provider-disabled:
 - Refresh material is main-only and OS encrypted through the existing `safeStorage` vault. Clean-device restore requires a one-time code, PKCE verifier, installation identity, and idempotency key. Every refresh rotates the credential/generation and carries a deterministic rotation ID for crash-safe service replay.
 - The distinct `desky-offline-lease+jwt` is installation-bound, revision-exact, and capped at 72 hours. Online verification pins its public key in the encrypted session so offline restart does not require JWKS. Server time and system-monotonic elapsed time detect observed rollback; a monotonic reset/offline reboot or material wall-clock rollback requires reconnection.
 - The recovery coordinator persists nothing until access token, lease, account, installation, refresh generation, catalog, exact active grants, and reconciliation all agree. No access token is persisted and recovery proofs never enter storage.
+- F4x.2b removes the old verify-as-settlement shortcut. Payment attempts now carry workflow state only; immutable authorization evidence separately binds payer/payment identifier and exact quote terms, while append-only settlement observations project `unknown | pending | settled | failed`. Unknown/pending/settled-but-ungranted orders cannot close or retry. Only a specific durable settled observation can enter the atomic entitlement-grant transaction. ADR 0005 records the indeterminate-settlement policy.
 
 This is not yet a deployed durable network service. The executable API/repository/recovery boundaries now pass local adversarial tests, but production still requires the hosted database adapter and migrations, real identity-provider PKCE flow, TLS/domain, managed signing-key custody, backups/restore drills, rate limits, reconciliation workers, monitoring, incident evidence, and clean-device hardware verification. Every payment provider remains unreachable. No checkout or paid UI is exposed.
 
@@ -105,16 +106,24 @@ interface PaymentAttempt {
   orderId: string;
   quoteId: string;
   provider: CommerceProviderId;
-  providerReference?: string;
   network?: string;
   asset?: string;
   recipient?: string;
   quoteExpiresAt: string;
-  state: "created" | "submitted" | "verified" | "settled" | "failed";
+  state:
+    | "created"
+    | "submitted"
+    | "verified"
+    | "settlement-unknown"
+    | "settlement-pending"
+    | "settled"
+    | "failed";
 }
 ```
 
 Amounts are strings in atomic units. Floating-point arithmetic is forbidden. An idempotency key is unique for account/offer/intent and prevents rapid repeated clicks or callbacks from creating duplicate orders.
+
+`PaymentAuthorizationEvidence` is not settlement. It immutably binds attempt/order/quote, payer, payment identifier, provider, exact amount/network/asset/recipient, verification time, and authorization expiry. `PaymentSettlementObservation` is append-only and additionally records `unknown | pending | settled | failed`, observation source, reconciliation ID, observation time, reason, and transaction/provider reference where known. Settled evidence requires a distinct settlement time, so delayed reconciliation preserves when payment actually settled. Unknown cannot claim a transaction; pending and settled require one.
 
 ### Entitlement ledger
 
@@ -146,12 +155,15 @@ The executable grant also binds `productRevision`, `entitlementEventId`, `catalo
 
 The conformance repository proves the minimum behavior every production adapter must match:
 
-- quote, order, attempt, event, and grant identifiers are immutable; exact replay succeeds and collisions fail;
-- account/idempotency keys and provider references are unique;
+- quote, order, attempt, authorization, observation, event, and grant identifiers are immutable; exact replay succeeds and collisions fail;
+- account/idempotency keys, provider/network/payment identifiers, reconciliation IDs, and cross-authorization provider references are unique;
 - order/attempt state changes use compare-and-swap to detect concurrent writers;
-- settlement requires `awaiting-settlement` plus a `verified` attempt before quote expiry;
+- authorization requires a submitted attempt before quote expiry and cannot itself grant;
+- timeout/callback-loss records `settlement-unknown`; monotonic reconciliation reaches pending, settled, or failed without terminal regression;
+- unknown/pending/settled-but-ungranted outcomes block cancellation, expiry, and duplicate attempts; only reconciled failure permits retry;
+- grant requires `awaiting-settlement`, a settled attempt, and the exact durable settled observation;
 - quote, order, attempt, settlement evidence, entitlement event, and asset grant must match exactly;
-- payment `settled`, order `granted`, the append-only event, and the asset grant commit in one transaction or all roll back;
+- order `paid`/`granted`, the append-only event, and the asset grant commit in one transaction or all roll back after settlement is durable;
 - close/reopen retains the exact ledger and cannot issue a second grant for an exact replay.
 
 SQLite is used only for deterministic local conformance and crash/reopen testing. The hosted service must implement these invariants with a production-supported transactional database, migration discipline, backups, restore drills, and multi-instance concurrency tests.

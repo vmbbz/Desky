@@ -12,6 +12,11 @@ import type {
   PaymentAttempt,
   VerifiedCommerceQuote,
 } from '../src/shared/commerce';
+import type {
+  PaymentAuthorizationEvidence,
+  PaymentSettlementObservation,
+  PaymentSettlementStatus,
+} from '../src/shared/commerce-settlement';
 
 const directories: string[] = [];
 const issuedAt = '2026-08-24T20:00:00.000Z';
@@ -80,6 +85,58 @@ function attempt(): PaymentAttempt {
   };
 }
 
+function authorization(
+  overrides: Partial<PaymentAuthorizationEvidence> = {},
+): PaymentAuthorizationEvidence {
+  return {
+    schemaVersion: 1,
+    authorizationId: 'authorization:1',
+    attemptId: 'attempt:1',
+    orderId: 'order:1',
+    quoteId: 'quote:1',
+    provider: 'x402-base',
+    payer: '0x0000000000000000000000000000000000000003',
+    paymentIdentifier: '0x1111111111111111111111111111111111111111111111111111111111111111',
+    network: 'eip155:84532',
+    asset: '0x0000000000000000000000000000000000000001',
+    recipient: '0x0000000000000000000000000000000000000002',
+    amountAtomic: '1000000',
+    verifiedAt: '2026-08-24T20:00:05.000Z',
+    authorizationExpiresAt: '2026-08-24T20:04:00.000Z',
+    ...overrides,
+  };
+}
+
+function observation(
+  status: PaymentSettlementStatus,
+  overrides: Partial<PaymentSettlementObservation> = {},
+): PaymentSettlementObservation {
+  return {
+    schemaVersion: 1,
+    observationId: `observation:${status}`,
+    authorizationId: 'authorization:1',
+    attemptId: 'attempt:1',
+    orderId: 'order:1',
+    quoteId: 'quote:1',
+    provider: 'x402-base',
+    status,
+    source: status === 'unknown' ? 'facilitator-response' : 'facilitator-reconciliation',
+    payer: '0x0000000000000000000000000000000000000003',
+    paymentIdentifier: '0x1111111111111111111111111111111111111111111111111111111111111111',
+    network: 'eip155:84532',
+    asset: '0x0000000000000000000000000000000000000001',
+    recipient: '0x0000000000000000000000000000000000000002',
+    amountAtomic: '1000000',
+    providerReference: status === 'pending' || status === 'settled' ? 'tx:base:1' : undefined,
+    observedAt: status === 'settled'
+      ? '2026-08-24T20:00:30.000Z' : '2026-08-24T20:00:10.000Z',
+    settledAt: status === 'settled' ? '2026-08-24T20:00:30.000Z' : undefined,
+    reasonCode: status === 'unknown' ? 'settle-timeout' : status,
+    reconciliationId: `reconcile:${status}`,
+    ...overrides,
+  };
+}
+
 function event(): EntitlementEvent {
   return {
     schemaVersion: 1,
@@ -117,10 +174,12 @@ function prepareSettlement(ledger: SqliteCommerceLedger): void {
   ledger.advanceOrder('order:1', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
   ledger.createPaymentAttempt(attempt());
   ledger.advancePaymentAttempt('attempt:1', 'submitted');
-  const verified = ledger.verifyPaymentAttempt('attempt:1', 'tx:base:1');
-  expect(ledger.verifyPaymentAttempt('attempt:1', 'tx:base:1')).toEqual(verified);
-  expect(() => ledger.verifyPaymentAttempt('attempt:1', 'tx:base:changed'))
-    .toThrow('immutable');
+  const verified = ledger.verifyPaymentAuthorization(authorization());
+  expect(verified.attempt.state).toBe('verified');
+  expect(ledger.verifyPaymentAuthorization(authorization())).toEqual(verified);
+  const settled = ledger.recordSettlementObservation(observation('settled'));
+  expect(settled.attempt.state).toBe('settled');
+  expect(ledger.recordSettlementObservation(observation('settled'))).toEqual(settled);
 }
 
 afterEach(() => {
@@ -138,7 +197,7 @@ describe('SQLite commerce ledger conformance', () => {
     const committed = ledger.commitSettledGrant({
       orderId: 'order:1',
       attemptId: 'attempt:1',
-      settledAt: '2026-08-24T20:00:30.000Z',
+      settlementObservationId: 'observation:settled',
       entitlementEvent: event(),
       assetGrant: grant(),
     });
@@ -148,7 +207,7 @@ describe('SQLite commerce ledger conformance', () => {
     expect(ledger.commitSettledGrant({
       orderId: 'order:1',
       attemptId: 'attempt:1',
-      settledAt: '2026-08-24T20:00:30.000Z',
+      settlementObservationId: 'observation:settled',
       entitlementEvent: event(),
       assetGrant: grant(),
     }).assetGrant).toEqual(grant());
@@ -168,12 +227,12 @@ describe('SQLite commerce ledger conformance', () => {
     expect(() => ledger.commitSettledGrant({
       orderId: 'order:1',
       attemptId: 'attempt:1',
-      settledAt: '2026-08-24T20:00:30.000Z',
+      settlementObservationId: 'observation:settled',
       entitlementEvent: event(),
       assetGrant: grant({ productRevision: 4 }),
     })).toThrow('does not match');
     expect(ledger.getOrder('order:1')?.state).toBe('awaiting-settlement');
-    expect(ledger.getPaymentAttempt('attempt:1')?.state).toBe('verified');
+    expect(ledger.getPaymentAttempt('attempt:1')?.state).toBe('settled');
     expect(ledger.getEntitlementEvent('event:1')).toBeUndefined();
     expect(ledger.getAssetGrant('grant:1')).toBeUndefined();
     ledger.close();
@@ -193,18 +252,152 @@ describe('SQLite commerce ledger conformance', () => {
     ledger.close();
   });
 
-  it('rejects settlement at expiry without changing durable state', () => {
+  it('rejects authorization at quote expiry without changing durable state', () => {
     const ledger = new SqliteCommerceLedger(databasePath());
-    prepareSettlement(ledger);
+    ledger.storeQuote(quote());
+    ledger.createOrder(order());
+    ledger.advanceOrder('order:1', 'awaiting-approval', '2026-08-24T20:00:02.000Z');
+    ledger.advanceOrder('order:1', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
+    ledger.createPaymentAttempt(attempt());
+    ledger.advancePaymentAttempt('attempt:1', 'submitted');
+    expect(() => ledger.verifyPaymentAuthorization(authorization({
+      verifiedAt: expiresAt,
+      authorizationExpiresAt: '2026-08-24T20:06:00.000Z',
+    }))).toThrow('does not match');
+    expect(ledger.getOrder('order:1')?.state).toBe('awaiting-settlement');
+    expect(ledger.getPaymentAttempt('attempt:1')?.state).toBe('submitted');
+    expect(ledger.getPaymentAuthorization('authorization:1')).toBeUndefined();
+    expect(ledger.listEntitlementEvents('account:1', 'avatar:banana')).toEqual([]);
+    ledger.close();
+  });
+
+  it('blocks grant, retry, cancellation, and expiry while settlement is unknown', () => {
+    const ledger = new SqliteCommerceLedger(databasePath());
+    ledger.storeQuote(quote());
+    ledger.createOrder(order());
+    ledger.advanceOrder('order:1', 'awaiting-approval', '2026-08-24T20:00:02.000Z');
+    ledger.advanceOrder('order:1', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
+    ledger.createPaymentAttempt(attempt());
+    ledger.advancePaymentAttempt('attempt:1', 'submitted');
+    ledger.verifyPaymentAuthorization(authorization());
+    ledger.recordSettlementObservation(observation('unknown'));
+    expect(ledger.getPaymentAttempt('attempt:1')?.state).toBe('settlement-unknown');
     expect(() => ledger.commitSettledGrant({
       orderId: 'order:1',
       attemptId: 'attempt:1',
-      settledAt: expiresAt,
+      settlementObservationId: 'observation:unknown',
       entitlementEvent: event(),
       assetGrant: grant(),
-    })).toThrow('expired');
-    expect(ledger.getOrder('order:1')?.state).toBe('awaiting-settlement');
-    expect(ledger.listEntitlementEvents('account:1', 'avatar:banana')).toEqual([]);
+    })).toThrow('durable settled observation');
+    expect(() => ledger.createPaymentAttempt({ ...attempt(), attemptId: 'attempt:2' }))
+      .toThrow('active payment attempt');
+    expect(() => ledger.advanceOrder(
+      'order:1', 'cancelled', '2026-08-24T20:00:20.000Z',
+    )).toThrow('requires reconciliation');
+    expect(() => ledger.advanceOrder(
+      'order:1', 'expired', '2026-08-24T20:05:01.000Z',
+    )).toThrow('requires reconciliation');
+    expect(ledger.getAssetGrant('grant:1')).toBeUndefined();
+    ledger.close();
+  });
+
+  it('reconciles timeout through pending to settled and grants exactly once', () => {
+    const ledger = new SqliteCommerceLedger(databasePath());
+    ledger.storeQuote(quote());
+    ledger.createOrder(order());
+    ledger.advanceOrder('order:1', 'awaiting-approval', '2026-08-24T20:00:02.000Z');
+    ledger.advanceOrder('order:1', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
+    ledger.createPaymentAttempt(attempt());
+    ledger.advancePaymentAttempt('attempt:1', 'submitted');
+    ledger.verifyPaymentAuthorization(authorization());
+    ledger.recordSettlementObservation(observation('unknown'));
+    ledger.recordSettlementObservation(observation('pending'));
+    ledger.recordSettlementObservation(observation('settled', {
+      observedAt: '2026-08-24T20:10:00.000Z',
+      settledAt: '2026-08-24T20:00:30.000Z',
+    }));
+    expect(ledger.listSettlementObservations('authorization:1').map((entry) => entry.status))
+      .toEqual(['unknown', 'pending', 'settled']);
+    expect(ledger.commitSettledGrant({
+      orderId: 'order:1',
+      attemptId: 'attempt:1',
+      settlementObservationId: 'observation:settled',
+      entitlementEvent: event(),
+      assetGrant: grant(),
+    }).order.state).toBe('granted');
+    ledger.close();
+  });
+
+  it('rejects settlement drift, terminal regression, and transaction reuse', () => {
+    const ledger = new SqliteCommerceLedger(databasePath());
+    prepareSettlement(ledger);
+    expect(() => ledger.recordSettlementObservation(observation('settled', {
+      observationId: 'observation:settled:changed',
+      reconciliationId: 'reconcile:settled:changed',
+      amountAtomic: '999999',
+    }))).toThrow('does not match');
+    expect(() => ledger.recordSettlementObservation(observation('pending', {
+      observationId: 'observation:late-pending',
+      reconciliationId: 'reconcile:late-pending',
+    }))).toThrow('regress');
+    expect(ledger.listSettlementObservations('authorization:1')).toHaveLength(1);
+
+    ledger.storeQuote({ ...quote(), quoteId: 'quote:2' });
+    ledger.createOrder(order({
+      orderId: 'order:2',
+      quoteId: 'quote:2',
+      idempotencyKey: 'intent:2',
+    }));
+    ledger.advanceOrder('order:2', 'awaiting-approval', '2026-08-24T20:00:02.000Z');
+    ledger.advanceOrder('order:2', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
+    ledger.createPaymentAttempt({
+      ...attempt(), attemptId: 'attempt:2', orderId: 'order:2', quoteId: 'quote:2',
+    });
+    ledger.advancePaymentAttempt('attempt:2', 'submitted');
+    expect(() => ledger.verifyPaymentAuthorization({
+      ...authorization(),
+      authorizationId: 'authorization:2',
+      attemptId: 'attempt:2',
+      orderId: 'order:2',
+      quoteId: 'quote:2',
+    })).toThrow('Duplicate payment authorization or payment identifier');
+    expect(ledger.getPaymentAttempt('attempt:2')?.state).toBe('submitted');
+    ledger.verifyPaymentAuthorization({
+      ...authorization(),
+      authorizationId: 'authorization:2',
+      attemptId: 'attempt:2',
+      orderId: 'order:2',
+      quoteId: 'quote:2',
+      paymentIdentifier: '0x2222222222222222222222222222222222222222222222222222222222222222',
+    });
+    expect(() => ledger.recordSettlementObservation({
+      ...observation('settled'),
+      observationId: 'observation:settled:2',
+      authorizationId: 'authorization:2',
+      attemptId: 'attempt:2',
+      orderId: 'order:2',
+      quoteId: 'quote:2',
+      paymentIdentifier: '0x2222222222222222222222222222222222222222222222222222222222222222',
+      reconciliationId: 'reconcile:settled:2',
+    })).toThrow('belongs to another authorization');
+    expect(ledger.getPaymentAttempt('attempt:2')?.state).toBe('verified');
+    expect(ledger.listSettlementObservations('authorization:2')).toEqual([]);
+    ledger.close();
+  });
+
+  it('permits a new attempt only after reconciliation proves failure', () => {
+    const ledger = new SqliteCommerceLedger(databasePath());
+    ledger.storeQuote(quote());
+    ledger.createOrder(order());
+    ledger.advanceOrder('order:1', 'awaiting-approval', '2026-08-24T20:00:02.000Z');
+    ledger.advanceOrder('order:1', 'awaiting-settlement', '2026-08-24T20:00:03.000Z');
+    ledger.createPaymentAttempt(attempt());
+    ledger.advancePaymentAttempt('attempt:1', 'submitted');
+    ledger.verifyPaymentAuthorization(authorization());
+    ledger.recordSettlementObservation(observation('failed'));
+    expect(ledger.getPaymentAttempt('attempt:1')?.state).toBe('failed');
+    expect(ledger.createPaymentAttempt({ ...attempt(), attemptId: 'attempt:2' }).state)
+      .toBe('created');
     ledger.close();
   });
 });
