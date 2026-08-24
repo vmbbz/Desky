@@ -101,7 +101,7 @@ A separate additive controller uses the avatar capability inventory before drivi
 
 ### F3d — resilience, accessibility, and performance
 
-Status: queued; system reduced-motion detection already exists.
+Status: in progress. System reduced-motion detection exists; F4.4 now pauses on WebGL context loss and resumes the admitted scene after restoration with packaged Windows evidence. Unrecoverable-context fallback, hidden/occluded suspension, sleep/wake, long GPU plateau, accessibility, and macOS evidence remain open.
 
 - Add explicit pause-motion and reduced-motion overrides.
 - Suspend rendering when hidden, occluded, or full-screen suppressed.

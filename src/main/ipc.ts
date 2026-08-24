@@ -58,6 +58,8 @@ const marketplaceCatalogChannel = 'desky:marketplace:get-catalog';
 const marketplaceActivateChannel = 'desky:marketplace:activate';
 const marketplaceThumbnailChannel = 'desky:marketplace:get-thumbnail';
 const marketplacePreviewChannel = 'desky:marketplace:get-preview';
+const marketplaceCacheInventoryChannel = 'desky:marketplace:get-cache-inventory';
+const marketplaceRemoveDownloadChannel = 'desky:marketplace:remove-download';
 const marketplaceOpenSourceChannel = 'desky:marketplace:open-source';
 const openClawChannels = {
   state: 'desky:openclaw:state',
@@ -228,6 +230,22 @@ export function registerIpc(
     getAdmittedAvatarRevisions(),
     avatarAssets.getProtectedRevisionIds(),
   ).catch(() => undefined);
+  const marketplaceCacheInventory = async () => {
+    const inspection = await avatarCache.inspect(getAdmittedAvatarRevisions());
+    const protection = avatarAssets.getCacheProtection();
+    return {
+      maximumBytes: inspection.maximumBytes,
+      totalBytes: inspection.totalBytes,
+      entries: inspection.entries.map((entry) => {
+        const protectionReasons = [...(protection.get(entry.revisionId) ?? [])];
+        return {
+          ...entry,
+          protectionReasons,
+          removable: entry.modelStatus !== 'missing' && protectionReasons.length === 0,
+        };
+      }),
+    };
+  };
   let motionPreference: MotionPreference = 'system';
   const broadcastAnimationState = () => {
     const state = animation.getState();
@@ -285,6 +303,28 @@ export function registerIpc(
       throw new Error('Invalid marketplace preview request.');
     }
     return avatarAssets.getPreview(value);
+  });
+  ipcMain.handle(marketplaceCacheInventoryChannel, (event) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center') {
+      throw new Error('Marketplace storage is only available in the control center.');
+    }
+    return marketplaceCacheInventory();
+  });
+  ipcMain.handle(marketplaceRemoveDownloadChannel, async (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof value !== 'string'
+      || value.length === 0
+      || value.length > 128) {
+      throw new Error('Invalid marketplace download removal request.');
+    }
+    const revision = getAdmittedAvatarRevisionByAvatarId(value);
+    if (!revision) throw new Error('Marketplace companion download is unavailable.');
+    await avatarCache.removeModel(
+      revision,
+      getAdmittedAvatarRevisions(),
+      avatarAssets.getProtectedRevisionIds(),
+    );
+    return marketplaceCacheInventory();
   });
   ipcMain.handle(marketplaceActivateChannel, async (event, value: unknown) => {
     if (windows.surfaceFor(event.sender) !== 'control-center'
@@ -481,6 +521,8 @@ export const ipcChannels = {
   marketplaceCatalog: marketplaceCatalogChannel,
   marketplaceThumbnail: marketplaceThumbnailChannel,
   marketplacePreview: marketplacePreviewChannel,
+  marketplaceCacheInventory: marketplaceCacheInventoryChannel,
+  marketplaceRemoveDownload: marketplaceRemoveDownloadChannel,
   marketplaceOpenSource: marketplaceOpenSourceChannel,
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,

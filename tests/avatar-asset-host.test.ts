@@ -95,5 +95,23 @@ describe('transactional avatar activation', () => {
     );
     await host.activate(bananaId);
     expect([...host.getProtectedRevisionIds()].sort()).toEqual([banana, milk].sort());
+    expect(host.getCacheProtection().get(milk)).toEqual(['active', 'rollback']);
+    expect(host.getCacheProtection().get(banana)).toEqual(['pending']);
+  });
+
+  it('protects an acquiring revision before cache verification completes', async () => {
+    let release: (() => void) | undefined;
+    const host = new AvatarAssetHost(
+      { get: vi.fn(() => new Promise<ArrayBuffer>((resolve) => {
+        release = () => resolve(new ArrayBuffer(8));
+      })) },
+      () => ({ activeRevisionId: milk, fallbackRevisionId: milk }),
+      vi.fn(),
+    );
+
+    const activation = host.activate(bananaId);
+    expect(host.getCacheProtection().get(banana)).toEqual(['pending']);
+    release?.();
+    await activation;
   });
 });

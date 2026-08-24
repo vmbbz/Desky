@@ -7,6 +7,7 @@ import {
   type AssetProvenance,
 } from '../shared/asset-provenance';
 import type { AvatarCatalogFetcher } from '../shared/avatar-catalog';
+import type { AvatarCacheAssetStatus } from '../shared/avatar-marketplace';
 import {
   downloadAdmittedAvatarRevision,
   downloadAdmittedAvatarThumbnail,
@@ -20,6 +21,22 @@ interface AvatarCacheSidecar {
   sourceRecordSha256: string;
   bytes: number;
   provenance: AssetProvenance;
+}
+
+export interface AvatarCacheInspectionEntry {
+  avatarId: string;
+  revisionId: string;
+  modelStatus: AvatarCacheAssetStatus;
+  thumbnailStatus: AvatarCacheAssetStatus;
+  modelBytes: number;
+  thumbnailBytes: number;
+  lastAccessedAt?: string;
+}
+
+export interface AvatarCacheInspection {
+  maximumBytes: number;
+  totalBytes: number;
+  entries: AvatarCacheInspectionEntry[];
 }
 
 function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
@@ -229,6 +246,122 @@ export class AvatarCache {
       evictedRevisionIds.push(candidate.revision.avatar.revisionId);
     }
     return { beforeBytes, afterBytes: Math.max(0, afterBytes), evictedRevisionIds };
+  }
+
+  async inspect(revisions: readonly AdmittedAvatarRevision[]): Promise<AvatarCacheInspection> {
+    const entries: AvatarCacheInspectionEntry[] = [];
+    const physicalFiles = new Map<string, number>();
+    for (const revision of revisions) {
+      const modelObjectPath = join(this.rootPath, 'objects', `${revision.avatar.modelSha256}.vrm`);
+      const thumbnailObjectPath = join(this.rootPath, 'objects', `${revision.thumbnailSha256}.png`);
+      const modelRecordPath = join(this.rootPath, 'records', `${revision.avatar.revisionId}.json`);
+      const thumbnailRecordPath = join(this.rootPath, 'records', `${revision.avatar.revisionId}.thumbnail.json`);
+      const [modelObject, thumbnailObject, modelRecord, thumbnailRecord] = await Promise.all([
+        this.fileInfo(modelObjectPath),
+        this.fileInfo(thumbnailObjectPath),
+        this.fileInfo(modelRecordPath),
+        this.fileInfo(thumbnailRecordPath),
+      ]);
+      for (const file of [modelObject, thumbnailObject, modelRecord, thumbnailRecord]) {
+        if (file.bytes > 0) physicalFiles.set(file.path, file.bytes);
+      }
+      entries.push({
+        avatarId: revision.avatar.avatarId,
+        revisionId: revision.avatar.revisionId,
+        modelStatus: await this.inspectModel(revision, modelObjectPath, modelRecordPath),
+        thumbnailStatus: await this.inspectThumbnail(
+          revision,
+          thumbnailObjectPath,
+          thumbnailRecordPath,
+        ),
+        modelBytes: modelObject.bytes + modelRecord.bytes,
+        thumbnailBytes: thumbnailObject.bytes + thumbnailRecord.bytes,
+        lastAccessedAt: Math.max(modelRecord.mtimeMs, thumbnailRecord.mtimeMs) > 0
+          ? new Date(Math.max(modelRecord.mtimeMs, thumbnailRecord.mtimeMs)).toISOString()
+          : undefined,
+      });
+    }
+    return {
+      maximumBytes: AvatarCache.maximumBytes,
+      totalBytes: [...physicalFiles.values()].reduce((total, bytes) => total + bytes, 0),
+      entries,
+    };
+  }
+
+  async removeModel(
+    revision: AdmittedAvatarRevision,
+    revisions: readonly AdmittedAvatarRevision[],
+    protectedRevisionIds: ReadonlySet<string>,
+  ): Promise<void> {
+    if (protectedRevisionIds.has(revision.avatar.revisionId)) {
+      throw new Error('The active, rollback, or pending companion download cannot be removed.');
+    }
+    const recordPath = join(this.rootPath, 'records', `${revision.avatar.revisionId}.json`);
+    const objectPath = join(this.rootPath, 'objects', `${revision.avatar.modelSha256}.vrm`);
+    const sharedRecordPaths = revisions
+      .filter((candidate) => candidate.avatar.revisionId !== revision.avatar.revisionId
+        && candidate.avatar.modelSha256 === revision.avatar.modelSha256)
+      .map((candidate) => join(this.rootPath, 'records', `${candidate.avatar.revisionId}.json`));
+    const objectStillReferenced = (await Promise.all(sharedRecordPaths.map(async (path) => (
+      (await this.fileInfo(path)).bytes > 0
+    )))).some(Boolean);
+    await rm(recordPath, { force: true });
+    if (!objectStillReferenced) await rm(objectPath, { force: true });
+  }
+
+  private async inspectModel(
+    revision: AdmittedAvatarRevision,
+    objectPath: string,
+    recordPath: string,
+  ): Promise<AvatarCacheAssetStatus> {
+    try {
+      const [object, record] = await Promise.all([readFile(objectPath), readFile(recordPath, 'utf8')]);
+      this.validateBytes(object, revision);
+      parseSidecar(
+        JSON.parse(record) as unknown,
+        revision,
+        'avatar',
+        revision.modelUrl,
+        revision.avatar.modelSha256,
+        revision.modelBytes,
+      );
+      return 'verified';
+    } catch {
+      const record = await this.fileInfo(recordPath);
+      return record.bytes > 0 ? 'corrupt' : 'missing';
+    }
+  }
+
+  private async inspectThumbnail(
+    revision: AdmittedAvatarRevision,
+    objectPath: string,
+    recordPath: string,
+  ): Promise<AvatarCacheAssetStatus> {
+    try {
+      const [object, record] = await Promise.all([readFile(objectPath), readFile(recordPath, 'utf8')]);
+      this.validateThumbnail(object, revision);
+      parseSidecar(
+        JSON.parse(record) as unknown,
+        revision,
+        'thumbnail',
+        revision.thumbnailUrl,
+        revision.thumbnailSha256,
+        revision.thumbnailBytes,
+      );
+      return 'verified';
+    } catch {
+      const record = await this.fileInfo(recordPath);
+      return record.bytes > 0 ? 'corrupt' : 'missing';
+    }
+  }
+
+  private async fileInfo(path: string): Promise<{ path: string; bytes: number; mtimeMs: number }> {
+    try {
+      const value = await stat(path);
+      return { path, bytes: value.size, mtimeMs: value.mtimeMs };
+    } catch {
+      return { path, bytes: 0, mtimeMs: 0 };
+    }
   }
 
   private async touch(path: string): Promise<void> {

@@ -318,7 +318,19 @@ Final packaged evidence also restores active CoolBanana, its mapped texture, ful
 
 Evidence: `docs/verification/F4-PREVIEW-CACHE-DURABILITY-2026-08-24.md`.
 
-Next: representative full-motion Milk/Astronaut captures, a rights-clear real VRM 1.0 admission, corrupt/restart evidence for Milk and Astronaut, user-facing cache inventory/removal, macOS equivalence, and longer GPU/sleep-wake lifecycle evidence. Signed production catalog work follows; F4x remains blocked.
+### F4.4 storage controls and graphics restoration — 2026-08-24
+
+- Added typed verified/missing/corrupt cache inventory with physical bytes, last access, protection reasons, and removability.
+- Added a plain-language storage summary and per-companion offline state. `Remove model` removes only an unprotected model download; it retains the thumbnail, product, entitlement, source/licence, and catalog entry.
+- Extended protection to the pre-pending acquisition interval so activation and removal cannot race around model verification.
+- Added explicit WebGL loss/restoration handling: render work pauses, the UI reports recovery, Three.js state is reset on restoration, and the existing admitted scene resumes without changing selection.
+- Package-proved Astronaut preview/download/removal with a physical storage decrease from 5,729,984 to 4,049,963 bytes while active/rollback Milk remained protected.
+- Package-proved one forced WebGL loss and restoration with the render frame advancing afterward, Milk still visibly textured, `avatarState: ready`, and no exercise or clip error.
+- Completed the corrupt-sidecar restart matrix: Milk and Astronaut, like CoolBanana in F4.3, were rejected at schema version 99, reacquired from their exact admitted URLs, restored to schema version 1 and their pinned SHA-256, and returned ready with one mapped texture.
+
+Evidence: `docs/verification/F4-STORAGE-WEBGL-RECOVERY-2026-08-24.md`.
+
+Next: representative full-motion Milk/Astronaut captures, a rights-clear real VRM 1.0 admission, macOS equivalence, longer GPU/sleep-wake lifecycle evidence, hidden/occluded render suspension, and an unrecoverable-context fallback route. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 

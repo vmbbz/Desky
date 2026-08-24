@@ -16,7 +16,10 @@ import {
   type CompanionDraftSnapshot,
   type CompanionSnapshot,
 } from '../shared/companion-state';
-import type { MarketplaceCatalog } from '../shared/avatar-marketplace';
+import type {
+  MarketplaceCacheInventory,
+  MarketplaceCatalog,
+} from '../shared/avatar-marketplace';
 import {
   defaultAvatarRevisionId,
   type AvatarSelectionState,
@@ -70,6 +73,12 @@ function errorMessage(error: unknown): string {
   return message.replace(/^Error invoking remote method '[^']+': Error: /, '').slice(0, 240);
 }
 
+function formatStorageBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function normalizeAvatarYaw(degrees: number): number {
   return ((degrees + 180) % 360 + 360) % 360 - 180;
 }
@@ -91,10 +100,12 @@ export function App() {
     visualTestState === 'marketplace' ? 'companions' : 'home',
   );
   const [marketplaceCatalog, setMarketplaceCatalog] = useState<MarketplaceCatalog>();
+  const [marketplaceCache, setMarketplaceCache] = useState<MarketplaceCacheInventory>();
   const [marketplaceError, setMarketplaceError] = useState('');
   const [marketplaceThumbnails, setMarketplaceThumbnails] = useState<Record<string, string>>({});
   const [avatarSelection, setAvatarSelection] = useState<AvatarSelectionState>(initialAvatarSelection);
   const [marketplaceBusyAvatarId, setMarketplaceBusyAvatarId] = useState('');
+  const [marketplaceCacheBusyAvatarId, setMarketplaceCacheBusyAvatarId] = useState('');
   const [marketplacePreviewAvatarId, setMarketplacePreviewAvatarId] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
@@ -115,6 +126,10 @@ export function App() {
   );
   const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
+
+  const refreshMarketplaceCache = useCallback(() => window.desky.marketplace.getCacheInventory()
+    .then(setMarketplaceCache)
+    .catch((error: unknown) => setMarketplaceError(errorMessage(error))), []);
 
   useEffect(() => {
     if (!marketplacePreviewAvatarId) return undefined;
@@ -212,7 +227,8 @@ export function App() {
     void window.desky.marketplace.getCatalog()
       .then(setMarketplaceCatalog)
       .catch((error: unknown) => setMarketplaceError(errorMessage(error)));
-  }, [runtimeInfo?.surface]);
+    void refreshMarketplaceCache();
+  }, [refreshMarketplaceCache, runtimeInfo?.surface]);
 
   useEffect(() => {
     if (!marketplaceCatalog) return undefined;
@@ -224,7 +240,10 @@ export function App() {
       objectUrls.push(objectUrl);
       return [avatar.avatarId, objectUrl] as const;
     })).then((entries) => {
-      if (!disposed) setMarketplaceThumbnails(Object.fromEntries(entries));
+      if (!disposed) {
+        setMarketplaceThumbnails(Object.fromEntries(entries));
+        void refreshMarketplaceCache();
+      }
     }).catch((error: unknown) => {
       if (!disposed) setMarketplaceError(errorMessage(error));
     });
@@ -232,7 +251,7 @@ export function App() {
       disposed = true;
       for (const objectUrl of objectUrls) URL.revokeObjectURL(objectUrl);
     };
-  }, [marketplaceCatalog]);
+  }, [marketplaceCatalog, refreshMarketplaceCache]);
 
   useEffect(() => {
     adapterModeRef.current = adapterMode;
@@ -723,6 +742,22 @@ export function App() {
         {marketplaceError ? <p className="marketplace-error" role="alert">{marketplaceError}</p> : null}
         {!marketplaceCatalog && !marketplaceError ? <p className="marketplace-loading" role="status">Loading the verified local catalog…</p> : null}
 
+        {marketplaceCache ? (
+          <section
+            className="marketplace-storage"
+            aria-label="Companion storage"
+            data-cache-total-bytes={marketplaceCache.totalBytes}
+            data-cache-maximum-bytes={marketplaceCache.maximumBytes}
+          >
+            <div>
+              <span>Offline model storage</span>
+              <strong>{formatStorageBytes(marketplaceCache.totalBytes)}</strong>
+              <small>of {formatStorageBytes(marketplaceCache.maximumBytes)} cache ceiling</small>
+            </div>
+            <p>Removing a model download never removes the companion from your library. Active, rollback, and pending models stay protected; any removed model is verified again before reuse.</p>
+          </section>
+        ) : null}
+
         {previewAvatar ? (
           <section className="marketplace-preview" role="dialog" aria-modal="true" aria-labelledby="marketplace-preview-title">
             <button
@@ -733,7 +768,10 @@ export function App() {
             />
             <div className="marketplace-preview__panel">
               <div className="marketplace-preview__visual">
-                <MarketplaceAvatarPreview avatarId={previewAvatar.avatarId} />
+                <MarketplaceAvatarPreview
+                  avatarId={previewAvatar.avatarId}
+                  onReady={refreshMarketplaceCache}
+                />
               </div>
               <div className="marketplace-preview__details">
                 <div className="marketplace-preview__heading">
@@ -761,6 +799,7 @@ export function App() {
                       setMarketplaceBusyAvatarId(previewAvatar.avatarId);
                       void window.desky.marketplace.activate(previewAvatar.avatarId)
                         .then(setAvatarSelection)
+                        .then(() => refreshMarketplaceCache())
                         .then(() => {
                           setMarketplacePreviewAvatarId('');
                           return window.desky.performWindowAction('show-ambient');
@@ -781,10 +820,19 @@ export function App() {
             const active = avatar.avatarId === avatarSelection.activeAvatarId
               && avatarSelection.pendingAvatarId === undefined;
             const pending = avatar.avatarId === avatarSelection.pendingAvatarId;
+            const cacheEntry = marketplaceCache?.entries.find(
+              (entry) => entry.avatarId === avatar.avatarId,
+            );
+            const storageLabel = cacheEntry?.modelStatus === 'verified'
+              ? `${formatStorageBytes(cacheEntry.modelBytes)} offline`
+              : cacheEntry?.modelStatus === 'corrupt' ? 'Repair needed' : 'Online only';
             return (
             <article
               className={`marketplace-avatar-card marketplace-avatar-card--${avatar.productId.replace('avatar.', '')}`}
               key={avatar.avatarId}
+              data-avatar-card-id={avatar.avatarId}
+              data-avatar-cache-status={cacheEntry?.modelStatus ?? 'loading'}
+              data-avatar-cache-protected={String(Boolean(cacheEntry?.protectionReasons.length))}
             >
               <div className="marketplace-avatar-card__visual" aria-hidden="true">
                 {marketplaceThumbnails[avatar.avatarId]
@@ -804,6 +852,26 @@ export function App() {
                   <span>85 admitted motions</span>
                 </div>
                 <p className="marketplace-attribution">{avatar.attribution}</p>
+                <div className="marketplace-avatar-card__storage">
+                  <span>{storageLabel}</span>
+                  {cacheEntry?.protectionReasons.length
+                    ? <small>{cacheEntry.protectionReasons.join(' + ')} protected</small>
+                    : <button
+                        type="button"
+                        data-avatar-remove-id={avatar.avatarId}
+                        disabled={!cacheEntry?.removable
+                          || marketplaceCacheBusyAvatarId.length > 0
+                          || marketplaceBusyAvatarId.length > 0}
+                        onClick={() => {
+                          setMarketplaceError('');
+                          setMarketplaceCacheBusyAvatarId(avatar.avatarId);
+                          void window.desky.marketplace.removeDownload(avatar.avatarId)
+                            .then(setMarketplaceCache)
+                            .catch((error: unknown) => setMarketplaceError(errorMessage(error)))
+                            .finally(() => setMarketplaceCacheBusyAvatarId(''));
+                        }}
+                      >{marketplaceCacheBusyAvatarId === avatar.avatarId ? 'Removing…' : 'Remove model'}</button>}
+                </div>
                 <div className="marketplace-avatar-card__actions">
                   <button
                     type="button"
@@ -819,6 +887,7 @@ export function App() {
                       setMarketplaceBusyAvatarId(avatar.avatarId);
                       void window.desky.marketplace.activate(avatar.avatarId)
                         .then(setAvatarSelection)
+                        .then(() => refreshMarketplaceCache())
                         .then(() => window.desky.performWindowAction('show-ambient'))
                         .catch((error: unknown) => setMarketplaceError(errorMessage(error)))
                         .finally(() => setMarketplaceBusyAvatarId(''));

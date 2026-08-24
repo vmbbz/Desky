@@ -687,6 +687,22 @@ body[data-desky-surface="control-center"] {
   color: #ff9cad;
   font-size: 10px;
 }
+.marketplace-storage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 14px;
+  padding: 12px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.marketplace-storage > div { display: flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+.marketplace-storage span { color: #8794a8; font-size: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+.marketplace-storage strong { color: #eef3fa; font-size: 13px; }
+.marketplace-storage small { color: #68758a; font-size: 8px; }
+.marketplace-storage p { max-width: 520px; margin: 0; color: #7e8ba0; font-size: 8px; line-height: 1.45; }
 .marketplace-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -787,6 +803,27 @@ body[data-desky-surface="control-center"] {
   font-size: 7px;
 }
 .marketplace-attribution { color: #6f7b90 !important; }
+.marketplace-avatar-card__storage {
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+.marketplace-avatar-card__storage > span { color: #9aa7b9; font-size: 8px; }
+.marketplace-avatar-card__storage > small { color: var(--accent); font-size: 7px; text-transform: capitalize; }
+.marketplace-avatar-card__storage > button {
+  padding: 4px 6px;
+  border: 0;
+  background: transparent;
+  color: #8693a7;
+  font-size: 7px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.marketplace-avatar-card__storage > button:disabled { cursor: default; opacity: 0.45; text-decoration: none; }
 .marketplace-preview {
   position: fixed;
   inset: 0;

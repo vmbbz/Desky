@@ -26,6 +26,7 @@ import type {
 } from '../shared/avatar-assets';
 import type {
   MarketplaceBridge,
+  MarketplaceCacheInventory,
   MarketplaceCatalog,
   MarketplaceThumbnail,
 } from '../shared/avatar-marketplace';
@@ -122,6 +123,8 @@ const marketplace: MarketplaceBridge = Object.freeze({
   getCatalog: () => ipcRenderer.invoke('desky:marketplace:get-catalog') as Promise<MarketplaceCatalog>,
   getThumbnail: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:get-thumbnail', avatarId) as Promise<MarketplaceThumbnail>,
   getPreview: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:get-preview', avatarId) as Promise<SelectedAvatarAsset>,
+  getCacheInventory: () => ipcRenderer.invoke('desky:marketplace:get-cache-inventory') as Promise<MarketplaceCacheInventory>,
+  removeDownload: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:remove-download', avatarId) as Promise<MarketplaceCacheInventory>,
   activate: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:activate', avatarId) as Promise<AvatarSelectionState>,
   openSource: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:open-source', avatarId) as Promise<void>,
 });

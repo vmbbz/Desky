@@ -53,6 +53,29 @@ export interface MarketplaceThumbnail {
   bytes: ArrayBuffer;
 }
 
+export const avatarCacheAssetStatuses = ['missing', 'verified', 'corrupt'] as const;
+export type AvatarCacheAssetStatus = (typeof avatarCacheAssetStatuses)[number];
+export const avatarCacheProtectionReasons = ['active', 'rollback', 'pending'] as const;
+export type AvatarCacheProtectionReason = (typeof avatarCacheProtectionReasons)[number];
+
+export interface MarketplaceCacheEntry {
+  avatarId: string;
+  revisionId: string;
+  modelStatus: AvatarCacheAssetStatus;
+  thumbnailStatus: AvatarCacheAssetStatus;
+  modelBytes: number;
+  thumbnailBytes: number;
+  lastAccessedAt?: string;
+  protectionReasons: AvatarCacheProtectionReason[];
+  removable: boolean;
+}
+
+export interface MarketplaceCacheInventory {
+  maximumBytes: number;
+  totalBytes: number;
+  entries: MarketplaceCacheEntry[];
+}
+
 const idPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
 const sha256Pattern = /^[a-f0-9]{64}$/;
 
@@ -182,6 +205,8 @@ export interface MarketplaceBridge {
   getCatalog(): Promise<MarketplaceCatalog>;
   getThumbnail(avatarId: string): Promise<MarketplaceThumbnail>;
   getPreview(avatarId: string): Promise<SelectedAvatarAsset>;
+  getCacheInventory(): Promise<MarketplaceCacheInventory>;
+  removeDownload(avatarId: string): Promise<MarketplaceCacheInventory>;
   activate(avatarId: string): Promise<AvatarSelectionState>;
   openSource(avatarId: string): Promise<void>;
 }

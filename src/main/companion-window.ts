@@ -154,6 +154,60 @@ async function captureVisualTest(
     })()`);
   }
   if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'remove-avatar-download'
+    && visualAvatarId) {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const avatarId = ${JSON.stringify(visualAvatarId)};
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 15000;
+        let previewButton;
+        while (Date.now() < deadline) {
+          previewButton = document.querySelector('[data-avatar-preview-id="' + CSS.escape(avatarId) + '"]');
+          if (previewButton instanceof HTMLButtonElement) break;
+          await wait(50);
+        }
+        if (!(previewButton instanceof HTMLButtonElement)) throw new Error('Preview button is unavailable');
+        previewButton.click();
+        while (Date.now() < deadline
+          && document.querySelector('.marketplace-preview-stage')?.dataset.previewState !== 'ready') {
+          await wait(50);
+        }
+        if (document.querySelector('.marketplace-preview-stage')?.dataset.previewState !== 'ready') {
+          throw new Error('Preview did not cache the admitted model');
+        }
+        document.querySelector('.marketplace-preview__heading button')?.click();
+        let card;
+        let removeButton;
+        while (Date.now() < deadline) {
+          card = document.querySelector('[data-avatar-card-id="' + CSS.escape(avatarId) + '"]');
+          removeButton = document.querySelector('[data-avatar-remove-id="' + CSS.escape(avatarId) + '"]');
+          if (card instanceof HTMLElement
+            && card.dataset.avatarCacheStatus === 'verified'
+            && removeButton instanceof HTMLButtonElement
+            && !removeButton.disabled) break;
+          await wait(50);
+        }
+        if (!(card instanceof HTMLElement) || !(removeButton instanceof HTMLButtonElement)) {
+          throw new Error('Cached model did not become removable');
+        }
+        const storage = document.querySelector('.marketplace-storage');
+        const beforeBytes = storage instanceof HTMLElement ? storage.dataset.cacheTotalBytes : '';
+        removeButton.click();
+        while (Date.now() < deadline && card.dataset.avatarCacheStatus !== 'missing') await wait(50);
+        const afterBytes = storage instanceof HTMLElement ? storage.dataset.cacheTotalBytes : '';
+        const verified = card.dataset.avatarCacheStatus === 'missing'
+          && Number(afterBytes) < Number(beforeBytes);
+        card.dataset.cacheRemovalVerified = String(verified);
+        card.dataset.cacheBytesBeforeRemoval = beforeBytes;
+        card.dataset.cacheBytesAfterRemoval = afterBytes;
+        if (!verified) throw new Error('Model removal did not reduce verified cache storage');
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'control-center'
     && process.env.DESKY_VISUAL_TEST_EXERCISE === 'avatar-switch-soak') {
     const requestedSwitchCount = Number.parseInt(
       process.env.DESKY_VISUAL_TEST_SWITCH_COUNT ?? '',
@@ -237,6 +291,45 @@ async function captureVisualTest(
       avatar?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
       await wait(500);
     })()`);
+  }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'webgl-loss') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 10000;
+        let canvas;
+        while (Date.now() < deadline) {
+          canvas = document.querySelector('.avatar-stage canvas');
+          if (canvas instanceof HTMLCanvasElement
+            && canvas.dataset.motionFrame
+            && canvas.dataset.webglState === 'ready') break;
+          await wait(50);
+        }
+        if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Avatar WebGL canvas is unavailable');
+        const context = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+        const extension = context?.getExtension('WEBGL_lose_context');
+        if (!extension) throw new Error('WEBGL_lose_context is unavailable');
+        const frameBefore = Number.parseInt(canvas.dataset.motionFrame ?? '0', 10);
+        extension.loseContext();
+        await wait(450);
+        if (canvas.dataset.webglState !== 'lost') throw new Error('WebGL loss was not observed');
+        extension.restoreContext();
+        const restoreDeadline = Date.now() + 5000;
+        while (Date.now() < restoreDeadline && canvas.dataset.webglState !== 'recovered') {
+          await wait(50);
+        }
+        await wait(500);
+        const frameAfter = Number.parseInt(canvas.dataset.motionFrame ?? '0', 10);
+        canvas.dataset.webglRecoveryVerified = String(
+          canvas.dataset.webglState === 'recovered' && frameAfter > frameBefore,
+        );
+        if (canvas.dataset.webglRecoveryVerified !== 'true') {
+          throw new Error('Avatar rendering did not recover after WebGL restoration');
+        }
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
   }
   if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'manipulation') {
     await window.webContents.executeJavaScript(`(async () => {
@@ -323,6 +416,10 @@ async function captureVisualTest(
     motionPendingCues: document.querySelector('.avatar-stage canvas')?.dataset.motionPendingCues ?? null,
     motionReduced: document.querySelector('.avatar-stage canvas')?.dataset.motionReduced ?? null,
     motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
+    webglState: document.querySelector('.avatar-stage canvas')?.dataset.webglState ?? null,
+    webglLossCount: document.querySelector('.avatar-stage canvas')?.dataset.webglLossCount ?? null,
+    webglRestoreCount: document.querySelector('.avatar-stage canvas')?.dataset.webglRestoreCount ?? null,
+    webglRecoveryVerified: document.querySelector('.avatar-stage canvas')?.dataset.webglRecoveryVerified ?? null,
     motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
     visualExerciseError: ${JSON.stringify(visualExerciseError)},
@@ -335,7 +432,16 @@ async function captureVisualTest(
     marketplaceSelection: document.querySelector('.marketplace-view')?.dataset.avatarSelection ?? null,
     marketplaceActiveAvatarId: document.querySelector('.marketplace-view')?.dataset.activeAvatarId ?? null,
     marketplacePreviewState: document.querySelector('.marketplace-preview-stage')?.dataset.previewState ?? null,
-    marketplaceSwitchSoak: document.querySelector('.marketplace-view')?.dataset.switchSoak ?? null
+    marketplaceSwitchSoak: document.querySelector('.marketplace-view')?.dataset.switchSoak ?? null,
+    marketplaceCacheTotalBytes: document.querySelector('.marketplace-storage')?.dataset.cacheTotalBytes ?? null,
+    marketplaceCacheStatuses: [...document.querySelectorAll('[data-avatar-card-id]')].map((card) => ({
+      avatarId: card.dataset.avatarCardId,
+      status: card.dataset.avatarCacheStatus,
+      protected: card.dataset.avatarCacheProtected,
+      removalVerified: card.dataset.cacheRemovalVerified ?? null,
+      bytesBeforeRemoval: card.dataset.cacheBytesBeforeRemoval ?? null,
+      bytesAfterRemoval: card.dataset.cacheBytesAfterRemoval ?? null
+    }))
   })`) as Record<string, unknown>;
   const diagnostic = {
     ...rendererDiagnostic,

@@ -30,6 +30,7 @@ import {
 
 interface MarketplaceAvatarPreviewProps {
   avatarId: string;
+  onReady?: () => void;
 }
 
 function applyPreviewPose(vrm: VRM): void {
@@ -44,7 +45,7 @@ function applyPreviewPose(vrm: VRM): void {
   vrm.humanoid.update();
 }
 
-export function MarketplaceAvatarPreview({ avatarId }: MarketplaceAvatarPreviewProps) {
+export function MarketplaceAvatarPreview({ avatarId, onReady }: MarketplaceAvatarPreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [status, setStatus] = useState('Loading verified model…');
   const [kind, setKind] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -163,6 +164,7 @@ export function MarketplaceAvatarPreview({ avatarId }: MarketplaceAvatarPreviewP
       vrm = loaded;
       setKind('ready');
       setStatus(`${capabilities.specLabel} · ${avatar.licenseId} · drag to rotate`);
+      onReady?.();
     }).catch((error: unknown) => {
       if (disposed) return;
       setKind('error');
@@ -185,7 +187,7 @@ export function MarketplaceAvatarPreview({ avatarId }: MarketplaceAvatarPreviewP
       renderer.dispose();
       renderer.forceContextLoss();
     };
-  }, [avatarId]);
+  }, [avatarId, onReady]);
 
   return (
     <div className="marketplace-preview-stage" data-preview-state={kind}>

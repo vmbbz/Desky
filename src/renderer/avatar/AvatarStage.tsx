@@ -171,6 +171,8 @@ export function AvatarStage({
     let queuedAnimationCommand: LocalAnimationPreviewCommand | undefined;
     let appliedViewYawDegrees: number | undefined;
     let lastBoundsSignature = '';
+    let webglContextLost = false;
+    let readySnapshot: Extract<LoadState, { kind: 'ready' }> | undefined;
     const reportPreview = (
       requestId: string,
       status: 'playing' | 'completed' | 'blocked' | 'error',
@@ -253,6 +255,31 @@ export function AvatarStage({
     renderer.outputColorSpace = SRGBColorSpace;
     renderer.toneMapping = ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.9;
+    canvas.dataset.webglState = 'ready';
+    canvas.dataset.webglLossCount = '0';
+    canvas.dataset.webglRestoreCount = '0';
+
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      webglContextLost = true;
+      canvas.dataset.webglState = 'lost';
+      canvas.dataset.webglLossCount = String(
+        Number.parseInt(canvas.dataset.webglLossCount ?? '0', 10) + 1,
+      );
+      setLoadState({ kind: 'loading', message: 'Graphics paused · recovering the companion…' });
+    };
+    const handleContextRestored = () => {
+      webglContextLost = false;
+      canvas.dataset.webglState = 'recovered';
+      canvas.dataset.webglRestoreCount = String(
+        Number.parseInt(canvas.dataset.webglRestoreCount ?? '0', 10) + 1,
+      );
+      renderer.resetState();
+      resize();
+      if (readySnapshot) setLoadState(readySnapshot);
+    };
+    canvas.addEventListener('webglcontextlost', handleContextLost);
+    canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
     const scene = new Scene();
     const camera = new PerspectiveCamera(28, 1, 0.1, 100);
@@ -346,7 +373,7 @@ export function AvatarStage({
         reportVisibleBounds();
       }
 
-      renderer.render(scene, camera);
+      if (!webglContextLost) renderer.render(scene, camera);
       frameId = requestAnimationFrame(animate);
     };
 
@@ -483,11 +510,12 @@ export function AvatarStage({
           status: 'ready',
         });
         if (disposed) return;
-        setLoadState({
+        readySnapshot = {
           kind: 'ready',
           message: readyMessage,
           textureCount,
-        });
+        };
+        setLoadState(readySnapshot);
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Avatar loading failed';
         if (!disposed) {
@@ -512,6 +540,8 @@ export function AvatarStage({
       removeAnimationCommand();
       resizeObserver.disconnect();
       reducedMotionQuery.removeEventListener('change', updateReducedMotion);
+      canvas.removeEventListener('webglcontextlost', handleContextLost);
+      canvas.removeEventListener('webglcontextrestored', handleContextRestored);
       motionControllerRef.current?.dispose();
       motionControllerRef.current = undefined;
       expressionControllerRef.current?.dispose();

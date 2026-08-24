@@ -6,6 +6,7 @@ import type {
 } from '../shared/avatar-assets';
 import { defaultAvatarRevisionId } from '../shared/avatar-assets';
 import { evaluateFreeEntitlement } from '../shared/avatar-marketplace';
+import type { AvatarCacheProtectionReason } from '../shared/avatar-marketplace';
 import {
   getAdmittedAvatarRevisionByAvatarId,
   getAdmittedAvatarRevisionByRevisionId,
@@ -42,6 +43,8 @@ function safeMessage(value: string | undefined): string {
 
 export class AvatarAssetHost {
   private pending?: AdmittedAvatarRevision;
+
+  private acquiring?: AdmittedAvatarRevision;
 
   private pendingFallbackRevisionId?: string;
 
@@ -91,12 +94,20 @@ export class AvatarAssetHost {
   }
 
   getProtectedRevisionIds(): ReadonlySet<string> {
+    return new Set(this.getCacheProtection().keys());
+  }
+
+  getCacheProtection(): ReadonlyMap<string, AvatarCacheProtectionReason[]> {
     const persisted = this.normalizedPersisted();
-    return new Set([
-      persisted.activeRevisionId,
-      persisted.fallbackRevisionId,
-      ...(this.pending ? [this.pending.avatar.revisionId] : []),
-    ]);
+    const protection = new Map<string, AvatarCacheProtectionReason[]>();
+    const add = (revisionId: string, reason: AvatarCacheProtectionReason) => {
+      protection.set(revisionId, [...(protection.get(revisionId) ?? []), reason]);
+    };
+    add(persisted.activeRevisionId, 'active');
+    add(persisted.fallbackRevisionId, 'rollback');
+    const pending = this.pending ?? this.acquiring;
+    if (pending) add(pending.avatar.revisionId, 'pending');
+    return protection;
   }
 
   async activate(avatarId: string): Promise<AvatarSelectionState> {
@@ -110,8 +121,15 @@ export class AvatarAssetHost {
       return this.publish();
     }
     const sequence = ++this.activationSequence;
-    await this.cache.get(revision);
+    this.acquiring = revision;
+    try {
+      await this.cache.get(revision);
+    } catch (error) {
+      if (sequence === this.activationSequence) this.acquiring = undefined;
+      throw error;
+    }
     if (sequence !== this.activationSequence) return this.getState();
+    this.acquiring = undefined;
     this.pending = revision;
     this.pendingFallbackRevisionId = active.avatar.revisionId;
     this.error = undefined;

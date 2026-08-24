@@ -41,7 +41,7 @@ function revision(bytes: Uint8Array, avatarId = 'test-avatar'): AdmittedAvatarRe
     avatar: {
       avatarId,
       productId: `avatar.${avatarId}`,
-      revisionId: `test-${hash.slice(0, 8)}-v1`,
+      revisionId: `test-${avatarId}-${hash.slice(0, 8)}-v1`,
       name: 'Test',
       description: 'A test avatar.',
       creator: 'Test Creator',
@@ -175,5 +175,72 @@ describe('content-addressed avatar cache', () => {
       'objects',
       `${removableRevision.avatar.modelSha256}.vrm`,
     ))).rejects.toThrow();
+  });
+
+  it('reports verified, corrupt, and missing model storage without downloading', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'desky-avatar-cache-'));
+    temporaryDirectories.push(directory);
+    const verifiedBytes = minimalVrm('verified');
+    const corruptBytes = minimalVrm('corrupt');
+    const missingBytes = minimalVrm('missing');
+    const verified = revision(verifiedBytes, 'verified-avatar');
+    const corrupt = revision(corruptBytes, 'corrupt-avatar');
+    const missing = revision(missingBytes, 'missing-avatar');
+    const bodies = new Map([
+      [verified.modelUrl, verifiedBytes],
+      [corrupt.modelUrl, corruptBytes],
+    ]);
+    const fetcher = vi.fn(async (url) => new Response(responseBody(bodies.get(String(url))!), {
+      status: 200,
+    }));
+    const cache = new AvatarCache(directory, fetcher);
+    await cache.get(verified);
+    await cache.get(corrupt);
+    await writeFile(
+      join(directory, 'records', `${corrupt.avatar.revisionId}.json`),
+      '{"schemaVersion":99}',
+    );
+
+    const inventory = await cache.inspect([verified, corrupt, missing]);
+
+    expect(inventory.entries.map((entry) => [entry.avatarId, entry.modelStatus])).toEqual([
+      ['verified-avatar', 'verified'],
+      ['corrupt-avatar', 'corrupt'],
+      ['missing-avatar', 'missing'],
+    ]);
+    expect(inventory.totalBytes).toBeGreaterThan(verified.modelBytes + corrupt.modelBytes);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+  });
+
+  it('removes only an unprotected model and retains a shared content object', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'desky-avatar-cache-'));
+    temporaryDirectories.push(directory);
+    const bytes = minimalVrm('shared');
+    const first = revision(bytes, 'first-avatar');
+    const second = revision(bytes, 'second-avatar');
+    const cache = new AvatarCache(
+      directory,
+      async () => new Response(responseBody(bytes), { status: 200 }),
+    );
+    await cache.get(first);
+    await cache.get(second);
+
+    await expect(cache.removeModel(
+      first,
+      [first, second],
+      new Set([first.avatar.revisionId]),
+    )).rejects.toThrow('cannot be removed');
+    await cache.removeModel(first, [first, second], new Set());
+
+    const inventory = await cache.inspect([first, second]);
+    expect(inventory.entries.map((entry) => [entry.avatarId, entry.modelStatus])).toEqual([
+      ['first-avatar', 'missing'],
+      ['second-avatar', 'verified'],
+    ]);
+    await expect(readFile(join(
+      directory,
+      'objects',
+      `${second.avatar.modelSha256}.vrm`,
+    ))).resolves.toBeTruthy();
   });
 });
