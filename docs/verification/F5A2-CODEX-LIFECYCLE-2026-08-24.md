@@ -2,7 +2,7 @@
 
 ## Claim boundary
 
-This gate implements bounded local app-server replacement, safe thread recovery, OS process-tree teardown and awaited normal application shutdown behind the unregistered Codex adapter. It does not register Codex, claim typed Desky actions, claim a packaged authenticated model/tool/approval matrix, or make the experimental upstream app-server surface production-stable.
+This gate implements bounded local app-server replacement, safe thread recovery, OS process-tree teardown and awaited normal application shutdown behind the unregistered Codex adapter. The follow-on typed-action disposition confirmed that client-local tools are experimental and retained truthful unsupported capability; it does not register Codex, claim typed Desky actions, claim a packaged authenticated model/tool/approval matrix, or make the experimental upstream app-server surface production-stable.
 
 ## Recovery contract
 
@@ -37,4 +37,4 @@ During live verification, closing stdin before Windows tree termination exposed 
 
 ## Next gate
 
-Decide whether the admitted Codex protocol has a supported stable typed-action discovery surface. If it does not, retain truthful `agentActions: unsupported`. Then run the packaged authenticated model stream, tool approval allow/deny, cancellation-during-tool, reconnect/crash and CLI-mismatch matrix before any registry admission.
+Run the packaged authenticated model stream, tool approval allow/deny, cancellation-during-tool, reconnect/crash and CLI-mismatch matrix before any registry admission. The typed-action discovery question is closed in `F5A2-CODEX-ACTION-DISPOSITION-2026-08-24.md`.

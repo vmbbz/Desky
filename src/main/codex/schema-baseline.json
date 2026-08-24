@@ -30,6 +30,10 @@
       "canonicalBytes": 1068,
       "sha256": "747401b5d7d395b71e4023d3d13aaaaefb0f6ae044d611675f59838672720c3d"
     },
+    "v1/InitializeParams.json": {
+      "canonicalBytes": 1211,
+      "sha256": "2175f68cc4626614210917c8f39196fdba45581a3bc341a544519446b25a3917"
+    },
     "v2/GetAccountResponse.json": {
       "canonicalBytes": 1111,
       "sha256": "13416c55feb41673a3114e4b6fde7c9bf4b62fecaba36103ac59156824014465"
@@ -41,6 +45,10 @@
     "v2/ThreadStartResponse.json": {
       "canonicalBytes": 32001,
       "sha256": "264c0e4af5672554069667c27af0836eabe68efcf0fecc21ee52b3bb53c6ec73"
+    },
+    "v2/ThreadStartParams.json": {
+      "canonicalBytes": 5787,
+      "sha256": "278d25b0c1771eafc2e0bdaac84c5bbc2cfbd30cc4b1feb15511a74385b0ec95"
     },
     "v2/ThreadResumeResponse.json": {
       "canonicalBytes": 32214,

@@ -50,6 +50,7 @@ export interface CodexClientPort {
   connect(): Promise<unknown>;
   request(method: string, params?: unknown): Promise<unknown>;
   respond(id: number | string, result: unknown): void;
+  respondError(id: number | string, error: { code: number; message: string }): void;
   onNotification(listener: (value: CodexServerNotification) => void): () => void;
   onRequest(listener: (value: CodexServerRequest) => void): () => void;
   onClose(listener: (value: CodexClientClose) => void): () => void;
@@ -373,6 +374,11 @@ export class CodexRuntime implements AgentAdapterRuntime {
       if (request.method === 'item/commandExecution/requestApproval'
         || request.method === 'item/fileChange/requestApproval') {
         this.client?.respond(request.id, { decision: 'decline' });
+      } else {
+        this.client?.respondError(request.id, {
+          code: -32601,
+          message: 'Unsupported Codex server request.',
+        });
       }
       return;
     }

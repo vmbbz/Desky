@@ -7,6 +7,10 @@ import {
   type CodexClientPort,
   type CodexRuntimeDependencies,
 } from '../src/main/codex/runtime';
+import {
+  codexFoundationCapabilities,
+  codexTypedActionPolicy,
+} from '../src/shared/codex';
 import type {
   CodexClientClose,
   CodexServerNotification,
@@ -16,6 +20,7 @@ import type {
 class FixtureClient implements CodexClientPort {
   readonly calls: Array<{ method: string; params: unknown }> = [];
   readonly responses: Array<{ id: string | number; result: unknown }> = [];
+  readonly responseErrors: Array<{ id: string | number; error: { code: number; message: string } }> = [];
   account: unknown = {
     account: { type: 'chatgpt', email: null, planType: 'plus' },
     requiresOpenaiAuth: true,
@@ -58,6 +63,9 @@ class FixtureClient implements CodexClientPort {
   }
 
   respond(id: string | number, result: unknown) { this.responses.push({ id, result }); }
+  respondError(id: string | number, error: { code: number; message: string }) {
+    this.responseErrors.push({ id, error });
+  }
   onNotification(listener: (value: CodexServerNotification) => void) { this.notifications.add(listener); return () => this.notifications.delete(listener); }
   onRequest(listener: (value: CodexServerRequest) => void) { this.requests.add(listener); return () => this.requests.delete(listener); }
   onClose(listener: (value: CodexClientClose) => void) { this.closes.add(listener); return () => this.closes.delete(listener); }
@@ -99,6 +107,21 @@ const workspaceGrantId = 'codex-workspace:test-grant';
 const configuration = { workspaceGrantId, sandbox: 'read-only' as const };
 
 describe('CodexRuntime', () => {
+  it('keeps experimental client tools outside the admitted capability contract', () => {
+    expect(codexTypedActionPolicy).toEqual({
+      availability: 'unsupported',
+      clientRegistration: 'experimental-only',
+      experimentalApi: false,
+      dynamicTools: false,
+      stableAlternative: 'external-mcp',
+    });
+    expect(codexFoundationCapabilities.agentActions).toMatchObject({
+      availability: 'unsupported',
+      transport: 'none',
+      actions: [],
+    });
+  });
+
   it('validates configuration and connects through account and thread discovery', async () => {
     expect(readCodexRuntimeConfiguration(configuration)).toEqual(configuration);
     expect(() => readCodexRuntimeConfiguration({ workspaceDirectory, sandbox: 'read-only' }))
@@ -178,6 +201,20 @@ describe('CodexRuntime', () => {
     ]);
     expect(JSON.stringify(events)).not.toContain('private');
     expect(runtime.getState().activeTurnId).toBeUndefined();
+  });
+
+  it('rejects unadmitted server requests, including experimental dynamic tools', async () => {
+    const { runtime, client } = fixtureRuntime(new FixtureClient(), { reconnectDelaysMs: [] });
+    await runtime.connect(configuration);
+    client.emitRequest({
+      id: 'dynamic-tool-1',
+      method: 'item/tool/call',
+      params: { tool: 'desky_jump', arguments: {} },
+    });
+    expect(client.responseErrors).toEqual([{
+      id: 'dynamic-tool-1',
+      error: { code: -32601, message: 'Unsupported Codex server request.' },
+    }]);
   });
 
   it('routes scoped command/file approvals and denies wrong-session requests', async () => {

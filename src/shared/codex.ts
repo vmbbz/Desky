@@ -1,6 +1,20 @@
 import type { AdapterDescriptor } from './agent-adapter';
 import type { AgentAdapterCapabilities } from './adapter-capabilities';
 
+/**
+ * Production policy for the admitted app-server protocol. Client-registered
+ * tools currently require Codex's experimental API, so Desky must neither
+ * advertise nor initialize that surface. A separately configured MCP server
+ * is a possible future integration, not an equivalent local registration API.
+ */
+export const codexTypedActionPolicy = Object.freeze({
+  availability: 'unsupported',
+  clientRegistration: 'experimental-only',
+  experimentalApi: false,
+  dynamicTools: false,
+  stableAlternative: 'external-mcp',
+} as const);
+
 export const codexAdapterDescriptor: AdapterDescriptor = Object.freeze({
   schemaVersion: 1,
   adapterId: 'codex',
@@ -25,9 +39,9 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
   cancellation: true,
   reconnect: true,
   agentActions: {
-    availability: 'unsupported',
+    availability: codexTypedActionPolicy.availability,
     transport: 'none',
     actions: [],
-    setupHint: 'Typed Desky actions require a supported stable Codex tool-registration surface.',
+    setupHint: 'Codex client-registered actions are unavailable because its current dynamic-tool surface is experimental.',
   },
 } satisfies AgentAdapterCapabilities);
