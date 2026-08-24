@@ -308,7 +308,70 @@ export class CodexRuntime implements AgentAdapterRuntime {
     const sessionId = this.state.selectedSessionId;
     const turnId = this.state.activeTurnId;
     if (!sessionId || !turnId) return;
-    await this.requireClient().request('turn/interrupt', { threadId: sessionId, turnId });
+    const configuration = this.requireConfiguration();
+    const connectionId = this.currentConnectionId() ?? 'codex';
+    const cancelledApprovals = [...this.pendingApprovals.values()]
+      .filter((approval) => approval.turnId === turnId);
+    for (const approval of cancelledApprovals) {
+      this.pendingApprovals.delete(approval.requestId);
+      this.emitEvent({
+        protocolVersion: 1,
+        eventId: `${connectionId}:cancelled:${approval.requestId}`,
+        timestamp: new Date().toISOString(),
+        connectionId,
+        sessionId: approval.sessionId,
+        turnId: approval.turnId,
+        type: 'approval.resolved',
+        payload: { requestId: approval.requestId, status: 'cancelled' },
+      });
+    }
+
+    const interrupt = this.requireClient()
+      .request('turn/interrupt', { threadId: sessionId, turnId })
+      .catch(() => undefined);
+    await Promise.race([interrupt, this.wait(1_000)]);
+    if (this.state.activeTurnId === turnId) {
+      this.patchState({ activeTurnId: undefined, message: 'The Codex turn was cancelled.' });
+      this.emitEvent({
+        protocolVersion: 1,
+        eventId: `${connectionId}:cancelled-turn:${turnId}`,
+        timestamp: new Date().toISOString(),
+        connectionId,
+        sessionId,
+        turnId,
+        type: 'turn.failed',
+        payload: { safeError: 'The Codex turn was cancelled.', kind: 'cancelled' },
+      });
+    }
+
+    // The admitted app-server can acknowledge turn/interrupt while an approved
+    // command descendant continues running. Recycle the supervised process tree
+    // while its root identity is live so Stop has process-level semantics.
+    const generation = ++this.lifecycleGeneration;
+    this.patchState({
+      status: 'reconnecting',
+      reconnectAttempt: 1,
+      message: 'Stopping Codex tools and restoring the thread',
+    });
+    try {
+      await this.disconnectClient(false);
+      await this.establishClient({
+        workspaceGrantId: configuration.workspaceGrantId,
+        sandbox: configuration.sandbox,
+      }, sessionId, generation);
+    } catch (error) {
+      if (generation !== this.lifecycleGeneration) return;
+      try {
+        await this.disconnectClient(false);
+      } catch {
+        // The terminal state below remains truthful even if cleanup also fails.
+      }
+      this.connectionId = undefined;
+      const message = `Codex stopped, but its session could not be restored. ${safeError(error, [configuration.workspaceDirectory])}`
+        .slice(0, 240);
+      this.patchState({ status: 'error', reconnectAttempt: 0, activeTurnId: undefined, message });
+      throw new Error(message);
+    }
   }
 
   async resolveApproval(input: AdapterResolveApprovalInput): Promise<void> {

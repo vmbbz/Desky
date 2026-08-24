@@ -248,23 +248,54 @@ describe('CodexRuntime', () => {
     expect(client.responses).toContainEqual({ id: 8, result: { decision: 'decline' } });
   });
 
-  it('interrupts active work and classifies the terminal notification as cancelled', async () => {
-    const { runtime, client } = fixtureRuntime();
+  it('interrupts active work, terminates its client tree, and restores the selected thread', async () => {
+    const first = new FixtureClient();
+    const second = new FixtureClient();
+    const clients = [first, second];
+    const { runtime } = fixtureRuntime(first, {
+      createClient: () => {
+        const next = clients.shift();
+        if (!next) throw new Error('No fixture client available.');
+        return next;
+      },
+    });
     const events: string[] = [];
-    runtime.onEvent((event) => events.push(event.type));
+    const approvalStatuses: string[] = [];
+    runtime.onEvent((event) => {
+      events.push(event.type);
+      if (event.type === 'approval.resolved') approvalStatuses.push(event.payload.status);
+    });
     await runtime.connect(configuration);
     await runtime.selectSession('thread-1');
     await runtime.send('Long task');
+    first.emitRequest({
+      id: 19,
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', itemId: 'tool-1',
+        startedAtMs: 1, environmentId: null, reason: 'Run a command',
+      },
+    });
     await runtime.cancel();
-    expect(client.calls.at(-1)).toEqual({
+    expect(first.calls.at(-1)).toEqual({
       method: 'turn/interrupt', params: { threadId: 'thread-1', turnId: 'turn-1' },
     });
-    client.emitNotification({
+    expect(first.closed).toBe(true);
+    expect(approvalStatuses).toEqual(['cancelled']);
+    expect(second.calls).toContainEqual({ method: 'thread/resume', params: { threadId: 'thread-1' } });
+    expect(events.filter((event) => event === 'turn.failed')).toHaveLength(1);
+    expect(runtime.getState()).toMatchObject({
+      status: 'connected',
+      reconnectAttempt: 0,
+      selectedSessionId: 'thread-1',
+      activeTurnId: undefined,
+      message: 'Codex app-server reconnected',
+    });
+    first.emitNotification({
       method: 'turn/completed',
       params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted', error: null } },
     });
-    expect(events.at(-1)).toBe('turn.failed');
-    expect(runtime.getState().activeTurnId).toBeUndefined();
+    expect(events.filter((event) => event === 'turn.failed')).toHaveLength(1);
   });
 
   it('fails closed for missing auth and unexpected process exit', async () => {

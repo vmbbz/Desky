@@ -17,7 +17,7 @@ This round implements and tests the provider runtime behind the generic port, bu
 
 - Existing-account check through `account/read`; missing required auth fails closed with a sign-in instruction.
 - Bounded thread list, create/name, resume/select, and selected-session state.
-- One active turn, accepted-input and thinking events, ordered assistant deltas, and cancellation through `turn/interrupt`.
+- One active turn, accepted-input and thinking events, ordered assistant deltas, and process-level cancellation through `turn/interrupt` followed by supervised tree recycle and selected-thread restoration.
 - Supported tool item start/completion pairing with no raw command, output, diff, arguments, reasoning, or paths.
 - Command and file-change server requests scoped to selected thread and live turn; finite generic decisions map to Codex `accept`, `acceptForSession`, or `decline`.
 - Wrong-session and over-capacity approval requests are declined; unknown/duplicate approval resolution fails closed.

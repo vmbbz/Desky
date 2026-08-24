@@ -34,4 +34,4 @@ Source: [Codex App Server](https://developers.openai.com/codex/app-server/).
 
 ## Next gate
 
-Run the packaged authenticated model-stream, tool approval allow/deny, cancellation-during-tool, reconnect/crash, CLI/schema-mismatch and clean-package lifecycle matrix. Codex remains `production: false`, unregistered and unreachable in the production provider picker until that evidence passes.
+The authenticated source-runtime matrix is now recorded in `F5A2-CODEX-AUTHENTICATED-MATRIX-2026-08-24.md`. Next register Codex only in the direct profile, add explicit provider selection, and repeat the matrix through the packaged UI/lifecycle boundary. Codex remains `production: false` and unreachable until that admission round.

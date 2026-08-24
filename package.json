@@ -21,6 +21,7 @@
     "test": "vitest run",
     "test:openclaw:live": "vitest run tests/openclaw-live.test.ts",
     "test:codex:live": "vitest run tests/codex-live.test.ts",
+    "test:codex:matrix:live": "node scripts/run-codex-live-matrix.mjs",
     "codex:schema:verify": "node scripts/verify-codex-schema.mjs",
     "codex:schema:refresh": "node scripts/verify-codex-schema.mjs --write-baseline",
     "test:watch": "vitest"

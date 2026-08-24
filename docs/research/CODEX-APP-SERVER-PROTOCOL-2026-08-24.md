@@ -36,7 +36,7 @@ The generated files were inspected from a temporary directory and not copied int
 | `item/agentMessage/delta` | `assistant.delta` |
 | command/file/MCP item lifecycle | redacted `tool.started` / `tool.completed` |
 | command/file server request | `approval.requested`; generic decision mapped back to Codex decision |
-| `turn/interrupt` | cancel active turn |
+| `turn/interrupt`, then supervised tree recycle | process-level cancel and selected-thread restoration |
 | `turn/completed` completed/interrupted/failed | exactly one terminal event |
 
 Raw reasoning text, raw command output, absolute paths, file diffs, tool arguments, environment data, and native JSON-RPC messages will not cross preload.
@@ -56,5 +56,5 @@ Raw reasoning text, raw command output, absolute paths, file diffs, tool argumen
 4. ~~Implement thread lifecycle, streaming normalization, tool pairing, approval response mapping, interruption, restart/reconnect, and exactly-one-terminal semantics.~~ Fixture conformance now covers all of these. Restart is process replacement with three bounded fresh-admission attempts; selected thread resume is allowed, but lost turns and approvals are never replayed.
 5. Decide and disclose the default `cwd`, sandbox policy, approval policy, model selection, and inherited-environment policy. Workspace/sandbox/environment are now resolved: user-picked opaque main grants, `read-only` default, optional natively confirmed `workspace-write`, fixed `on-request`, and the reviewed environment allowlist. Model selection remains upstream-default until a later capability-driven picker is admitted.
 6. ~~Decide whether stable typed client-action registration exists.~~ It does not: `dynamicTools` is experimental. Desky reports actions as unsupported; stable MCP is a separate future helper topology.
-7. Pass the shared adapter suite plus malformed input, backpressure, process crash, missing executable, unsupported version, unauthenticated account, usage limit, and package lifecycle tests.
+7. Pass the shared adapter suite plus malformed input, backpressure, process crash, missing executable, unsupported version, unauthenticated account, usage limit, and package lifecycle tests. The authenticated source-runtime stream/approval/cancellation/crash matrix now passes; direct-profile packaged UI repetition remains.
 8. Only then register the runtime and expose a direct-profile Codex connection form. It remains unregistered and `production: false`.
