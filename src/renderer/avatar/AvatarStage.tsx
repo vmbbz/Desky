@@ -70,13 +70,7 @@ type LoadState =
   | { kind: 'error'; message: string };
 
 function disposeObject(root: Object3D): void {
-  root.traverse((object) => {
-    const mesh = object as Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials as Material[]) material.dispose();
-  });
+  VRMUtils.deepDispose(root);
 }
 
 function applyRelaxedPose(vrm: VRM): void {
@@ -375,9 +369,11 @@ export function AvatarStage({
         const loader = new GLTFLoader();
         loader.register((parser) => new VRMLoaderPlugin(parser));
         const gltf = await loader.parseAsync(buffer, new URL('.', avatar.modelUrl).href);
-        if (disposed) return;
-
         const vrm = gltf.userData.vrm as VRM | undefined;
+        if (disposed) {
+          if (vrm) VRMUtils.deepDispose(vrm.scene);
+          return;
+        }
         if (!vrm) throw new Error('The selected file is not a readable VRM avatar');
         const capabilities = inspectVrmCapabilities(vrm);
         assertCoreHumanoid(capabilities);
@@ -522,6 +518,7 @@ export function AvatarStage({
       expressionControllerRef.current = undefined;
       admittedMotionCueIdRef.current = undefined;
       if (avatarRoot) disposeObject(avatarRoot);
+      renderer.renderLists.dispose();
       renderer.dispose();
       onVisibleBoundsRef.current?.(undefined);
       onHitTestReadyRef.current?.(undefined);

@@ -121,6 +121,7 @@ const avatar: AvatarAssetBridge = Object.freeze({
 const marketplace: MarketplaceBridge = Object.freeze({
   getCatalog: () => ipcRenderer.invoke('desky:marketplace:get-catalog') as Promise<MarketplaceCatalog>,
   getThumbnail: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:get-thumbnail', avatarId) as Promise<MarketplaceThumbnail>,
+  getPreview: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:get-preview', avatarId) as Promise<SelectedAvatarAsset>,
   activate: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:activate', avatarId) as Promise<AvatarSelectionState>,
   openSource: (avatarId: string) => ipcRenderer.invoke('desky:marketplace:open-source', avatarId) as Promise<void>,
 });

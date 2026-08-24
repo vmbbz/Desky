@@ -92,6 +92,12 @@ async function captureVisualTest(
   outputPath: string,
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
+  let visualExerciseError: string | null = null;
+  const processMetricsBefore = app.getAppMetrics().map((metric) => ({
+    type: metric.type,
+    pid: metric.pid,
+    workingSetSize: metric.memory?.workingSetSize ?? null,
+  }));
   let motionPreferenceError: string | null = null;
   const visualMotionPreference = process.env.DESKY_VISUAL_TEST_MOTION_PREFERENCE;
   if (visualMotionPreference === 'system' || visualMotionPreference === 'full' || visualMotionPreference === 'reduced') {
@@ -128,6 +134,78 @@ async function captureVisualTest(
       }
       throw new Error('Marketplace avatar button did not become available');
     })()`);
+  }
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'preview-avatar'
+    && visualAvatarId) {
+    await window.webContents.executeJavaScript(`(async () => {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        const button = document.querySelector(
+          '[data-avatar-preview-id=${JSON.stringify(visualAvatarId)}]',
+        );
+        if (button instanceof HTMLButtonElement) {
+          button.click();
+          return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      throw new Error('Marketplace preview button did not become available');
+    })()`);
+  }
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'avatar-switch-soak') {
+    const requestedSwitchCount = Number.parseInt(
+      process.env.DESKY_VISUAL_TEST_SWITCH_COUNT ?? '',
+      10,
+    );
+    const switchCount = Number.isSafeInteger(requestedSwitchCount)
+      ? Math.max(1, Math.min(requestedSwitchCount, 40))
+      : 20;
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+      const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+      let root = document.querySelector('.marketplace-view');
+      const deadline = Date.now() + 55000;
+      while (!root && Date.now() < deadline) {
+        await wait(50);
+        root = document.querySelector('.marketplace-view');
+      }
+      if (!(root instanceof HTMLElement)) throw new Error('Marketplace did not become available');
+      const ids = [...document.querySelectorAll('[data-avatar-id]')]
+        .map((button) => button.getAttribute('data-avatar-id'))
+        .filter((value) => typeof value === 'string' && value.length > 0);
+      if (ids.length < 3) throw new Error('Twenty-switch soak requires three admitted avatars');
+      const completed = [];
+      for (let index = 0; index < ${switchCount}; index += 1) {
+        const active = root.dataset.activeAvatarId ?? '';
+        const nextId = ids.find((id, offset) => id !== active && (offset + index) % 2 === 0)
+          ?? ids.find((id) => id !== active);
+        if (!nextId) throw new Error('No alternate companion was available');
+        const button = document.querySelector('[data-avatar-id="' + CSS.escape(nextId) + '"]');
+        if (!(button instanceof HTMLButtonElement) || button.disabled) {
+          throw new Error('Companion activation button was unavailable');
+        }
+        button.click();
+        const switchDeadline = Math.min(deadline, Date.now() + 8000);
+        while (Date.now() < switchDeadline) {
+          if (root.dataset.activeAvatarId === nextId
+            && root.dataset.avatarSelection === 'ready') break;
+          await wait(40);
+        }
+        if (root.dataset.activeAvatarId !== nextId
+          || root.dataset.avatarSelection !== 'ready') {
+          throw new Error('Companion switch ' + (index + 1) + ' did not commit');
+        }
+        completed.push(nextId);
+        await wait(80);
+      }
+      root.dataset.switchSoak = completed.join(',');
+      return completed;
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
   }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
   const waitMs = Number.isSafeInteger(requestedWaitMs)
@@ -247,6 +325,7 @@ async function captureVisualTest(
     motionClipError: document.querySelector('.avatar-stage canvas')?.dataset.motionClipError ?? null,
     motionObservedPrograms: document.querySelector('.avatar-stage')?.dataset.observedPrograms ?? null,
     motionPreferenceError: ${JSON.stringify(motionPreferenceError)},
+    visualExerciseError: ${JSON.stringify(visualExerciseError)},
     avatarYawDegrees: document.querySelector('.ambient-companion')?.dataset.avatarYawDegrees ?? null,
     marketplaceVisible: Boolean(document.querySelector('.marketplace-view')),
     marketplaceCards: document.querySelectorAll('.marketplace-avatar-card').length,
@@ -254,12 +333,20 @@ async function captureVisualTest(
     marketplaceCommerce: document.querySelector('.marketplace-kicker')?.textContent?.trim() ?? null,
     marketplaceActive: document.querySelector('.marketplace-avatar-card__actions button:disabled')?.textContent?.trim() ?? null,
     marketplaceSelection: document.querySelector('.marketplace-view')?.dataset.avatarSelection ?? null,
-    marketplaceActiveAvatarId: document.querySelector('.marketplace-view')?.dataset.activeAvatarId ?? null
+    marketplaceActiveAvatarId: document.querySelector('.marketplace-view')?.dataset.activeAvatarId ?? null,
+    marketplacePreviewState: document.querySelector('.marketplace-preview-stage')?.dataset.previewState ?? null,
+    marketplaceSwitchSoak: document.querySelector('.marketplace-view')?.dataset.switchSoak ?? null
   })`) as Record<string, unknown>;
   const diagnostic = {
     ...rendererDiagnostic,
     initialWindowBounds,
     nativeWindowBounds: window.getBounds(),
+    processMetricsBefore,
+    processMetricsAfter: app.getAppMetrics().map((metric) => ({
+      type: metric.type,
+      pid: metric.pid,
+      workingSetSize: metric.memory?.workingSetSize ?? null,
+    })),
   };
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());

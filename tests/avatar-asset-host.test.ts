@@ -63,4 +63,37 @@ describe('transactional avatar activation', () => {
     await expect(host.activate('unknown-avatar')).rejects.toThrow('not available');
     expect(get).not.toHaveBeenCalled();
   });
+
+  it('previews verified bytes without mutating or publishing selection state', async () => {
+    const bytes = new ArrayBuffer(8);
+    const get = vi.fn(async () => bytes);
+    const write = vi.fn();
+    const host = new AvatarAssetHost(
+      { get },
+      () => ({ activeRevisionId: milk, fallbackRevisionId: milk }),
+      write,
+    );
+    const listener = vi.fn();
+    host.onState(listener);
+
+    const preview = await host.getPreview(bananaId);
+
+    expect(preview).toMatchObject({
+      avatar: { revisionId: banana },
+      bytes,
+    });
+    expect(host.getState()).toMatchObject({ activeRevisionId: milk, status: 'ready' });
+    expect(write).not.toHaveBeenCalled();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('protects active, fallback, and pending revisions from cache eviction', async () => {
+    const host = new AvatarAssetHost(
+      { get: vi.fn(async () => new ArrayBuffer(8)) },
+      () => ({ activeRevisionId: milk, fallbackRevisionId: milk }),
+      vi.fn(),
+    );
+    await host.activate(bananaId);
+    expect([...host.getProtectedRevisionIds()].sort()).toEqual([banana, milk].sort());
+  });
 });

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -99,6 +99,8 @@ function parseSidecar(
 }
 
 export class AvatarCache {
+  static readonly maximumBytes = 256 * 1024 * 1024;
+
   constructor(
     private readonly rootPath: string,
     private readonly fetcher: AvatarCatalogFetcher = fetch,
@@ -121,6 +123,7 @@ export class AvatarCache {
         revision.avatar.modelSha256,
         revision.modelBytes,
       );
+      await this.touch(recordPath);
       return toArrayBuffer(object);
     } catch {
       return this.downloadAndStore(revision, objectPath, recordPath);
@@ -144,6 +147,7 @@ export class AvatarCache {
         revision.thumbnailSha256,
         revision.thumbnailBytes,
       );
+      await this.touch(recordPath);
       return toArrayBuffer(object);
     } catch {
       const downloaded = new Uint8Array(
@@ -151,6 +155,88 @@ export class AvatarCache {
       );
       this.validateThumbnail(downloaded, revision);
       return this.storeThumbnail(revision, downloaded, objectPath, recordPath);
+    }
+  }
+
+  async prune(
+    revisions: readonly AdmittedAvatarRevision[],
+    protectedRevisionIds: ReadonlySet<string>,
+    maximumBytes = AvatarCache.maximumBytes,
+  ): Promise<{ beforeBytes: number; afterBytes: number; evictedRevisionIds: string[] }> {
+    if (!Number.isSafeInteger(maximumBytes) || maximumBytes < 0) {
+      throw new Error('Invalid avatar cache byte limit.');
+    }
+    const candidates = await Promise.all(revisions.map(async (revision) => {
+      const modelObjectPath = join(this.rootPath, 'objects', `${revision.avatar.modelSha256}.vrm`);
+      const thumbnailObjectPath = join(this.rootPath, 'objects', `${revision.thumbnailSha256}.png`);
+      const modelRecordPath = join(this.rootPath, 'records', `${revision.avatar.revisionId}.json`);
+      const thumbnailRecordPath = join(this.rootPath, 'records', `${revision.avatar.revisionId}.thumbnail.json`);
+      const paths = [modelObjectPath, thumbnailObjectPath, modelRecordPath, thumbnailRecordPath];
+      const stats = await Promise.all(paths.map(async (path) => {
+        try {
+          const value = await stat(path);
+          return { path, bytes: value.size, mtimeMs: value.mtimeMs };
+        } catch {
+          return { path, bytes: 0, mtimeMs: 0 };
+        }
+      }));
+      return {
+        revision,
+        modelObjectPath,
+        thumbnailObjectPath,
+        modelRecordPath,
+        thumbnailRecordPath,
+        stats,
+        lastAccessedAt: Math.max(stats[2].mtimeMs, stats[3].mtimeMs),
+      };
+    }));
+    const knownFiles = new Map<string, number>();
+    for (const candidate of candidates) {
+      for (const file of candidate.stats) {
+        if (file.bytes > 0) knownFiles.set(file.path, file.bytes);
+      }
+    }
+    const beforeBytes = [...knownFiles.values()].reduce((total, bytes) => total + bytes, 0);
+    let afterBytes = beforeBytes;
+    const retained = new Set(revisions.map((revision) => revision.avatar.revisionId));
+    const evictedRevisionIds: string[] = [];
+    const removable = candidates
+      .filter((candidate) => candidate.stats.some((file) => file.bytes > 0)
+        && !protectedRevisionIds.has(candidate.revision.avatar.revisionId))
+      .sort((left, right) => left.lastAccessedAt - right.lastAccessedAt);
+
+    for (const candidate of removable) {
+      if (afterBytes <= maximumBytes) break;
+      retained.delete(candidate.revision.avatar.revisionId);
+      const retainedModelObjects = new Set(candidates
+        .filter((entry) => retained.has(entry.revision.avatar.revisionId))
+        .map((entry) => entry.modelObjectPath));
+      const retainedThumbnails = new Set(candidates
+        .filter((entry) => retained.has(entry.revision.avatar.revisionId))
+        .map((entry) => entry.thumbnailObjectPath));
+      const exactRemovalPaths = [candidate.modelRecordPath, candidate.thumbnailRecordPath];
+      if (!retainedModelObjects.has(candidate.modelObjectPath)) {
+        exactRemovalPaths.push(candidate.modelObjectPath);
+      }
+      if (!retainedThumbnails.has(candidate.thumbnailObjectPath)) {
+        exactRemovalPaths.push(candidate.thumbnailObjectPath);
+      }
+      for (const path of exactRemovalPaths) {
+        await rm(path, { force: true });
+        afterBytes -= knownFiles.get(path) ?? 0;
+        knownFiles.delete(path);
+      }
+      evictedRevisionIds.push(candidate.revision.avatar.revisionId);
+    }
+    return { beforeBytes, afterBytes: Math.max(0, afterBytes), evictedRevisionIds };
+  }
+
+  private async touch(path: string): Promise<void> {
+    const now = new Date();
+    try {
+      await utimes(path, now, now);
+    } catch {
+      // Cache access timestamps are advisory; validated bytes remain usable.
     }
   }
 

@@ -1,4 +1,4 @@
-import type { AvatarSelectionState } from './avatar-assets';
+import type { AvatarSelectionState, SelectedAvatarAsset } from './avatar-assets';
 
 export const marketplaceCommerceModes = ['disabled', 'enabled'] as const;
 export type MarketplaceCommerceMode = (typeof marketplaceCommerceModes)[number];
@@ -181,6 +181,7 @@ export function evaluateFreeEntitlement(avatar: MarketplaceAvatar): FreeEntitlem
 export interface MarketplaceBridge {
   getCatalog(): Promise<MarketplaceCatalog>;
   getThumbnail(avatarId: string): Promise<MarketplaceThumbnail>;
+  getPreview(avatarId: string): Promise<SelectedAvatarAsset>;
   activate(avatarId: string): Promise<AvatarSelectionState>;
   openSource(avatarId: string): Promise<void>;
 }

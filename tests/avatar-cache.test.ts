@@ -16,8 +16,8 @@ afterEach(async () => {
   ));
 });
 
-function minimalVrm(): Uint8Array {
-  const source = JSON.stringify({ asset: { version: '2.0' }, extensions: { VRM: {} } });
+function minimalVrm(marker = 'test'): Uint8Array {
+  const source = JSON.stringify({ asset: { version: '2.0', generator: marker }, extensions: { VRM: {} } });
   const padded = source.padEnd(Math.ceil(source.length / 4) * 4, ' ');
   const json = new TextEncoder().encode(padded);
   const bytes = new Uint8Array(20 + json.byteLength);
@@ -35,12 +35,12 @@ function responseBody(bytes: Uint8Array): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-function revision(bytes: Uint8Array): AdmittedAvatarRevision {
+function revision(bytes: Uint8Array, avatarId = 'test-avatar'): AdmittedAvatarRevision {
   const hash = createHash('sha256').update(bytes).digest('hex');
   return {
     avatar: {
-      avatarId: 'test-avatar',
-      productId: 'avatar.test',
+      avatarId,
+      productId: `avatar.${avatarId}`,
       revisionId: `test-${hash.slice(0, 8)}-v1`,
       name: 'Test',
       description: 'A test avatar.',
@@ -59,8 +59,8 @@ function revision(bytes: Uint8Array): AdmittedAvatarRevision {
     },
     registryCommit: '0123456789012345678901234567890123456789',
     sourceRecordSha256: 'a'.repeat(64),
-    modelUrl: 'https://arweave.net/test-model',
-    thumbnailUrl: 'https://arweave.net/test-thumbnail',
+    modelUrl: `https://arweave.net/${avatarId}-model`,
+    thumbnailUrl: `https://arweave.net/${avatarId}-thumbnail`,
     thumbnailSha256: hash,
     thumbnailBytes: bytes.byteLength,
     modelBytes: bytes.byteLength,
@@ -137,5 +137,43 @@ describe('content-addressed avatar cache', () => {
     expect(new Uint8Array(await cache.getThumbnail(admitted))).toEqual(thumbnail);
     expect(new Uint8Array(await cache.getThumbnail(admitted))).toEqual(thumbnail);
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('evicts the least-recently-used catalog revision without touching a protected revision', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'desky-avatar-cache-'));
+    temporaryDirectories.push(directory);
+    const protectedBytes = minimalVrm('protected');
+    const removableBytes = minimalVrm('removable');
+    const protectedRevision = revision(protectedBytes, 'protected-avatar');
+    const removableRevision = revision(removableBytes, 'removable-avatar');
+    const bodies = new Map([
+      [protectedRevision.modelUrl, protectedBytes],
+      [removableRevision.modelUrl, removableBytes],
+    ]);
+    const cache = new AvatarCache(directory, async (url) => {
+      const body = bodies.get(String(url));
+      if (!body) return new Response('Not found', { status: 404 });
+      return new Response(responseBody(body), { status: 200 });
+    });
+    await cache.get(removableRevision);
+    await cache.get(protectedRevision);
+
+    const result = await cache.prune(
+      [protectedRevision, removableRevision],
+      new Set([protectedRevision.avatar.revisionId]),
+      0,
+    );
+
+    expect(result.evictedRevisionIds).toEqual([removableRevision.avatar.revisionId]);
+    await expect(readFile(join(
+      directory,
+      'objects',
+      `${protectedRevision.avatar.modelSha256}.vrm`,
+    ))).resolves.toBeTruthy();
+    await expect(readFile(join(
+      directory,
+      'objects',
+      `${removableRevision.avatar.modelSha256}.vrm`,
+    ))).rejects.toThrow();
   });
 });

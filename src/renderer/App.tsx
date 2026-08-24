@@ -44,6 +44,7 @@ import type {
 } from '../shared/runtime';
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage, type AvatarHitTest } from './avatar/AvatarStage';
+import { MarketplaceAvatarPreview } from './avatar/MarketplaceAvatarPreview';
 import { resolveAvatarDragMode } from './avatar/avatar-manipulation';
 import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
 
@@ -94,6 +95,7 @@ export function App() {
   const [marketplaceThumbnails, setMarketplaceThumbnails] = useState<Record<string, string>>({});
   const [avatarSelection, setAvatarSelection] = useState<AvatarSelectionState>(initialAvatarSelection);
   const [marketplaceBusyAvatarId, setMarketplaceBusyAvatarId] = useState('');
+  const [marketplacePreviewAvatarId, setMarketplacePreviewAvatarId] = useState('');
   const [gatewayUrl, setGatewayUrl] = useState(initialGateway.gatewayUrl);
   const [authKind, setAuthKind] = useState<OpenClawAuthKind>('token');
   const [credential, setCredential] = useState('');
@@ -113,6 +115,15 @@ export function App() {
   );
   const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!marketplacePreviewAvatarId) return undefined;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMarketplacePreviewAvatarId('');
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [marketplacePreviewAvatarId]);
   const adapterModeRef = useRef(adapterMode);
   const pendingDraftTextRef = useRef<string | null>(null);
   const motionCueSequenceRef = useRef(0);
@@ -676,6 +687,9 @@ export function App() {
     const admittedCount = marketplaceCatalog?.avatars.filter(
       (avatar) => avatar.admissionStatus === 'admitted',
     ).length ?? 0;
+    const previewAvatar = marketplaceCatalog?.avatars.find(
+      (avatar) => avatar.avatarId === marketplacePreviewAvatarId,
+    );
     return (
       <main
         className="companion control-center marketplace-view"
@@ -709,6 +723,59 @@ export function App() {
         {marketplaceError ? <p className="marketplace-error" role="alert">{marketplaceError}</p> : null}
         {!marketplaceCatalog && !marketplaceError ? <p className="marketplace-loading" role="status">Loading the verified local catalog…</p> : null}
 
+        {previewAvatar ? (
+          <section className="marketplace-preview" role="dialog" aria-modal="true" aria-labelledby="marketplace-preview-title">
+            <button
+              type="button"
+              className="marketplace-preview__backdrop"
+              aria-label="Close companion preview"
+              onClick={() => setMarketplacePreviewAvatarId('')}
+            />
+            <div className="marketplace-preview__panel">
+              <div className="marketplace-preview__visual">
+                <MarketplaceAvatarPreview avatarId={previewAvatar.avatarId} />
+              </div>
+              <div className="marketplace-preview__details">
+                <div className="marketplace-preview__heading">
+                  <span>Verified local preview</span>
+                  <button type="button" onClick={() => setMarketplacePreviewAvatarId('')} aria-label="Close preview">×</button>
+                </div>
+                <h2 id="marketplace-preview-title">{previewAvatar.name}</h2>
+                <p>{previewAvatar.description}</p>
+                <dl>
+                  <div><dt>Creator</dt><dd>{previewAvatar.creator}</dd></div>
+                  <div><dt>Licence</dt><dd>{previewAvatar.licenseId}</dd></div>
+                  <div><dt>Runtime</dt><dd>VRM {previewAvatar.vrmVersion}</dd></div>
+                  <div><dt>Footprint</dt><dd>{previewAvatar.performanceClass}</dd></div>
+                </dl>
+                <p className="marketplace-attribution">{previewAvatar.attribution}</p>
+                <div className="marketplace-preview__actions">
+                  <button type="button" onClick={() => void window.desky.marketplace.openSource(previewAvatar.avatarId)
+                    .catch((error: unknown) => setMarketplaceError(errorMessage(error)))}>Source & licence</button>
+                  <button
+                    type="button"
+                    disabled={marketplaceBusyAvatarId.length > 0
+                      || previewAvatar.avatarId === avatarSelection.activeAvatarId}
+                    onClick={() => {
+                      setMarketplaceError('');
+                      setMarketplaceBusyAvatarId(previewAvatar.avatarId);
+                      void window.desky.marketplace.activate(previewAvatar.avatarId)
+                        .then(setAvatarSelection)
+                        .then(() => {
+                          setMarketplacePreviewAvatarId('');
+                          return window.desky.performWindowAction('show-ambient');
+                        })
+                        .catch((error: unknown) => setMarketplaceError(errorMessage(error)))
+                        .finally(() => setMarketplaceBusyAvatarId(''));
+                    }}
+                  >{previewAvatar.avatarId === avatarSelection.activeAvatarId
+                      ? 'Active companion' : marketplaceBusyAvatarId ? 'Switching…' : 'Use companion'}</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
+
         <section className="marketplace-grid" aria-label="Available companions">
           {marketplaceCatalog?.avatars.map((avatar) => {
             const active = avatar.avatarId === avatarSelection.activeAvatarId
@@ -740,9 +807,9 @@ export function App() {
                 <div className="marketplace-avatar-card__actions">
                   <button
                     type="button"
-                    onClick={() => void window.desky.marketplace.openSource(avatar.avatarId)
-                      .catch((error: unknown) => setMarketplaceError(errorMessage(error)))}
-                  >Source & licence</button>
+                    data-avatar-preview-id={avatar.avatarId}
+                    onClick={() => setMarketplacePreviewAvatarId(avatar.avatarId)}
+                  >3D preview</button>
                   <button
                     type="button"
                     data-avatar-id={avatar.avatarId}

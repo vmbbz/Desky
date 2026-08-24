@@ -119,6 +119,10 @@ export function getBundledMarketplaceCatalog(): MarketplaceCatalog {
   return parseMarketplaceCatalog(structuredClone(bundledFoundationCatalog));
 }
 
+export function getAdmittedAvatarRevisions(): readonly AdmittedAvatarRevision[] {
+  return admittedRevisions;
+}
+
 export function getAdmittedAvatarRevisionByAvatarId(
   avatarId: string,
 ): AdmittedAvatarRevision | undefined {

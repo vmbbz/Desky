@@ -29,6 +29,7 @@ import { AvatarAssetHost } from './avatar-asset-host';
 import { AvatarCache } from './avatar-cache';
 import {
   getAdmittedAvatarRevisionByAvatarId,
+  getAdmittedAvatarRevisions,
   getBundledMarketplaceCatalog,
 } from './marketplace-catalog';
 import { CompanionStateHost } from './companion-state-host';
@@ -56,6 +57,7 @@ const avatarChannels = {
 const marketplaceCatalogChannel = 'desky:marketplace:get-catalog';
 const marketplaceActivateChannel = 'desky:marketplace:activate';
 const marketplaceThumbnailChannel = 'desky:marketplace:get-thumbnail';
+const marketplacePreviewChannel = 'desky:marketplace:get-preview';
 const marketplaceOpenSourceChannel = 'desky:marketplace:open-source';
 const openClawChannels = {
   state: 'desky:openclaw:state',
@@ -222,6 +224,10 @@ export function registerIpc(
     () => windows.getAvatarSelection(),
     (selection) => windows.setAvatarSelection(selection),
   );
+  void avatarCache.prune(
+    getAdmittedAvatarRevisions(),
+    avatarAssets.getProtectedRevisionIds(),
+  ).catch(() => undefined);
   let motionPreference: MotionPreference = 'system';
   const broadcastAnimationState = () => {
     const state = animation.getState();
@@ -271,14 +277,28 @@ export function registerIpc(
       bytes: await avatarCache.getThumbnail(revision),
     };
   });
-  ipcMain.handle(marketplaceActivateChannel, (event, value: unknown) => {
+  ipcMain.handle(marketplacePreviewChannel, (event, value: unknown) => {
+    if (windows.surfaceFor(event.sender) !== 'control-center'
+      || typeof value !== 'string'
+      || value.length === 0
+      || value.length > 128) {
+      throw new Error('Invalid marketplace preview request.');
+    }
+    return avatarAssets.getPreview(value);
+  });
+  ipcMain.handle(marketplaceActivateChannel, async (event, value: unknown) => {
     if (windows.surfaceFor(event.sender) !== 'control-center'
       || typeof value !== 'string'
       || value.length === 0
       || value.length > 128) {
       throw new Error('Invalid companion activation request.');
     }
-    return avatarAssets.activate(value);
+    const state = await avatarAssets.activate(value);
+    await avatarCache.prune(
+      getAdmittedAvatarRevisions(),
+      avatarAssets.getProtectedRevisionIds(),
+    );
+    return state;
   });
   ipcMain.handle(marketplaceOpenSourceChannel, async (event, value: unknown) => {
     if (windows.surfaceFor(event.sender) !== 'control-center'
@@ -460,6 +480,7 @@ export const ipcChannels = {
   marketplaceActivate: marketplaceActivateChannel,
   marketplaceCatalog: marketplaceCatalogChannel,
   marketplaceThumbnail: marketplaceThumbnailChannel,
+  marketplacePreview: marketplacePreviewChannel,
   marketplaceOpenSource: marketplaceOpenSourceChannel,
   windowAction: windowActionChannel,
   ambientState: ambientStateChannel,

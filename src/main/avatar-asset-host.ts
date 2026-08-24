@@ -81,6 +81,24 @@ export class AvatarAssetHost {
     return { avatar: runtimeDescriptor(selected), bytes };
   }
 
+  async getPreview(avatarId: string): Promise<SelectedAvatarAsset> {
+    const revision = getAdmittedAvatarRevisionByAvatarId(avatarId);
+    if (!revision || evaluateFreeEntitlement(revision.avatar).status !== 'granted') {
+      throw new Error('This companion is not available for preview.');
+    }
+    const bytes = await this.cache.get(revision);
+    return { avatar: runtimeDescriptor(revision), bytes };
+  }
+
+  getProtectedRevisionIds(): ReadonlySet<string> {
+    const persisted = this.normalizedPersisted();
+    return new Set([
+      persisted.activeRevisionId,
+      persisted.fallbackRevisionId,
+      ...(this.pending ? [this.pending.avatar.revisionId] : []),
+    ]);
+  }
+
   async activate(avatarId: string): Promise<AvatarSelectionState> {
     const revision = getAdmittedAvatarRevisionByAvatarId(avatarId);
     if (!revision || evaluateFreeEntitlement(revision.avatar).status !== 'granted') {

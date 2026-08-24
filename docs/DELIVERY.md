@@ -308,7 +308,17 @@ Evidence: `docs/verification/F4-THREE-FREE-AVATARS-2026-08-24.md`.
 
 Final packaged evidence also restores active CoolBanana, its mapped texture, full Looking Around idle, and all three marketplace thumbnails from the verified cache while the visual harness forcibly denies network access.
 
-Next: representative full-motion Milk/Astronaut captures, a real VRM 1.0 admission, corrupt-cache packaged recovery, bounded eviction/removal, isolated detail preview, macOS equivalence, and the twenty-switch leak/recovery matrix. Signed production catalog work follows; F4x remains blocked.
+### F4.3 preview and cache durability — 2026-08-24
+
+- Added a verified 3D Marketplace preview with drag rotation, relaxed pose, explicit source/licence and `Use companion` handoff. Preview acquisition and rendering do not create pending state, persist selection, subscribe to gateway motion, or touch the ambient scene.
+- Added a 256 MiB catalog-aware least-recently-used cache pass. It operates only on exact admitted paths, preserves content-addressed objects still referenced by retained revisions, and protects active, rollback, and pending revisions.
+- Replaced shallow mesh disposal with deep VRM scene disposal and renderer-list cleanup on every ambient model replacement.
+- Package-proved exact repair after deliberately invalidating active CoolBanana's provenance sidecar: the sidecar returned to schema version 1, the model hash remained the admitted SHA-256, and the ambient renderer returned `ready` with one mapped texture.
+- Package-proved 20 and 40 consecutive transactional switches with no exercise error, stale state, crash, or rollback loss. The separate 20/40 post-warm-up ambient working-set deltas differed by about 6 MiB rather than doubling; GPU retention still requires a longer reference-device plateau run before the leak exit gate is declared complete.
+
+Evidence: `docs/verification/F4-PREVIEW-CACHE-DURABILITY-2026-08-24.md`.
+
+Next: representative full-motion Milk/Astronaut captures, a rights-clear real VRM 1.0 admission, corrupt/restart evidence for Milk and Astronaut, user-facing cache inventory/removal, macOS equivalence, and longer GPU/sleep-wake lifecycle evidence. Signed production catalog work follows; F4x remains blocked.
 
 ## F4x — commerce and entitlement program
 
@@ -407,12 +417,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Implement motion-personality presets/categories and prove reduced-motion/ownership behavior on the current admitted motion library.
-2. Implement strict admitted-avatar and signed-presentation catalog schemas, then use binary evidence to select the three CC0 free companions.
-3. Build the payment-free Companions route, provenance/licence views, isolated preview, content-addressed cache, and transactional activation with a `free` entitlement provider only.
-4. Complete the remaining local-VRMA interruption, live Wave, revised state semantics, representative binary VRM 0.x/1.0, and macOS packaged matrices alongside the catalog work.
-5. Start F5a generic adapter-host extraction before a second production adapter or final connection UX; keep commerce capability separate and make OpenClaw the first action/discovery conformance implementation.
-6. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
-7. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
+1. Complete the real rights-clear VRM 1.0, Mac package, user-facing cache controls, and longer GPU/lifecycle portions of the F4 compatibility matrix.
+2. Complete the remaining local-VRMA interruption, live Wave, representative Milk/Astronaut full-motion evidence, and corrupt/restart matrix.
+3. Start F5a generic adapter-host extraction before a second production adapter or final connection UX; keep commerce capability separate and make OpenClaw the first action/discovery conformance implementation.
+4. Complete remote `wss://`, clean pairing/rotation, macOS Keychain, and reference-device performance/lifecycle evidence.
+5. Begin F4x durable entitlement service only after the marketplace/free-avatar slice proves reliable and owner/legal decisions have named owners; no mainnet or store-payment implementation before that gate.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.
