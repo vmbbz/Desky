@@ -78,6 +78,19 @@ Each adapter translates the runtime's supported structured extension surface int
 
 If a runtime cannot register or expose structured tools, agent-originated actions remain unavailable for that adapter. Explicit local Wave/Jump controls and state motion continue to work.
 
+### One-app MCP decision
+
+Codex and Hermes do **not** make a Desky MCP helper a prerequisite for ordinary chat, streaming, tools, approvals, cancellation, sessions, or reconnect. Those adapters remain useful without agent-requested avatar gestures, and their current action capability therefore stays truthfully `unsupported`.
+
+“Separate MCP helper” means a separate trust and process boundary required by the provider protocol; it does not have to mean a second product or a manual user installation. If Desky ever admits this topology, the helper must be shipped inside the signed Desky direct-download bundle, installed, configured, supervised, upgraded, and removed by Desky, and presented as one application experience. Users must not be asked to copy configuration, edit prompts, maintain another daemon, or reconcile helper versions. Store profiles need an independent policy review and may remain unsupported.
+
+Desky will **not build that helper now**. Codex's stable MCP surface targets an externally configured server rather than a client-local callback, and Hermes owns MCP configuration process-wide on the gateway host. The extra executable, authentication, routing, lifecycle, signing, containment, and Store-review surface is not justified for Wave/Jump while both adapters otherwise work. This decision is revisited only if either:
+
+1. Codex or Hermes ships a stable native client-local typed-tool registration surface; or
+2. product evidence shows agent-requested companion actions are important enough to fund the bundled sidecar and its security/release matrix.
+
+This decision never licenses prompt parsing as a shortcut. No user instruction-file changes are required for Codex or Hermes today because the unavailable action feature is not advertised to their agents.
+
 ## Release gates
 
 - OpenClaw plugin manifest, runtime definition, action enum, and Desky parser remain contract-tested for drift.
