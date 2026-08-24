@@ -101,6 +101,9 @@ Adapters may expose this only when their runtime provides a registered structure
 - Possible remote transport: secure app-server endpoint only when the upstream WebSocket surface is production-supported.
 - Distribution: direct profile initially; Store profile through a separately hosted/remote service if supported.
 - Gate: version-generated schemas, thread/turn lifecycle, approval semantics, cancellation, and sandbox disclosure.
+- Current foundation: a bounded JSONL JSON-RPC peer now owns initialization, correlation, notifications, server requests, timeouts, stderr bounds/redaction, malformed/oversized-frame failure, and process teardown. It accepts only an absolute executable path with the expected `codex` filename and is not yet registered or presented as a working adapter.
+- Current protocol evidence: official app-server guidance and locally generated TypeScript schemas from `codex-cli 0.146.0-alpha.3` confirm stdio JSONL, initialize/initialized, threads, streamed item deltas, server-initiated approvals, turn interruption, and terminal statuses. Generated schema artifacts remain build evidence, not committed application payload.
+- Admission sequence: trusted executable discovery and version policy; schema-derived validators; normalized thread/turn/item/approval mapper; runtime conformance; direct-profile UI; packaged authenticated live matrix. WebSocket is excluded because the official current surface labels it experimental and unsupported for production.
 
 ### Claude
 

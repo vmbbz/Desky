@@ -42,6 +42,8 @@ Direct builds may launch supported local runtimes through fixed executable disco
 
 Mac App Store builds do not launch arbitrary installed runtimes. Any bundled helper must inherit the app sandbox, be signed as part of the bundle, and have a reviewable fixed purpose.
 
+The Codex adapter is direct-profile only. Its app-server foundation accepts no renderer-provided executable path, requires an absolute main-selected path named `codex`/`codex.exe`, launches with `shell: false` and a fixed argument vector, bounds every JSONL message to 1 MiB, bounds stderr retention to 64 KiB, redacts diagnostic previews, times out correlated requests, and fails closed on malformed/oversized protocol output or unexpected exit. Before runtime admission, main must add trusted executable discovery, explicit version policy, a minimal reviewed environment, schema-derived message validators, and process-tree termination evidence. The current foundation is not registered as a selectable adapter.
+
 ## Network policy
 
 - TLS for every non-loopback connection.

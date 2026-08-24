@@ -167,7 +167,7 @@ Implementation status — 2026-08-24:
 - **F5a.1 platform extraction complete:** executable descriptor/state/command/bridge contracts, main-process runtime interface, active-runtime registry, generic IPC/preload bridge, and generic renderer state/session/turn consumption.
 - **F5a.1 OpenClaw conformance complete:** exact OpenClaw configuration validation and state mapping sit behind `OpenClawRuntime`; the proven host retains streaming, tools, approvals, cancellation, reconnect, sessions, pairing, secure vault, and typed-action behavior unchanged.
 - **F5a.1 isolation complete:** inactive runtime state/events/actions are rejected by the registry; descriptors are defensively cloned; renderer-facing errors retain provider redaction; Simulation remains isolated from production conformance.
-- **F5a.2 next:** implement the direct-profile Codex app-server runtime against the same internal contract and contract suite, then revise semantics exposed by two genuinely different runtimes before declaring a public SDK.
+- **F5a.2 in progress:** the supervised stdio JSONL peer, direct-only safe descriptor/capability foundation, locally generated schema evidence, framing/correlation/initialization/server-request/timeouts/teardown tests, and arbitrary-executable rejection are complete. Next: trusted discovery/version admission, schema-derived validators, semantic normalization, runtime conformance, direct-profile UI, and packaged authenticated live tests.
 - **F5a.3 later:** Claude through a supported structured interface; Hermes only after supported programmatic transport discovery. Neither may scrape terminal presentation text.
 
 ## Store and owner gates
