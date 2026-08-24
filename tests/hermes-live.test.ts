@@ -141,6 +141,12 @@ describe.runIf(liveEnabled && modelLiveEnabled)('Hermes real-model live matrix',
       });
       sessionId = created.selectedSessionId;
 
+      // Hermes manual approvals guard commands that match its safety policy;
+      // they do not prompt for every terminal call. chmod against a unique,
+      // nonexistent /tmp path is deterministic for the detector and has no
+      // filesystem effect even if the allow path is exercised accidentally.
+      const deniedProbePath = `/tmp/desky-hermes-deny-${randomUUID()}`;
+
       const deniedApproval = waitForEvent(
         runtime,
         (event) => event.type === 'approval.requested',
@@ -152,11 +158,13 @@ describe.runIf(liveEnabled && modelLiveEnabled)('Hermes real-model live matrix',
         'denied approval terminal',
       );
       await runtime.send([
-        'Use the terminal tool exactly once to run: printf DESKY_HERMES_DENY_PROBE.',
+        `Use the terminal tool exactly once to run: chmod 777 ${deniedProbePath}.`,
         'Do not substitute another tool and do not answer before attempting the command.',
       ].join(' '));
       const deniedRequest = await deniedApproval;
       if (deniedRequest.type !== 'approval.requested') throw new Error('Expected Hermes approval request.');
+      expect(deniedRequest.payload.safeTarget).toMatch(/^chmod 777 /);
+      expect(deniedRequest.payload.safeTarget).not.toContain(deniedProbePath);
       await runtime.resolveApproval({
         requestId: deniedRequest.payload.requestId,
         kind: 'exec',
@@ -167,6 +175,11 @@ describe.runIf(liveEnabled && modelLiveEnabled)('Hermes real-model live matrix',
         && event.payload.requestId === deniedRequest.payload.requestId
         && event.payload.status === 'denied')).toBe(true);
 
+      const executionProbePath = `/tmp/desky-hermes-cancel-${randomUUID()}`;
+      const executionCommand = [
+        `chmod 777 ${executionProbePath}`,
+        'python -c "import time; time.sleep(30)"',
+      ].join('; ');
       const executionApproval = waitForEvent(
         runtime,
         (event) => event.type === 'approval.requested',
@@ -178,11 +191,13 @@ describe.runIf(liveEnabled && modelLiveEnabled)('Hermes real-model live matrix',
         'approved tool lifecycle',
       );
       await runtime.send([
-        'Use the terminal tool exactly once to run: python -c "import time; time.sleep(30)".',
+        `Use the terminal tool exactly once to run: ${executionCommand}.`,
         'After it exits, reply with exactly DESKY_HERMES_SLEEP_DONE.',
       ].join(' '));
       const executionRequest = await executionApproval;
       if (executionRequest.type !== 'approval.requested') throw new Error('Expected Hermes approval request.');
+      expect(executionRequest.payload.safeTarget).toMatch(/^chmod 777 /);
+      expect(executionRequest.payload.safeTarget).not.toContain(executionProbePath);
       const cancelledTerminal = waitForEvent(
         runtime,
         (event) => event.turnId === executionRequest.turnId

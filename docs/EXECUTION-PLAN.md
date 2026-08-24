@@ -16,7 +16,7 @@ F1 foundation ── F2 OpenClaw core ── F3b motion foundation
                                       │              │                       └── F4x commerce (after free marketplace proof)
                                       │              └── packaged Windows/macOS state and performance evidence
                                       │
-                                      ├── F5a generic adapter host ── Codex ── Claude ── Hermes
+                                      ├── F5a generic adapter host ── Codex ── Hermes ── Claude
                                       │
                                       └── asset lane ── admitted catalog + 3 free avatars + persistent provenance
 
@@ -158,7 +158,7 @@ F4x must not block the free companion or adapter platform. Its complete contract
 - Replace provider-specific renderer IPC with a generic runtime bridge while retaining adapter-specific validated authentication payloads.
 - Make OpenClaw pass the shared adapter contract unchanged.
 - Implement Codex as the second substantially different production adapter, then stabilize the public adapter SDK.
-- Add Claude through a supported structured interface and Hermes only after supported transport discovery; terminal scraping is not acceptable.
+- Add Hermes through its authenticated structured API Server, then Claude through the supported Agent SDK; terminal scraping is not acceptable.
 
 F5a may begin after F3c.1. It must finish before the second production adapter and before F4 connection management is considered final.
 
@@ -167,8 +167,10 @@ Implementation status — 2026-08-24:
 - **F5a.1 platform extraction complete:** executable descriptor/state/command/bridge contracts, main-process runtime interface, active-runtime registry, generic IPC/preload bridge, and generic renderer state/session/turn consumption.
 - **F5a.1 OpenClaw conformance complete:** exact OpenClaw configuration validation and state mapping sit behind `OpenClawRuntime`; the proven host retains streaming, tools, approvals, cancellation, reconnect, sessions, pairing, secure vault, and typed-action behavior unchanged.
 - **F5a.1 isolation complete:** inactive runtime state/events/actions are rejected by the registry; descriptors are defensively cloned; renderer-facing errors retain provider redaction; Simulation remains isolated from production conformance.
-- **F5a.2 complete:** supervised stdio JSONL, direct-only production descriptor, main-owned executable discovery, exact CLI/schema admission, reviewed environment allowlist, opaque workspace grants, bounded reconnect, shell-free process-tree teardown and awaited shutdown are implemented. Typed actions remain truthfully unsupported because client-local `dynamicTools` is experimental. Direct packages structurally construct Codex and OpenClaw behind an explicit provider picker; Store packages construct OpenClaw only. The authenticated source matrix and packaged Windows Control Center both pass real streaming, allow/deny approvals, actual tool-process cancellation, same-session recovery and reconnect. The packaged filesystem oracle proves exact allowed bytes and absence of denied/cancelled writes. Next: freeze the shared adapter conformance/SDK surface against OpenClaw and Codex, then begin Claude transport admission research without weakening the existing profiles.
-- **F5a.3 later:** Claude through a supported structured interface; Hermes only after supported programmatic transport discovery. Neither may scrape terminal presentation text.
+- **F5a.2 complete:** supervised stdio JSONL, direct-only production descriptor, main-owned executable discovery, exact CLI/schema admission, reviewed environment allowlist, opaque workspace grants, bounded reconnect, shell-free process-tree teardown and awaited shutdown are implemented. Typed actions remain truthfully unsupported because client-local `dynamicTools` is experimental. Direct packages structurally construct Codex and OpenClaw behind an explicit provider picker; Store packages construct OpenClaw only. The authenticated source matrix and packaged Windows Control Center both pass real streaming, allow/deny approvals, actual tool-process cancellation, same-session recovery and reconnect. The packaged filesystem oracle proves exact allowed bytes and absence of denied/cancelled writes.
+- **F5a.3 contract freeze complete:** Adapter Contract v1 invariants now fail closed across OpenClaw and Codex; the internal platform is stable enough to admit substantially different runtimes without provider assumptions leaking into renderer state.
+- **F5b.1 Hermes foundation complete; F5b.2 authenticated source-runtime matrix complete:** the pinned Hermes `0.20.5` API Server passes bearer admission, disposable sessions, OAuth-backed `gpt-5.4` streaming, terminal dedupe, guarded-command approval denial/allow-once, and Stop during actual execution. Hermes remains unregistered and `production: false` until automatic reconnect, crash/version drift, durable credential, clean-package lifecycle, remote TLS/Store, and typed-action discovery gates pass.
+- **F5c.1 Claude foundation complete:** the exact supported Agent SDK is integrated behind the same contract but remains unregistered pending an authorized API-key source/package matrix and its lifecycle/security gates. Neither Hermes nor Claude may scrape terminal presentation text.
 
 ## Store and owner gates
 
