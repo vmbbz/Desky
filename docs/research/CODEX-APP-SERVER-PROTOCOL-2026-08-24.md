@@ -43,8 +43,8 @@ Raw reasoning text, raw command output, absolute paths, file diffs, tool argumen
 ## Remaining gates
 
 1. ~~Discover a trusted absolute executable in main without renderer path input; record version and source in redacted diagnostics.~~ Implemented for PATH discovery with exact baseline admission; broader installer/signature provenance remains a release-hardening item.
-2. Define supported CLI versions and generate/pin protocol schemas reproducibly. Exact `0.146.0-alpha.3` admission is implemented; reproducible generated-artifact integration remains.
-3. Validate every consumed response, notification, and server request against the admitted schema subset. Bounded validators cover the currently consumed core shapes; generated-schema coverage remains.
+2. ~~Define supported CLI versions and generate/pin protocol schemas reproducibly.~~ Exact `0.146.0-alpha.3` admission and the canonical 273-file generated-schema digest are committed. Generated files remain ephemeral because the generator is experimental and one aggregate file has nondeterministic object-key order; recursive canonicalization was proven stable across two fresh generations.
+3. ~~Validate every consumed response, notification, and server request against the admitted schema subset.~~ The full schema bundle and each consumed schema are individually pinned. Bounded safe projection validators cover initialization, account state, session list, thread/turn responses, consumed notifications, and command/file approvals. Malformed state-bearing notifications close the runtime; malformed approvals decline.
 4. Implement thread lifecycle, streaming normalization, tool pairing, approval response mapping, interruption, restart/reconnect, and exactly-one-terminal semantics. All except automatic restart/reconnect now pass fixture conformance.
 5. Decide and disclose the default `cwd`, sandbox policy, approval policy, model selection, and inherited-environment policy.
 6. Pass the shared adapter suite plus malformed input, backpressure, process crash, missing executable, unsupported version, unauthenticated account, usage limit, and package lifecycle tests.

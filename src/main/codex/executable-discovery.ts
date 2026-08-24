@@ -4,9 +4,11 @@ import { constants } from 'node:fs';
 import { basename, isAbsolute, posix, win32 } from 'node:path';
 import { promisify } from 'node:util';
 
+import schemaBaseline from './schema-baseline.json';
+
 const execFileAsync = promisify(execFile);
 
-export const CODEX_SCHEMA_BASELINE_VERSION = '0.146.0-alpha.3';
+export const CODEX_SCHEMA_BASELINE_VERSION = schemaBaseline.codexCliVersion;
 
 export interface CodexExecutableAdmission {
   executablePath: string;

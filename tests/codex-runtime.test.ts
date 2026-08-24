@@ -14,20 +14,33 @@ import type {
 class FixtureClient implements CodexClientPort {
   readonly calls: Array<{ method: string; params: unknown }> = [];
   readonly responses: Array<{ id: string | number; result: unknown }> = [];
-  account: unknown = { account: { type: 'chatgpt' }, requiresOpenaiAuth: true };
+  account: unknown = {
+    account: { type: 'chatgpt', email: null, planType: 'plus' },
+    requiresOpenaiAuth: true,
+  };
   threads = [
     { id: 'thread-1', name: 'Existing', preview: 'Existing', updatedAt: 10 },
   ];
   private readonly notifications = new Set<(value: CodexServerNotification) => void>();
   private readonly requests = new Set<(value: CodexServerRequest) => void>();
   private readonly closes = new Set<(reason: string) => void>();
+  closed = false;
 
-  async connect() { return { userAgent: 'codex-cli/0.146.0-alpha.3' }; }
+  async connect() {
+    return {
+      userAgent: 'codex-cli/0.146.0-alpha.3',
+      codexHome: 'C:\\codex-home',
+      platformFamily: 'windows',
+      platformOs: 'windows',
+    };
+  }
 
   async request(method: string, params: unknown = {}) {
     this.calls.push({ method, params });
     if (method === 'account/read') return this.account;
-    if (method === 'thread/list') return { data: this.threads, nextCursor: null };
+    if (method === 'thread/list') {
+      return { data: this.threads, nextCursor: null, backwardsCursor: null };
+    }
     if (method === 'thread/start') {
       this.threads = [...this.threads, { id: 'thread-new', name: null as unknown as string, preview: '', updatedAt: 11 }];
       return { thread: { id: 'thread-new' } };
@@ -46,7 +59,7 @@ class FixtureClient implements CodexClientPort {
   onNotification(listener: (value: CodexServerNotification) => void) { this.notifications.add(listener); return () => this.notifications.delete(listener); }
   onRequest(listener: (value: CodexServerRequest) => void) { this.requests.add(listener); return () => this.requests.delete(listener); }
   onClose(listener: (reason: string) => void) { this.closes.add(listener); return () => this.closes.delete(listener); }
-  close() {}
+  close() { this.closed = true; }
   getStderrPreview() { return ''; }
   emitNotification(value: CodexServerNotification) { for (const listener of this.notifications) listener(value); }
   emitRequest(value: CodexServerRequest) { for (const listener of this.requests) listener(value); }
@@ -111,11 +124,17 @@ describe('CodexRuntime', () => {
     });
     client.emitNotification({
       method: 'item/started',
-      params: { threadId: 'thread-1', turnId: 'turn-1', item: { id: 'tool-1', type: 'commandExecution', command: 'private' } },
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', startedAtMs: 1,
+        item: { id: 'tool-1', type: 'commandExecution', command: 'private' },
+      },
     });
     client.emitNotification({
       method: 'item/completed',
-      params: { threadId: 'thread-1', turnId: 'turn-1', item: { id: 'tool-1', type: 'commandExecution', aggregatedOutput: 'private' } },
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', completedAtMs: 2,
+        item: { id: 'tool-1', type: 'commandExecution', aggregatedOutput: 'private' },
+      },
     });
     client.emitNotification({
       method: 'turn/completed',
@@ -139,18 +158,23 @@ describe('CodexRuntime', () => {
     client.emitRequest({
       id: 7,
       method: 'item/commandExecution/requestApproval',
-      params: { threadId: 'thread-1', turnId: 'turn-1', itemId: 'tool-1', reason: 'Run tests' },
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', itemId: 'tool-1',
+        startedAtMs: 1, environmentId: null, reason: 'Run tests',
+      },
     });
-    await runtime.resolveApproval({ requestId: 'codex:7', kind: 'exec', decision: 'allow-once' });
+    await runtime.resolveApproval({ requestId: 'codex:number:7', kind: 'exec', decision: 'allow-once' });
     expect(client.responses).toContainEqual({ id: 7, result: { decision: 'accept' } });
     expect(events.slice(-2)).toEqual(['approval.requested', 'approval.resolved']);
-    await expect(runtime.resolveApproval({ requestId: 'codex:7', kind: 'exec', decision: 'deny' }))
+    await expect(runtime.resolveApproval({ requestId: 'codex:number:7', kind: 'exec', decision: 'deny' }))
       .rejects.toThrow('Unknown or expired');
 
     client.emitRequest({
       id: 8,
       method: 'item/fileChange/requestApproval',
-      params: { threadId: 'wrong-thread', turnId: 'turn-1', itemId: 'file-1' },
+      params: {
+        threadId: 'wrong-thread', turnId: 'turn-1', itemId: 'file-1', startedAtMs: 2,
+      },
     });
     expect(client.responses).toContainEqual({ id: 8, result: { decision: 'decline' } });
   });
@@ -168,7 +192,7 @@ describe('CodexRuntime', () => {
     });
     client.emitNotification({
       method: 'turn/completed',
-      params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } },
+      params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted', error: null } },
     });
     expect(events.at(-1)).toBe('turn.failed');
     expect(runtime.getState().activeTurnId).toBeUndefined();
@@ -188,5 +212,28 @@ describe('CodexRuntime', () => {
     client.emitClose('token=secret process crashed');
     expect(runtime.getState()).toMatchObject({ status: 'error', message: 'token=[redacted] process crashed' });
     expect(events).toHaveBeenLastCalledWith(expect.objectContaining({ type: 'connection.closed' }));
+  });
+
+  it('closes the supervised runtime on a malformed consumed notification', async () => {
+    const { runtime, client } = fixtureRuntime();
+    const events = vi.fn();
+    runtime.onEvent(events);
+    await runtime.connect(configuration);
+    await runtime.selectSession('thread-1');
+    await runtime.send('Inspect the repository');
+    client.emitNotification({
+      method: 'turn/completed',
+      params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'unknown' } },
+    });
+    expect(client.closed).toBe(true);
+    expect(runtime.getState()).toMatchObject({
+      status: 'error',
+      message: 'Codex app-server protocol validation failed.',
+      activeTurnId: undefined,
+    });
+    expect(events).toHaveBeenLastCalledWith(expect.objectContaining({
+      type: 'connection.closed',
+      payload: { reason: 'Codex app-server protocol validation failed.' },
+    }));
   });
 });

@@ -34,6 +34,75 @@ function readString(value: unknown, limit = 512): string | undefined {
   return typeof value === 'string' && value.length > 0 && value.length <= limit ? value : undefined;
 }
 
+function readNullableString(value: unknown, limit = 512): string | null | undefined {
+  if (value === null) return null;
+  return typeof value === 'string' && value.length <= limit ? value : undefined;
+}
+
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function protocolMismatch(method: string): never {
+  throw new Error(`Codex protocol validation failed for ${method}.`);
+}
+
+const accountTypes = new Set(['apiKey', 'chatgpt', 'amazonBedrock']);
+const planTypes = new Set([
+  'free', 'go', 'plus', 'pro', 'prolite', 'team', 'self_serve_business_usage_based',
+  'business', 'enterprise_cbp_usage_based', 'enterprise', 'edu', 'unknown',
+]);
+const threadItemTypes = new Set([
+  'userMessage', 'hookPrompt', 'agentMessage', 'plan', 'reasoning', 'commandExecution',
+  'fileChange', 'mcpToolCall', 'dynamicToolCall', 'collabAgentToolCall', 'subAgentActivity',
+  'webSearch', 'imageView', 'sleep', 'imageGeneration', 'enteredReviewMode',
+  'exitedReviewMode', 'contextCompaction',
+]);
+const terminalTurnStatuses = new Set(['completed', 'interrupted', 'failed']);
+const consumedNotificationMethods = new Set([
+  'turn/started',
+  'item/agentMessage/delta',
+  'item/started',
+  'item/completed',
+  'turn/completed',
+]);
+
+export function readCodexInitializeResponse(value: unknown): { userAgent: string } {
+  if (!isRecord(value)
+    || !readString(value.userAgent, 240)
+    || !readString(value.codexHome, 2_048)
+    || !readString(value.platformFamily, 80)
+    || !readString(value.platformOs, 80)) {
+    throw new Error('Codex returned an invalid initialize response.');
+  }
+  return { userAgent: value.userAgent as string };
+}
+
+export function readCodexAccountState(value: unknown): { authenticated: boolean; requiresOpenaiAuth: boolean } {
+  if (!isRecord(value) || typeof value.requiresOpenaiAuth !== 'boolean') {
+    throw new Error('Codex returned an invalid account state.');
+  }
+  if (value.account === null) {
+    return { authenticated: false, requiresOpenaiAuth: value.requiresOpenaiAuth };
+  }
+  if (!isRecord(value.account)
+    || typeof value.account.type !== 'string'
+    || !accountTypes.has(value.account.type)) {
+    throw new Error('Codex returned an invalid account state.');
+  }
+  if (value.account.type === 'chatgpt'
+    && (readNullableString(value.account.email, 320) === undefined
+      || typeof value.account.planType !== 'string'
+      || !planTypes.has(value.account.planType))) {
+    throw new Error('Codex returned an invalid account state.');
+  }
+  if (value.account.type === 'amazonBedrock'
+    && typeof value.account.usesCodexManagedCredentials !== 'boolean') {
+    throw new Error('Codex returned an invalid account state.');
+  }
+  return { authenticated: true, requiresOpenaiAuth: value.requiresOpenaiAuth };
+}
+
 function safeText(value: unknown, fallback: string, limit = 180): string {
   if (typeof value !== 'string' || !value.trim()) return fallback;
   return value
@@ -58,22 +127,30 @@ function itemTool(item: Record<string, unknown>): { name: string; summary: strin
 }
 
 export function readCodexSessions(value: unknown): AdapterSessionSummary[] {
-  if (!isRecord(value) || !Array.isArray(value.data)) {
+  if (!isRecord(value)
+    || !Array.isArray(value.data)
+    || value.data.length > 200
+    || readNullableString(value.nextCursor) === undefined
+    || readNullableString(value.backwardsCursor) === undefined) {
     throw new Error('Codex returned an invalid thread list.');
   }
   const sessions: AdapterSessionSummary[] = [];
-  for (const entry of value.data.slice(0, 200)) {
-    if (!isRecord(entry)) continue;
+  for (const entry of value.data) {
+    if (!isRecord(entry)
+      || typeof entry.preview !== 'string'
+      || (entry.name !== null && typeof entry.name !== 'string')
+      || readFiniteNumber(entry.updatedAt) === undefined
+      || (entry.updatedAt as number) < 0) {
+      throw new Error('Codex returned an invalid thread summary.');
+    }
     const id = readString(entry.id);
-    if (!id) continue;
-    const name = readString(entry.name, 100);
-    const preview = readString(entry.preview, 100);
+    if (!id) throw new Error('Codex returned an invalid thread summary.');
+    const name = typeof entry.name === 'string' ? entry.name.trim().slice(0, 100) : '';
+    const preview = entry.preview.trim().slice(0, 100);
     sessions.push({
       id,
-      label: name ?? preview ?? 'Codex thread',
-      updatedAt: typeof entry.updatedAt === 'number' && Number.isFinite(entry.updatedAt)
-        ? entry.updatedAt * 1_000
-        : undefined,
+      label: name || preview || 'Codex thread',
+      updatedAt: (entry.updatedAt as number) * 1_000,
     });
   }
   return sessions;
@@ -129,11 +206,40 @@ export class CodexProtocolNormalizer {
     notification: CodexServerNotification,
     context: CodexProtocolContext,
   ): AdapterEvent[] {
-    if (!isRecord(notification.params)) return [];
+    if (!consumedNotificationMethods.has(notification.method)) return [];
+    if (!isRecord(notification.params)) protocolMismatch(notification.method);
     const params = notification.params;
     const sessionId = readString(params.threadId);
     const turn = isRecord(params.turn) ? params.turn : undefined;
     const turnId = readString(params.turnId) ?? readString(turn?.id);
+    if (!sessionId) protocolMismatch(notification.method);
+    if (notification.method === 'turn/started') {
+      if (!turnId || !turn || turn.status !== 'inProgress') protocolMismatch(notification.method);
+    } else if (notification.method === 'turn/completed') {
+      if (!turnId || !turn || !terminalTurnStatuses.has(String(turn.status))) {
+        protocolMismatch(notification.method);
+      }
+      if (turn.error !== null && !isRecord(turn.error)) protocolMismatch(notification.method);
+      if (turn.status === 'failed'
+        && (!isRecord(turn.error) || typeof turn.error.message !== 'string')) {
+        protocolMismatch(notification.method);
+      }
+    } else if (notification.method === 'item/agentMessage/delta') {
+      if (!turnId || !readString(params.itemId) || typeof params.delta !== 'string'
+        || params.delta.length > 100_000) protocolMismatch(notification.method);
+    } else {
+      const lifecycleTimestamp = notification.method === 'item/started'
+        ? params.startedAtMs
+        : params.completedAtMs;
+      if (!turnId
+        || readFiniteNumber(lifecycleTimestamp) === undefined
+        || !isRecord(params.item)
+        || !readString(params.item.id)
+        || typeof params.item.type !== 'string'
+        || !threadItemTypes.has(params.item.type)) {
+        protocolMismatch(notification.method);
+      }
+    }
     if (sessionId && context.selectedSessionId && sessionId !== context.selectedSessionId) return [];
     if (turnId && context.activeTurnId && turnId !== context.activeTurnId) return [];
     const scoped = {
@@ -146,8 +252,9 @@ export class CodexProtocolNormalizer {
       return [this.event(scoped, 'agent.thinking', { status: 'Codex is working' })];
     }
     if (notification.method === 'item/agentMessage/delta') {
-      const delta = readString(params.delta, 100_000);
-      return delta ? [this.event(scoped, 'assistant.delta', { text: delta })] : [];
+      return params.delta
+        ? [this.event(scoped, 'assistant.delta', { text: params.delta as string })]
+        : [];
     }
     if ((notification.method === 'item/started' || notification.method === 'item/completed')
       && isRecord(params.item)) {
@@ -200,24 +307,41 @@ export class CodexProtocolNormalizer {
     if (!isRecord(request.params)) return undefined;
     const sessionId = readString(request.params.threadId);
     const turnId = readString(request.params.turnId);
-    if (!sessionId || !turnId
+    const itemId = readString(request.params.itemId);
+    if (!sessionId || !turnId || !itemId
+      || readFiniteNumber(request.params.startedAtMs) === undefined
       || sessionId !== context.selectedSessionId
       || turnId !== context.activeTurnId) return undefined;
-    const requestId = `codex:${String(request.id)}`;
+    const requestId = `codex:${typeof request.id}:${String(request.id)}`;
     if (request.method === 'item/commandExecution/requestApproval') {
-      const network = isRecord(request.params.networkApprovalContext);
+      if (request.params.reason !== undefined
+        && readNullableString(request.params.reason, 2_000) === undefined) return undefined;
+      if (request.params.environmentId !== null
+        && readString(request.params.environmentId) === undefined) return undefined;
+      const networkValue = request.params.networkApprovalContext;
+      const network = isRecord(networkValue)
+        && readString(networkValue.host, 253)
+        && ['http', 'https', 'socks5Tcp', 'socks5Udp'].includes(String(networkValue.protocol));
+      if (networkValue !== undefined && networkValue !== null && !network) return undefined;
+      const networkTarget = network
+        ? `${String(networkValue.protocol)}://${safeText(networkValue.host, 'requested host', 253)}`
+        : undefined;
       return {
         route: { requestId, rpcId: request.id, method: request.method, kind: 'exec', sessionId, turnId },
         event: this.event(context, 'approval.requested', {
           requestId,
           kind: 'exec',
           action: network ? 'Allow network access' : 'Run command',
-          safeTarget: safeText(request.params.reason, network ? 'Requested network destination' : 'Codex command'),
+          safeTarget: networkTarget ?? safeText(request.params.reason, 'Codex command'),
           allowedDecisions: ['allow-once', 'allow-always', 'deny'],
         }),
       };
     }
     if (request.method === 'item/fileChange/requestApproval') {
+      if (request.params.reason !== undefined
+        && readNullableString(request.params.reason, 2_000) === undefined) return undefined;
+      if (request.params.grantRoot !== undefined
+        && readNullableString(request.params.grantRoot, 2_048) === undefined) return undefined;
       const grantRoot = readString(request.params.grantRoot, 2_048);
       return {
         route: { requestId, rpcId: request.id, method: request.method, kind: 'file-change', sessionId, turnId },

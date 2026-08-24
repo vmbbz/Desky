@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   codexApprovalDecision,
   CodexProtocolNormalizer,
+  readCodexAccountState,
+  readCodexInitializeResponse,
   readCodexSessions,
   readCodexThreadId,
   readCodexTurnId,
@@ -16,19 +18,40 @@ const context = {
 
 describe('Codex protocol admission and normalization', () => {
   it('validates bounded thread/session and active-turn responses', () => {
+    expect(readCodexInitializeResponse({
+      userAgent: 'codex-cli/0.146.0-alpha.3',
+      codexHome: 'C:\\codex-home',
+      platformFamily: 'windows',
+      platformOs: 'windows',
+    })).toEqual({ userAgent: 'codex-cli/0.146.0-alpha.3' });
+    expect(readCodexAccountState({
+      account: { type: 'chatgpt', email: null, planType: 'plus' },
+      requiresOpenaiAuth: true,
+    })).toEqual({ authenticated: true, requiresOpenaiAuth: true });
     expect(readCodexSessions({
       data: [
         { id: 'thread-1', name: 'Desky', preview: 'ignored', updatedAt: 42 },
-        { id: 'thread-2', name: null, preview: 'Second thread', updatedAt: 43 },
-        { broken: true },
+        { id: 'thread-2', name: null, preview: `Second thread${' long'.repeat(1_000)}`, updatedAt: 43 },
       ],
+      nextCursor: null,
+      backwardsCursor: null,
     })).toEqual([
       { id: 'thread-1', label: 'Desky', updatedAt: 42_000 },
-      { id: 'thread-2', label: 'Second thread', updatedAt: 43_000 },
+      { id: 'thread-2', label: expect.stringMatching(/^Second thread/), updatedAt: 43_000 },
     ]);
+    expect(readCodexSessions({
+      data: [{ id: 'thread-3', name: 'n'.repeat(500), preview: '', updatedAt: 44 }],
+      nextCursor: null,
+      backwardsCursor: null,
+    })[0].label).toHaveLength(100);
     expect(readCodexThreadId({ thread: { id: 'thread-1' } })).toBe('thread-1');
     expect(readCodexTurnId({ turn: { id: 'turn-1', status: 'inProgress' } })).toBe('turn-1');
     expect(() => readCodexSessions({ data: 'bad' })).toThrow('invalid thread list');
+    expect(() => readCodexSessions({
+      data: [{ broken: true }], nextCursor: null, backwardsCursor: null,
+    })).toThrow('invalid thread summary');
+    expect(() => readCodexInitializeResponse({ userAgent: 'codex' }))
+      .toThrow('invalid initialize response');
     expect(() => readCodexTurnId({ turn: { id: 'turn-1', status: 'failed' } }))
       .toThrow('invalid active turn');
   });
@@ -56,6 +79,7 @@ describe('Codex protocol admission and normalization', () => {
       method: 'item/started',
       params: {
         threadId: 'thread-1', turnId: 'turn-1',
+        startedAtMs: 1,
         item: { id: 'command-1', type: 'commandExecution', command: 'secret command' },
       },
     }, context);
@@ -68,16 +92,20 @@ describe('Codex protocol admission and normalization', () => {
       method: 'item/completed',
       params: {
         threadId: 'thread-1', turnId: 'turn-1',
+        completedAtMs: 2,
         item: { id: 'command-1', type: 'commandExecution', aggregatedOutput: 'private output' },
       },
     }, context)).toMatchObject([{ type: 'tool.completed', payload: { toolName: 'Shell' } }]);
     expect(normalizer.normalizeNotification({
       method: 'item/completed',
-      params: { threadId: 'thread-1', turnId: 'turn-1', item: { id: 'orphan', type: 'fileChange' } },
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', completedAtMs: 3,
+        item: { id: 'orphan', type: 'fileChange' },
+      },
     }, context)).toEqual([]);
     expect(normalizer.normalizeNotification({
       method: 'item/agentMessage/delta',
-      params: { threadId: 'other', turnId: 'turn-1', delta: 'wrong session' },
+      params: { threadId: 'other', turnId: 'turn-1', itemId: 'message-2', delta: 'wrong session' },
     }, context)).toEqual([]);
   });
 
@@ -95,7 +123,7 @@ describe('Codex protocol admission and normalization', () => {
     const interrupted = new CodexProtocolNormalizer();
     expect(interrupted.normalizeNotification({
       method: 'turn/completed',
-      params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted' } },
+      params: { threadId: 'thread-1', turn: { id: 'turn-1', status: 'interrupted', error: null } },
     }, context)).toMatchObject([{ type: 'turn.failed', payload: { kind: 'cancelled' } }]);
 
     const failed = new CodexProtocolNormalizer();
@@ -109,6 +137,10 @@ describe('Codex protocol admission and normalization', () => {
     expect(event).toMatchObject([{ type: 'turn.failed', payload: { kind: 'error' } }]);
     expect(JSON.stringify(event)).not.toContain('secret');
     expect(JSON.stringify(event)).not.toContain('private');
+    expect(() => failed.normalizeNotification({
+      method: 'turn/completed',
+      params: { threadId: 'thread-1', turn: { id: 'turn-2', status: 'mystery' } },
+    }, { ...context, activeTurnId: 'turn-2' })).toThrow('protocol validation failed');
   });
 
   it('maps command and file approvals to scoped routes and finite decisions', () => {
@@ -118,29 +150,48 @@ describe('Codex protocol admission and normalization', () => {
       method: 'item/commandExecution/requestApproval',
       params: {
         threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-1',
-        command: 'do not expose this', reason: 'Needs network',
+        startedAtMs: 1, environmentId: null,
+        command: 'do not expose this', reason: 'Run repository tests',
       },
     }, context);
     expect(command).toMatchObject({
-      route: { requestId: 'codex:7', rpcId: 7, kind: 'exec' },
-      event: { type: 'approval.requested', payload: { action: 'Run command', safeTarget: 'Needs network' } },
+      route: { requestId: 'codex:number:7', rpcId: 7, kind: 'exec' },
+      event: { type: 'approval.requested', payload: { action: 'Run command', safeTarget: 'Run repository tests' } },
     });
     expect(JSON.stringify(command)).not.toContain('do not expose this');
 
     const file = normalizer.normalizeApprovalRequest({
       id: 'file-8',
       method: 'item/fileChange/requestApproval',
-      params: { threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-2', grantRoot: 'C:\\repo\\src' },
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-2',
+        startedAtMs: 2, grantRoot: 'C:\\repo\\src',
+      },
     }, context);
     expect(file).toMatchObject({
-      route: { requestId: 'codex:file-8', kind: 'file-change' },
+      route: { requestId: 'codex:string:file-8', kind: 'file-change' },
       event: { payload: { action: 'Change files', safeTarget: 'src' } },
     });
     expect(normalizer.normalizeApprovalRequest({
       id: 9,
       method: 'item/commandExecution/requestApproval',
-      params: { threadId: 'other', turnId: 'turn-1', itemId: 'item-3' },
+      params: {
+        threadId: 'other', turnId: 'turn-1', itemId: 'item-3',
+        startedAtMs: 3, environmentId: null,
+      },
     }, context)).toBeUndefined();
+    const network = normalizer.normalizeApprovalRequest({
+      id: 'network-1',
+      method: 'item/commandExecution/requestApproval',
+      params: {
+        threadId: 'thread-1', turnId: 'turn-1', itemId: 'item-network',
+        startedAtMs: 4, environmentId: null,
+        networkApprovalContext: { host: 'api.example.com', protocol: 'https' },
+      },
+    }, context);
+    expect(network).toMatchObject({
+      event: { payload: { action: 'Allow network access', safeTarget: 'https://api.example.com' } },
+    });
     expect(codexApprovalDecision('allow-once')).toBe('accept');
     expect(codexApprovalDecision('allow-always')).toBe('acceptForSession');
     expect(codexApprovalDecision('deny')).toBe('decline');

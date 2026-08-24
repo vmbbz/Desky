@@ -9,6 +9,8 @@ This round implements and tests the provider runtime behind the generic port, bu
 - Main-owned PATH enumeration; no renderer executable input.
 - Platform-correct `codex`/`codex.exe` candidate construction, real absolute file resolution, no-shell `--version` call, five-second timeout, and 4 KiB output bound.
 - Exact `codex-cli 0.146.0-alpha.3` admission matching the schema set generated locally on 2026-08-24.
+- Reproducible `codex:schema:verify` gate: 273 non-experimental schemas, 1,511,581 canonical bytes, bundle SHA-256 `bc8adec76ef96c5000c2cd7de1359387880312e5c31d4fe874b155674ded11e2`, plus individual consumed-schema hashes.
+- Schema generation uses an isolated temporary `CODEX_HOME`; output is bounded, canonicalized, verified, deleted, and never packaged. The metadata-only manifest is the single version authority imported by executable admission.
 - Minimal reviewed child environment. Home/config, platform runtime, locale, terminal, PATH, and proxy variables are allowed; ambient API keys and unrelated values are excluded.
 
 ## Semantic conformance implemented
@@ -21,12 +23,13 @@ This round implements and tests the provider runtime behind the generic port, bu
 - Wrong-session and over-capacity approval requests are declined; unknown/duplicate approval resolution fails closed.
 - Completed/interrupted/failed terminal normalization with bounded error redaction and exactly-one delivery.
 - Explicit disconnect and unexpected process-exit behavior.
+- Malformed state-bearing native notifications shut down the supervised runtime; malformed scoped approval requests are declined.
 
 ## Live installed-CLI smoke
 
 `DESKY_CODEX_LIVE=1 npm run test:codex:live` passed against the installed admitted CLI. It initialized app-server, read current account state, listed threads, and disconnected. It deliberately did not start a model turn or consume credits.
 
-## Automated verification
+## Automated verification for `5dcea4f`
 
 - `npm test`: 41 test files passed, 2 skipped; 190 tests passed, 2 skipped.
 - `npm run typecheck`: passed.
@@ -35,7 +38,6 @@ This round implements and tests the provider runtime behind the generic port, bu
 
 ## Remaining admission gates
 
-- Reproducible generated-schema artifact/validator pipeline and malformed coverage for every consumed native shape.
 - Main-owned workspace folder picker and explicit read-only/workspace-write disclosure; no raw renderer path trust.
 - Bounded automatic restart/reconnect and process-tree termination evidence.
 - Stable structured Desky action discovery or truthful continued unsupported status.

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "codexCliVersion": "0.146.0-alpha.3",
+  "generator": {
+    "command": "codex app-server generate-json-schema --out <temporary-directory>",
+    "experimental": false
+  },
+  "canonicalization": "UTF-8 JSON with object keys sorted recursively and array order preserved",
+  "fileCount": 273,
+  "totalCanonicalBytes": 1511581,
+  "bundleSha256": "bc8adec76ef96c5000c2cd7de1359387880312e5c31d4fe874b155674ded11e2",
+  "consumedSchemas": {
+    "ClientRequest.json": {
+      "canonicalBytes": 96057,
+      "sha256": "d2cc1d2ac190c9937f039a392b5ebe42e32d04d9dc2565fa2a0baab77d7ef96a"
+    },
+    "ServerNotification.json": {
+      "canonicalBytes": 94990,
+      "sha256": "83a45ccda5c0120311e0e3e641446c3bd4c770bf290bd62d9574883205235075"
+    },
+    "ServerRequest.json": {
+      "canonicalBytes": 26767,
+      "sha256": "b1f121465991d970725542cd2366305f5ef93d3bad0eb6ad21ca15e5527a951e"
+    },
+    "codex_app_server_protocol.v2.schemas.json": {
+      "canonicalBytes": 270722,
+      "sha256": "b5719e63be18118f4231ce6d2d797acd4cddeb801ea44e8aceb4b7860fe6947c"
+    },
+    "v1/InitializeResponse.json": {
+      "canonicalBytes": 1068,
+      "sha256": "747401b5d7d395b71e4023d3d13aaaaefb0f6ae044d611675f59838672720c3d"
+    },
+    "v2/GetAccountResponse.json": {
+      "canonicalBytes": 1111,
+      "sha256": "13416c55feb41673a3114e4b6fde7c9bf4b62fecaba36103ac59156824014465"
+    },
+    "v2/ThreadListResponse.json": {
+      "canonicalBytes": 28510,
+      "sha256": "2cb06202cbeb04f3bf5995e64b3e87d798c0e2d935a6357cc22c7c60b53cad80"
+    },
+    "v2/ThreadStartResponse.json": {
+      "canonicalBytes": 32001,
+      "sha256": "264c0e4af5672554069667c27af0836eabe68efcf0fecc21ee52b3bb53c6ec73"
+    },
+    "v2/ThreadResumeResponse.json": {
+      "canonicalBytes": 32214,
+      "sha256": "86e1d91c2b98e6946d47beabae29220c90c712f5adfbeda4c0e86f97520c6ff8"
+    },
+    "v2/TurnStartResponse.json": {
+      "canonicalBytes": 22644,
+      "sha256": "69b37a4443c1bf25ebb6df455778abe04d765f4581ab91aa58a4dfad7de8918f"
+    },
+    "v2/AgentMessageDeltaNotification.json": {
+      "canonicalBytes": 283,
+      "sha256": "0a4da13aefe3b5e912226e0a07fb969127ec0fb4c99d0bb3ca3ec0e8e20f1905"
+    },
+    "v2/TurnStartedNotification.json": {
+      "canonicalBytes": 22690,
+      "sha256": "f48855c75cc5baca6e08926425d4f64e393db8d59e8554ecca4af4035e5e9651"
+    },
+    "v2/TurnCompletedNotification.json": {
+      "canonicalBytes": 22692,
+      "sha256": "71da89b0337cef153662d238e02545badcdaabd42b0366918030915d944c0178"
+    },
+    "v2/ItemStartedNotification.json": {
+      "canonicalBytes": 18647,
+      "sha256": "05d7885fd9188cd0db08503668dbb935db9f02b47b08c9cd805d9899659bee3b"
+    },
+    "v2/ItemCompletedNotification.json": {
+      "canonicalBytes": 18655,
+      "sha256": "adeb0407049224ae74f16336db365e0e0184aa6f81c030e5dd736c7653780220"
+    },
+    "CommandExecutionRequestApprovalParams.json": {
+      "canonicalBytes": 8316,
+      "sha256": "557eab6eb0c80155b796958a577e1b1103e027c60ba51ebe617ef66dbe1aa0a0"
+    },
+    "FileChangeRequestApprovalParams.json": {
+      "canonicalBytes": 725,
+      "sha256": "1683d378ee81b2d4d2aeab348d4aa8236a8070c6ee44a1548a8d206ee947411d"
+    }
+  }
+}

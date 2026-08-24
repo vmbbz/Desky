@@ -27,6 +27,8 @@ import {
 import {
   codexApprovalDecision,
   CodexProtocolNormalizer,
+  readCodexAccountState,
+  readCodexInitializeResponse,
   readCodexSessions,
   readCodexThreadId,
   readCodexTurnId,
@@ -168,12 +170,11 @@ export class CodexRuntime implements AgentAdapterRuntime {
         client.onRequest((request) => this.handleRequest(request)),
         client.onClose((reason) => this.handleClose(reason)),
       );
-      await client.connect();
-      const account = await client.request('account/read', { refreshToken: false });
-      if (!isRecord(account) || typeof account.requiresOpenaiAuth !== 'boolean') {
-        throw new Error('Codex returned an invalid account state.');
-      }
-      if (account.requiresOpenaiAuth && !isRecord(account.account)) {
+      readCodexInitializeResponse(await client.connect());
+      const account = readCodexAccountState(
+        await client.request('account/read', { refreshToken: false }),
+      );
+      if (account.requiresOpenaiAuth && !account.authenticated) {
         throw new Error('Sign in with the Codex CLI before connecting Desky.');
       }
       const connectionId = this.createConnectionId();
@@ -334,7 +335,13 @@ export class CodexRuntime implements AgentAdapterRuntime {
   }
 
   private handleNotification(notification: CodexServerNotification): void {
-    const events = this.normalizer.normalizeNotification(notification, this.context());
+    let events: AdapterEvent[];
+    try {
+      events = this.normalizer.normalizeNotification(notification, this.context());
+    } catch {
+      this.failProtocolValidation();
+      return;
+    }
     for (const event of events) {
       if (event.type === 'turn.completed' || event.type === 'turn.failed') {
         this.pendingApprovals.clear();
@@ -377,6 +384,28 @@ export class CodexRuntime implements AgentAdapterRuntime {
         connectionId,
         type: 'connection.closed',
         payload: { reason: safeError(reason) },
+      });
+    }
+    this.connectionId = undefined;
+  }
+
+  private failProtocolValidation(): void {
+    const connectionId = this.currentConnectionId();
+    this.intentionalClose = true;
+    for (const unsubscribe of this.unsubscribeClient.splice(0)) unsubscribe();
+    this.client?.close();
+    this.client = undefined;
+    this.pendingApprovals.clear();
+    const reason = 'Codex app-server protocol validation failed.';
+    this.patchState({ status: 'error', message: reason, activeTurnId: undefined });
+    if (connectionId) {
+      this.emitEvent({
+        protocolVersion: 1,
+        eventId: `${connectionId}:protocol-failure`,
+        timestamp: new Date().toISOString(),
+        connectionId,
+        type: 'connection.closed',
+        payload: { reason },
       });
     }
     this.connectionId = undefined;
