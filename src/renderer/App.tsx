@@ -334,6 +334,17 @@ export function App() {
 
   useEffect(() => {
     if (adapterMode !== 'simulation') return;
+    if (visualTestState === 'thinking') {
+      setState({
+        ...initialCompanionSnapshot,
+        revision: 1,
+        mode: 'thinking',
+        label: 'Thinking',
+        detail: 'Reference performance fixture',
+        activeTurnId: 'visual-test-thinking',
+      });
+      return;
+    }
     let active = true;
     void (async () => {
       for await (const event of simulation.connect()) {

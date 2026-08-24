@@ -156,7 +156,7 @@ Still open in F3b/F3d:
 - Run the approved 84-clip Quaternius candidate library through the full packaged VRM 0.x/1.0 visual, interruption, transition, reduced-motion, and performance matrix; keep context-sensitive catalogue candidates disabled until reviewed.
 - Live-verify the implemented normalized agent-action command through the installed OpenClaw plugin, then extend richer reviewed gesture selection. The queue currently supports speaking emphasis plus explicit user and typed agent Wave/Jump requests.
 - Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
-- Complete full-screen suppression, real sleep/wake, reference-device performance, accessibility, and macOS lifecycle evidence. Motion controls, native/document hiding, WebGL restoration, and terminal renderer retry are implemented on Windows.
+- Complete full-screen suppression, visible-idle optimization, accessibility, display-reconnect/multi-monitor, and macOS lifecycle evidence. Real Windows Modern Standby recovery and longer whole-application idle/active/hidden plateaus now pass functionally on the named reference machine; the `<3%` visible-idle CPU budget remains open.
 
 The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
 
@@ -360,6 +360,16 @@ Evidence: `docs/verification/F4-MOTION-ENVELOPE-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-ADAPTIVE-PERFORMANCE-2026-08-24.md`.
 
+### F4.9 Windows reference-device lifecycle — 2026-08-24
+
+- Added fail-closed repeatable scripts for a real auto-woken Modern Standby cycle and bounded longer idle/active/hidden package plateaus using an isolated verified offline avatar cache.
+- Found and fixed a real post-wake compositor edge: only an ambient surface that was visible before suspend is non-activatingly re-presented and invalidated after resume; deliberately hidden companions stay hidden.
+- Passed one real suspend/resume epoch, avatar/WebGL continuity, non-focused recovery, frame-loop recovery, wake-setting restoration, task cleanup, and process cleanup after 111.9 seconds away.
+- Passed 60/30/15-second idle and 30/15/10-second normalized-thinking lifecycle matrices with exact hidden frame stability. Whole-app visible idle averaged 4.107%, so the `<3%` target truthfully remains open; normalized thinking at 60 FPS averaged 7.745%.
+- Rejected and fully removed `get-windows` after it introduced 71 packages and six production audit findings. The final production tree remains at zero reported vulnerabilities; full-screen observation stays an audited native-boundary gate.
+
+Evidence: `docs/verification/F4-WINDOWS-REFERENCE-LIFECYCLE-2026-08-24.md`.
+
 ### F4.8 real VRM 1.0 engineering compatibility — 2026-08-24
 
 - Pinned the official Seed-san VRM 1.0 sample by repository commit, source-record/model/screenshot hashes, exact byte lengths, creator, VPL 1.0 terms, and embedded commercial/redistribution/modification/credit settings without bundling it or adding it to the marketplace.
@@ -369,7 +379,7 @@ Evidence: `docs/verification/F4-ADAPTIVE-PERFORMANCE-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-VRM1-COMPATIBILITY-2026-08-24.md`.
 
-Next: profile the remaining composed idle cost, select a product-suitable CC0 VRM 1.0 marketplace revision, run real Windows sleep/wake, full-screen policy, and accessibility. macOS, Claude, and x402 are explicitly deferred. Signed production catalog work follows; F4x remains blocked.
+Next: optimize the measured composed idle cost, select a product-suitable CC0 VRM 1.0 marketplace revision, and finish Windows full-screen, accessibility, and physical display matrices. Real Windows sleep/wake is closed. macOS and Claude remain owner-deferred; the owner has now directed F4x/x402 to follow this lifecycle round.
 
 ## F4x — commerce and entitlement program
 
@@ -479,10 +489,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete the remaining Windows reference-device lifecycle/performance, sleep/wake, full-screen, and accessibility portions of the F4 compatibility matrix. Real VRM 1.0 engineering compatibility now passes with external Seed-san; select a product-suitable CC0 VRM 1.0 marketplace revision separately.
+1. Optimize the measured Windows visible-idle CPU path and complete full-screen, accessibility, display reconnect, multi-monitor, and virtual-desktop portions of the F4 compatibility matrix. Real sleep/wake and longer idle/active/hidden lifecycle evidence now pass; real VRM 1.0 engineering compatibility passes with external Seed-san.
 2. Rerun the separate live Wave evidence after provider capacity returns; local-VRMA interruption, Milk/Astronaut/Seed-san representative runtime motion, and cache corruption/restart are proved.
 3. Complete remote OpenClaw `wss://`, clean pairing/rotation, certificate-failure, and Windows reference-device lifecycle evidence.
 4. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture its remote lifecycle/certificate matrix; keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
-5. Owner-deferred lanes: macOS equivalence/Keychain, Claude's authenticated matrix, and F4x/x402. Resume them only after the current Windows-local gates or explicit owner direction.
+5. Owner-deferred lanes: macOS equivalence/Keychain and Claude's authenticated matrix. F4x/x402 is now explicitly resumed after the Windows sleep/wake reference gate.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

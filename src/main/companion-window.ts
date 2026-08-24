@@ -48,6 +48,16 @@ export const ambientPointerRegionChannel = 'desky:ambient-pointer-region';
 export const ambientDragChannel = 'desky:ambient-drag';
 export const ambientAvatarYawChannel = 'desky:ambient-avatar-yaw';
 
+interface PowerLifecycleProbe {
+  read: () => {
+    powerSuspended: boolean;
+    resumeEpoch: number;
+    suspendEpoch: number;
+  };
+  resume: () => void;
+  suspend: () => void;
+}
+
 export function registerApplicationScheme(): void {
   protocol.registerSchemesAsPrivileged([{
     scheme: applicationScheme,
@@ -91,12 +101,13 @@ async function captureVisualTest(
   window: BrowserWindow,
   surface: SurfaceKind,
   outputPath: string,
-  powerLifecycle?: { suspend: () => void; resume: () => void },
+  powerLifecycle?: PowerLifecycleProbe,
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
   let visualExerciseError: string | null = null;
   let codexFilesystemEvidence: Record<string, unknown> | null = null;
   let performanceLifecycle: Record<string, unknown> | null = null;
+  let realPowerLifecycle: Record<string, unknown> | null = null;
   const processMetricsBefore = app.getAppMetrics().map((metric) => ({
     type: metric.type,
     pid: metric.pid,
@@ -1162,6 +1173,10 @@ async function captureVisualTest(
         percentCpuUsage: metric.cpu?.percentCPUUsage ?? null,
         workingSetSize: metric.memory?.workingSetSize ?? null,
       }));
+      const readSampleCount = (name: string, fallback: number) => {
+        const parsed = Number.parseInt(process.env[name] ?? '', 10);
+        return Number.isFinite(parsed) && parsed >= 1 && parsed <= 300 ? parsed : fallback;
+      };
       const samplePhase = async (count: number) => {
         const samples: ReturnType<typeof sampleMetrics>[] = [];
         for (let index = 0; index < count; index += 1) {
@@ -1170,33 +1185,37 @@ async function captureVisualTest(
         }
         return samples;
       };
-      const summarize = (samples: Awaited<ReturnType<typeof samplePhase>>, type: string) => {
+      const summarize = (
+        samples: Awaited<ReturnType<typeof samplePhase>>,
+        type?: string,
+      ) => {
         const cpuTotals = samples.map((sample) => sample
-          .filter((metric) => metric.type === type)
+          .filter((metric) => !type || metric.type === type)
           .reduce((total, metric) => total + (metric.percentCpuUsage ?? 0), 0));
-        const workingSets = samples.flatMap((sample) => sample
-          .filter((metric) => metric.type === type)
+        const workingSetTotals = samples.map((sample) => sample
+          .filter((metric) => !type || metric.type === type)
           .map((metric) => metric.workingSetSize)
-          .filter((value): value is number => typeof value === 'number'));
+          .filter((value): value is number => typeof value === 'number')
+          .reduce((total, value) => total + value, 0));
         return {
           averagePercentCpuUsage: cpuTotals.length > 0
             ? cpuTotals.reduce((total, value) => total + value, 0) / cpuTotals.length
             : null,
           peakPercentCpuUsage: cpuTotals.length > 0 ? Math.max(...cpuTotals) : null,
-          peakWorkingSetSize: workingSets.length > 0 ? Math.max(...workingSets) : null,
+          peakWorkingSetSize: workingSetTotals.length > 0 ? Math.max(...workingSetTotals) : null,
         };
       };
 
       sampleMetrics();
-      const visibleSamples = await samplePhase(10);
+      const visibleSamples = await samplePhase(readSampleCount('DESKY_PERFORMANCE_VISIBLE_SAMPLES', 10));
       const frameBeforeHide = (await readRenderState()).frame;
       window.hide();
       await new Promise((resolve) => setTimeout(resolve, 500));
       const hiddenState = await readRenderState();
-      const hiddenSamples = await samplePhase(6);
+      const hiddenSamples = await samplePhase(readSampleCount('DESKY_PERFORMANCE_HIDDEN_SAMPLES', 6));
       const frameAfterHidden = (await readRenderState()).frame;
       window.showInactive();
-      const recoveredSamples = await samplePhase(3);
+      const recoveredSamples = await samplePhase(readSampleCount('DESKY_PERFORMANCE_RECOVERED_SAMPLES', 3));
       const recoveredState = await readRenderState();
       const hiddenFrameStable = hiddenState.suspended === 'true'
         && ['native-hidden', 'document-hidden'].includes(hiddenState.reason ?? '')
@@ -1218,21 +1237,123 @@ async function captureVisualTest(
         hiddenFrameStable,
         recoveryAdvanced,
         visible: {
+          application: summarize(visibleSamples),
+          browser: summarize(visibleSamples, 'Browser'),
           renderer: summarize(visibleSamples, 'Tab'),
           gpu: summarize(visibleSamples, 'GPU'),
+          utility: summarize(visibleSamples, 'Utility'),
         },
         hidden: {
+          application: summarize(hiddenSamples),
+          browser: summarize(hiddenSamples, 'Browser'),
           renderer: summarize(hiddenSamples, 'Tab'),
           gpu: summarize(hiddenSamples, 'GPU'),
+          utility: summarize(hiddenSamples, 'Utility'),
         },
         recovered: {
+          application: summarize(recoveredSamples),
+          browser: summarize(recoveredSamples, 'Browser'),
           renderer: summarize(recoveredSamples, 'Tab'),
           gpu: summarize(recoveredSamples, 'GPU'),
+          utility: summarize(recoveredSamples, 'Utility'),
         },
       };
     } catch (error) {
       visualExerciseError = String(error);
       if (!window.isVisible()) window.showInactive();
+    }
+  }
+  if (surface === 'ambient' && process.env.DESKY_VISUAL_TEST_EXERCISE === 'real-power-lifecycle') {
+    try {
+      if (!powerLifecycle) throw new Error('Power lifecycle probe is unavailable');
+      const readRenderState = async () => window.webContents.executeJavaScript(`(() => {
+        const canvas = document.querySelector('.avatar-stage canvas');
+        return {
+          avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
+          frame: Number.parseInt(canvas?.dataset.motionFrame ?? '0', 10),
+          suspended: canvas?.dataset.renderSuspended ?? null,
+          reason: canvas?.dataset.renderSuspensionReason ?? null,
+        };
+      })()`) as Promise<{
+        avatarState: string | null;
+        frame: number;
+        suspended: string | null;
+        reason: string | null;
+      }>;
+      const readyDeadline = Date.now() + 10000;
+      let initialRenderState = await readRenderState();
+      while (Date.now() < readyDeadline
+        && (initialRenderState.avatarState !== 'ready' || initialRenderState.frame < 1)) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        initialRenderState = await readRenderState();
+      }
+      if (initialRenderState.avatarState !== 'ready' || initialRenderState.frame < 1) {
+        throw new Error('Avatar was not ready for the real power lifecycle probe');
+      }
+
+      const baseline = powerLifecycle.read();
+      const waitingAt = new Date().toISOString();
+      await writeFile(`${outputPath}.ready.json`, `${JSON.stringify({
+        baseline,
+        frameBeforeSuspend: initialRenderState.frame,
+        waitingAt,
+      }, null, 2)}\n`, 'utf8');
+
+      const waitStartedAt = Date.now();
+      const deadline = waitStartedAt + 15 * 60 * 1000;
+      let observed = powerLifecycle.read();
+      while (Date.now() < deadline
+        && !(observed.suspendEpoch > baseline.suspendEpoch
+          && observed.resumeEpoch > baseline.resumeEpoch
+          && !observed.powerSuspended)) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        observed = powerLifecycle.read();
+      }
+      if (observed.suspendEpoch <= baseline.suspendEpoch) {
+        throw new Error('Electron did not observe a real operating-system suspend event');
+      }
+      if (observed.resumeEpoch <= baseline.resumeEpoch || observed.powerSuspended) {
+        throw new Error('Electron did not observe a matching real operating-system resume event');
+      }
+
+      const resumedAt = new Date().toISOString();
+      await writeFile(`${outputPath}.resume.json`, `${JSON.stringify({
+        baseline,
+        observed,
+        resumedAt,
+        elapsedWallClockMs: Date.now() - waitStartedAt,
+      }, null, 2)}\n`, 'utf8');
+
+      const frameImmediatelyAfterResume = (await readRenderState()).frame;
+      const recoveryDeadline = Date.now() + 30000;
+      let recoveredRenderState = await readRenderState();
+      while (Date.now() < recoveryDeadline
+        && (recoveredRenderState.avatarState !== 'ready'
+          || recoveredRenderState.suspended === 'true'
+          || recoveredRenderState.frame <= frameImmediatelyAfterResume)) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        recoveredRenderState = await readRenderState();
+      }
+      if (recoveredRenderState.avatarState !== 'ready'
+        || recoveredRenderState.suspended === 'true'
+        || recoveredRenderState.frame <= frameImmediatelyAfterResume) {
+        throw new Error('Avatar rendering did not recover after the real operating-system resume');
+      }
+      realPowerLifecycle = {
+        baseline,
+        observed,
+        waitingAt,
+        resumedAt,
+        elapsedWallClockMs: Date.now() - waitStartedAt,
+        frameBeforeSuspend: initialRenderState.frame,
+        frameImmediatelyAfterResume,
+        recoveredFrame: recoveredRenderState.frame,
+        recoveredAvatarState: recoveredRenderState.avatarState,
+        recoveredSuspended: recoveredRenderState.suspended,
+        recoveredSuspensionReason: recoveredRenderState.reason,
+      };
+    } catch (error) {
+      visualExerciseError = String(error);
     }
   }
   const rendererDiagnostic = await window.webContents.executeJavaScript(`({
@@ -1336,6 +1457,7 @@ async function captureVisualTest(
       workingSetSize: metric.memory?.workingSetSize ?? null,
     })),
     performanceLifecycle,
+    realPowerLifecycle,
     codexFilesystemEvidence,
   };
   const image = await window.webContents.capturePage();
@@ -1374,6 +1496,10 @@ export class DeskyWindowManager {
   private pointerRegion: AmbientPointerRegion = 'transparent';
 
   private powerSuspended = false;
+
+  private suspendEpoch = 0;
+
+  private ambientVisibleBeforeSuspend = false;
 
   private resumeEpoch = 0;
 
@@ -1661,6 +1787,11 @@ export class DeskyWindowManager {
       const visualTestSurface = process.env.DESKY_VISUAL_TEST_SURFACE ?? 'ambient';
       if (visualTestPath && visualTestSurface === surface) {
         void captureVisualTest(window, surface, visualTestPath, {
+          read: () => ({
+            powerSuspended: this.powerSuspended,
+            resumeEpoch: this.resumeEpoch,
+            suspendEpoch: this.suspendEpoch,
+          }),
           suspend: this.handlePowerSuspend,
           resume: this.handlePowerResume,
         });
@@ -1693,7 +1824,13 @@ export class DeskyWindowManager {
 
   private readonly handlePowerSuspend = (): void => {
     if (this.powerSuspended) return;
+    this.ambientVisibleBeforeSuspend = Boolean(
+      this.ambient
+      && !this.ambient.isDestroyed()
+      && this.ambient.isVisible(),
+    );
     this.powerSuspended = true;
+    this.suspendEpoch += 1;
     this.publishAmbientState();
   };
 
@@ -1702,6 +1839,12 @@ export class DeskyWindowManager {
     this.powerSuspended = false;
     this.resumeEpoch += 1;
     this.clampAmbientToWorkArea();
+    if (this.ambientVisibleBeforeSuspend && this.ambient && !this.ambient.isDestroyed()) {
+      this.ambient.showInactive();
+      if (this.desktopState.alwaysOnTop) this.ambient.moveTop();
+      this.ambient.webContents.invalidate();
+    }
+    this.ambientVisibleBeforeSuspend = false;
     this.publishAmbientState();
   };
 

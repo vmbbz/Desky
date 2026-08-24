@@ -103,11 +103,11 @@ A separate additive controller uses the avatar capability inventory before drivi
 
 ### F3d — resilience, accessibility, and performance
 
-Status: in progress. System reduced-motion detection exists. F4.4 proves restoration after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability and adds bounded fresh-renderer retry; F4.7 package-proves timed hidden/recovery metrics plus adaptive 30/60 FPS on Windows. Hidden CPU and renderer memory pass their local targets, but composed visible idle remains approximately 4.02% across renderer plus GPU and therefore stays open. Real sleep/wake, full-screen suppression, unreported overlap occlusion, broader reference hardware, accessibility, and macOS evidence remain open.
+Status: in progress. System reduced-motion detection exists. F4.4 proves restoration after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability and adds bounded fresh-renderer retry; F4.7 adds adaptive 30/60 FPS. F4.9 package-proves a real auto-woken Windows Modern Standby cycle plus longer whole-app idle/thinking/hidden/recovered plateaus on the named reference machine. Hidden suspension, post-wake recovery, and renderer memory pass; whole-app visible idle averages 4.107% and misses the `<3%` target. Full-screen suppression, unreported overlap occlusion, physical display changes, broader reference hardware, accessibility, and macOS remain open.
 
 - Retain the implemented Paused/System/Full/Reduced policy through accessibility and lifecycle validation.
 - Suspend rendering when hidden or Chromium-reported occluded; add explicit full-screen suppression policy.
-- Recover from WebGL loss and avatar replacement without leaking GPU resources. The restoration and terminal-retry paths are implemented; reference-device plateau evidence remains.
+- Recover from WebGL loss and avatar replacement without leaking GPU resources. Restoration and terminal retry pass; one longer reference-device plateau is recorded, while broader hardware and visible-idle optimization remain.
 - Complete keyboard, screen-reader, contrast, scaling, idle CPU, active CPU, and memory evidence.
 - Run the packaged state matrix on reference Windows and macOS systems.
 
