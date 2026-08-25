@@ -7,3 +7,4 @@
 - [0005 — Indeterminate payment settlement and reconciliation](0005-indeterminate-payment-settlement.md)
 - [0006 — Non-custodial hosted checkout and one-shot settlement dispatch](0006-non-custodial-hosted-checkout.md)
 - [0007 — Hosted wallet browser binding and signed-payload admission](0007-hosted-wallet-browser-security.md)
+- [0008 — Isolated testnet checkout deployment](0008-isolated-testnet-checkout-deployment.md)

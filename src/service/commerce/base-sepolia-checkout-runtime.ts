@@ -25,13 +25,15 @@ import {
 } from './x402-checkout-processor';
 
 export interface BaseSepoliaCheckoutLedger extends X402SettlementLedger {
-  getQuote(quoteId: string): VerifiedCommerceQuote | undefined;
-  getPaymentAttempt(attemptId: string): PaymentAttempt | undefined;
+  getQuote(quoteId: string): VerifiedCommerceQuote | undefined
+    | Promise<VerifiedCommerceQuote | undefined>;
+  getPaymentAttempt(attemptId: string): PaymentAttempt | undefined
+    | Promise<PaymentAttempt | undefined>;
   prepareCheckoutPayment(
     orderId: string,
     attempt: PaymentAttempt,
     updatedAt: string,
-  ): { attempt: PaymentAttempt };
+  ): { attempt: PaymentAttempt } | Promise<{ attempt: PaymentAttempt }>;
 }
 
 function projection(
@@ -69,7 +71,7 @@ export class BaseSepoliaCheckoutRuntime implements HostedCheckoutWalletRuntime {
     record: CommerceCheckoutSessionRecord,
     now: string,
   ): Promise<PreparedBrowserCheckout> {
-    const quote = this.ledger.getQuote(record.session.quoteId);
+    const quote = await this.ledger.getQuote(record.session.quoteId);
     if (!quote || quote.accountId !== record.session.accountId
       || quote.provider !== 'x402-base' || quote.releaseProfile !== 'windows-direct') {
       throw new Error('Hosted Base Sepolia checkout quote is unavailable.');
@@ -140,11 +142,11 @@ export class BaseSepoliaCheckoutRuntime implements HostedCheckoutWalletRuntime {
     payment: AdmittedBrowserPayment,
     now: string,
   ) {
-    const attempt = this.ledger.prepareCheckoutPayment(
+    const attempt = (await this.ledger.prepareCheckoutPayment(
       prepared.attempt.orderId,
       prepared.attempt,
       now,
-    ).attempt;
+    )).attempt;
     return this.processor.process({
       attempt,
       paymentPayload: payment.payload,
@@ -158,9 +160,9 @@ export class BaseSepoliaCheckoutRuntime implements HostedCheckoutWalletRuntime {
     record: CommerceCheckoutSessionRecord,
   ): Promise<CheckoutRuntimeProjection | undefined> {
     if (!record.attemptId) return undefined;
-    const attempt = this.ledger.getPaymentAttempt(record.attemptId);
+    const attempt = await this.ledger.getPaymentAttempt(record.attemptId);
     if (!attempt) return undefined;
-    const observation = this.ledger.getLatestSettlementObservation(
+    const observation = await this.ledger.getLatestSettlementObservation(
       `authorization:${record.attemptId}`,
     );
     return projection(attempt, observation);

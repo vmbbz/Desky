@@ -25,25 +25,29 @@ export interface X402CheckoutFacilitator {
   ): Promise<X402SettleResponse>;
 }
 
+type Awaitable<T> = T | Promise<T>;
+
 export interface X402SettlementLedger {
-  getPaymentAuthorization(authorizationId: string): PaymentAuthorizationEvidence | undefined;
+  getPaymentAuthorization(
+    authorizationId: string,
+  ): Awaitable<PaymentAuthorizationEvidence | undefined>;
   getLatestSettlementObservation(
     authorizationId: string,
-  ): PaymentSettlementObservation | undefined;
-  advancePaymentAttempt(attemptId: string, state: 'failed'): PaymentAttempt;
-  verifyPaymentAuthorization(value: unknown): {
+  ): Awaitable<PaymentSettlementObservation | undefined>;
+  advancePaymentAttempt(attemptId: string, state: 'failed'): Awaitable<PaymentAttempt>;
+  verifyPaymentAuthorization(value: unknown): Awaitable<{
     authorization: PaymentAuthorizationEvidence;
     attempt: PaymentAttempt;
-  };
-  claimSettlementDispatch(value: unknown): {
+  }>;
+  claimSettlementDispatch(value: unknown): Awaitable<{
     claimed: boolean;
     observation: PaymentSettlementObservation;
     attempt: PaymentAttempt;
-  };
-  recordSettlementObservation(value: unknown): {
+  }>;
+  recordSettlementObservation(value: unknown): Awaitable<{
     observation: PaymentSettlementObservation;
     attempt: PaymentAttempt;
-  };
+  }>;
 }
 
 export interface ProcessX402CheckoutInput {
@@ -139,7 +143,7 @@ export class X402CheckoutProcessor {
       quoteExpiresAtSeconds,
     );
     const authorizationId = `authorization:${attempt.attemptId}`;
-    let authorization = this.ledger.getPaymentAuthorization(authorizationId);
+    let authorization = await this.ledger.getPaymentAuthorization(authorizationId);
     if (!authorization) {
       if (attempt.state !== 'submitted') {
         throw new Error('Payment attempt is missing its durable x402 authorization evidence.');
@@ -151,13 +155,13 @@ export class X402CheckoutProcessor {
         return { kind: 'verification-unavailable' };
       }
       if (!verified.isValid || !verified.payer) {
-        this.ledger.advancePaymentAttempt(attempt.attemptId, 'failed');
+        await this.ledger.advancePaymentAttempt(attempt.attemptId, 'failed');
         return { kind: 'verification-rejected', reason: verified.invalidReason };
       }
       if (!sameAddress(verified.payer, payload.payload.authorization.from)) {
         throw new Error('Facilitator verification crossed x402 payer identity.');
       }
-      authorization = this.ledger.verifyPaymentAuthorization({
+      authorization = (await this.ledger.verifyPaymentAuthorization({
         schemaVersion: 1,
         authorizationId,
         attemptId: attempt.attemptId,
@@ -174,7 +178,7 @@ export class X402CheckoutProcessor {
         authorizationExpiresAt: new Date(
           Number(payload.payload.authorization.validBefore) * 1_000,
         ).toISOString(),
-      }).authorization;
+      })).authorization;
     }
     if (authorization.attemptId !== attempt.attemptId
       || authorization.orderId !== attempt.orderId
@@ -189,10 +193,10 @@ export class X402CheckoutProcessor {
       throw new Error('Durable x402 authorization crossed checkout identity.');
     }
 
-    const prior = this.ledger.getLatestSettlementObservation(authorization.authorizationId);
+    const prior = await this.ledger.getLatestSettlementObservation(authorization.authorizationId);
     if (prior) return { kind: 'reconciliation-required', observation: prior };
 
-    const dispatch = this.ledger.claimSettlementDispatch(observation(authorization, {
+    const dispatch = await this.ledger.claimSettlementDispatch(observation(authorization, {
       observationId: `observation:dispatch:${attempt.attemptId}`,
       status: 'unknown',
       observedAt: now.iso,
@@ -219,7 +223,7 @@ export class X402CheckoutProcessor {
     else if (settled.errorReason === 'settlement_pending' && settled.transaction) status = 'pending';
     else status = 'failed';
     const providerReference = settled.transaction || undefined;
-    const finalObservation = this.ledger.recordSettlementObservation(observation(authorization, {
+    const finalObservation = (await this.ledger.recordSettlementObservation(observation(authorization, {
       observationId: `observation:result:${attempt.attemptId}`,
       status,
       providerReference,
@@ -230,7 +234,7 @@ export class X402CheckoutProcessor {
           ? 'facilitator-pending'
           : 'facilitator-failed',
       reconciliationId: `reconcile:result:${attempt.attemptId}`,
-    })).observation;
+    }))).observation;
     return { kind: 'settlement-recorded', observation: finalObservation };
   }
 }

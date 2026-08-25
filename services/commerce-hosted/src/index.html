@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="robots" content="noindex, nofollow, noarchive">
+    <title>Desky secure checkout</title>
+    <link rel="stylesheet" href="__DESKY_CHECKOUT_STYLES__">
+    <script type="module" src="__DESKY_CHECKOUT_SCRIPT__"></script>
+  </head>
+  <body>
+    <main class="shell" aria-labelledby="checkout-title">
+      <header class="brand">
+        <span class="brand-mark" aria-hidden="true">D</span>
+        <span>Desky</span>
+        <span class="network">Base Sepolia testnet</span>
+      </header>
+
+      <section class="card" aria-live="polite">
+        <div class="status-mark" id="status-mark" aria-hidden="true"></div>
+        <p class="eyebrow" id="eyebrow">Secure wallet checkout</p>
+        <h1 id="checkout-title">Opening your checkout…</h1>
+        <p class="lead" id="lead">Desky is validating the one-time handoff before showing payment terms.</p>
+
+        <dl class="terms" id="terms" hidden>
+          <div><dt>Item</dt><dd id="product">—</dd></div>
+          <div><dt>Total</dt><dd id="amount">—</dd></div>
+          <div><dt>Network</dt><dd id="network">—</dd></div>
+          <div><dt>Recipient</dt><dd id="recipient" class="mono">—</dd></div>
+          <div><dt>Expires</dt><dd id="expires">—</dd></div>
+        </dl>
+
+        <button id="pay" type="button" disabled>Connect wallet and pay</button>
+        <p class="fine-print">Your wallet signs the payment. Desky never receives your private key or seed phrase.</p>
+      </section>
+
+      <footer>
+        <span>Testnet pilot · no production purchase</span>
+        <span id="session-label"></span>
+      </footer>
+    </main>
+  </body>
+</html>

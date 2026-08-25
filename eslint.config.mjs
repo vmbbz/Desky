@@ -2,7 +2,7 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [".webpack/**", "coverage/**", "node_modules/**", "out/**"],
+    ignores: [".webpack/**", "**/coverage/**", "**/dist/**", "**/node_modules/**", "out/**"],
   },
   ...tseslint.configs.recommended,
   {
