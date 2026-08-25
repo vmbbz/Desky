@@ -63,6 +63,7 @@ export interface CommerceCheckoutSessionStore {
     expected: CommerceCheckoutSessionRecord,
     next: CommerceCheckoutSessionRecord,
   ): Awaitable<void>;
+  approveOrder?(orderId: string, updatedAt: string): Awaitable<CommerceOrder>;
 }
 
 function exactRecord(value: unknown): CommerceCheckoutSessionRecord {
@@ -249,7 +250,7 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
     if (!quote || !order
       || quote.accountId !== identity.accountId || order.accountId !== identity.accountId
       || quote.provider !== 'x402-base' || quote.releaseProfile !== 'windows-direct'
-      || order.state !== 'awaiting-approval' || order.quoteId !== quote.quoteId
+      || !['created', 'awaiting-approval'].includes(order.state) || order.quoteId !== quote.quoteId
       || order.offerId !== quote.offerId || order.offerRevision !== quote.offerRevision
       || order.currency !== quote.currency || order.amountAtomic !== quote.amountAtomic
       || Date.parse(quote.expiresAt) <= Date.parse(now)) {
@@ -260,6 +261,10 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
       .digest('base64url');
     if (!digestMatches(expectedDigest, request.termsDigest)) {
       throw new CommerceServiceError('conflict');
+    }
+    if (order.state === 'created') {
+      if (!this.store.approveOrder) throw new CommerceServiceError('conflict');
+      await this.store.approveOrder(order.orderId, now);
     }
     const checkoutSessionId = this.sessionId();
     const expiresAt = new Date(Math.min(

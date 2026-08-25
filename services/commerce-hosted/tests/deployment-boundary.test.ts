@@ -30,9 +30,13 @@ describe('hosted checkout deployment boundary', () => {
   });
 
   it('never provisions raw wallet or browser-secret columns', async () => {
-    const migration = await readFile(resolve(repositoryRoot,
+    const ledgerMigration = await readFile(resolve(repositoryRoot,
       'supabase/migrations/20260825000100_checkout_ledger.sql',
     ), 'utf8');
+    const identityMigration = await readFile(resolve(repositoryRoot,
+      'supabase/migrations/20260825000200_identity_operations.sql',
+    ), 'utf8');
+    const migration = `${ledgerMigration}\n${identityMigration}`;
     expect(migration).not.toMatch(/private[_ ]?key|seed[_ ]?phrase|wallet[_ ]?signature/i);
     expect(migration).not.toMatch(/binding[_ ]?verifier|csrf[_ ]?token|cookie[_ ]?credential/i);
     expect(migration).toContain('payment_attempts_one_active_per_order');
@@ -40,6 +44,20 @@ describe('hosted checkout deployment boundary', () => {
     expect(migration).toContain('CREATE SCHEMA desky_commerce');
     expect(migration).toContain('REVOKE ALL ON SCHEMA desky_commerce FROM PUBLIC');
     expect(migration).toContain('CREATE ROLE desky_checkout_runtime');
+    expect(identityMigration).toContain('provider_subject_digest');
+    expect(identityMigration).toContain('credential_digest');
+    expect(identityMigration).not.toMatch(/provider_subject\s+text|recovery_code|refresh_credential/i);
+  });
+
+  it('keeps operator backup, reconciliation, and monitoring isolated from public browser routes', async () => {
+    const server = await readFile(resolve(hostedRoot, 'src/server.ts'), 'utf8');
+    const monitor = await readFile(resolve(hostedRoot,
+      'netlify/functions/commerce-monitor.ts'), 'utf8');
+    expect(server).toContain("requiredEnvironment('DESKY_COMMERCE_OPERATOR_TOKEN')");
+    expect(server).toContain("createCipheriv('aes-256-gcm'");
+    expect(server).toContain('reconciliationQueue');
+    expect(monitor).toContain("schedule: '*/15 * * * *'");
+    expect(monitor).not.toContain('path:');
   });
 
   it('keeps PostgreSQL and hosted-database dependencies out of Electron manifests', async () => {

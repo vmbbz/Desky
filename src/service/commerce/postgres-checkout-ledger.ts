@@ -232,6 +232,10 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     });
   }
 
+  async approveOrder(orderId: string, updatedAt: string): Promise<CommerceOrder> {
+    return this.advanceOrder(orderId, 'awaiting-approval', updatedAt);
+  }
+
   async getPaymentAttempt(attemptId: string): Promise<PaymentAttempt | undefined> {
     return this.getAttemptWith(this.pool, attemptId);
   }

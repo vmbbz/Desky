@@ -1,7 +1,7 @@
 import { createPublicKey, verify, type KeyObject } from 'node:crypto';
 
 export const commerceAccessTokenType = 'desky-access+jwt';
-export const commerceAccessTokenScopes = ['catalog:read', 'asset:read'] as const;
+export const commerceAccessTokenScopes = ['catalog:read', 'asset:read', 'commerce:write'] as const;
 export type CommerceAccessTokenScope = (typeof commerceAccessTokenScopes)[number];
 
 export interface CommerceAccessTokenClaims {

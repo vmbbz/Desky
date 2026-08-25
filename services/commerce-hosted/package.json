@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "supabase:provision-role": "node scripts/provision-supabase-role.mjs",
-    "test:supabase:live": "node scripts/run-supabase-live.mjs"
+    "test:supabase:live": "node scripts/run-supabase-live.mjs",
+    "backup:restore:drill": "node scripts/run-commerce-backup-restore-drill.mjs"
   },
   "dependencies": {
     "@netlify/functions": "5.3.0",
