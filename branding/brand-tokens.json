@@ -1,0 +1,22 @@
+{
+  "$schema": "https://schemas.designtokens.org/format/",
+  "color": {
+    "ink": { "$value": "#0A0E17", "$type": "color" },
+    "midnight": { "$value": "#111827", "$type": "color" },
+    "cloud": { "$value": "#F5F8FF", "$type": "color" },
+    "signalMint": { "$value": "#75E6D7", "$type": "color" },
+    "presenceBlue": { "$value": "#78B7E2", "$type": "color" },
+    "success": { "$value": "#89F29B", "$type": "color" },
+    "attention": { "$value": "#FFC56B", "$type": "color" },
+    "danger": { "$value": "#FF7D91", "$type": "color" }
+  },
+  "type": {
+    "display": { "$value": "Space Grotesk", "$type": "fontFamily" },
+    "interface": { "$value": "Inter", "$type": "fontFamily" },
+    "windowsFallback": { "$value": "Segoe UI Variable", "$type": "fontFamily" },
+    "macFallback": { "$value": "SF Pro Display", "$type": "fontFamily" }
+  },
+  "radius": {
+    "appIcon": { "$value": "21.875%", "$type": "dimension" }
+  }
+}

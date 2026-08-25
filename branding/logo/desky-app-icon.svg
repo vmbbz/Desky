@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Desky application icon</title>
+  <desc id="desc">The Desky desktop portal mark on a midnight rounded square.</desc>
+  <defs>
+    <linearGradient id="background" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#151F31"/>
+      <stop offset="1" stop-color="#080B13"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="icon-clip">
+      <rect x="16" y="16" width="480" height="480" rx="112"/>
+    </clipPath>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#background)"/>
+  <rect x="17" y="17" width="478" height="478" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity=".09" stroke-width="2"/>
+  <g clip-path="url(#icon-clip)">
+    <g transform="translate(76 76) scale(5)" filter="url(#glow)">
+      <path fill="#75E6D7" fill-rule="evenodd" d="M8 7h25c17.12 0 31 13.88 31 31S50.12 69 33 69H8V7Zm15 15v32h10c8.84 0 16-7.16 16-16s-7.16-16-16-16H23Z"/>
+      <circle cx="57" cy="15" r="6" fill="#78B7E2" stroke="#0A0E17" stroke-width="3"/>
+    </g>
+  </g>
+</svg>

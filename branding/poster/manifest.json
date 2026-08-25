@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "campaign": "Desky first reveal",
+  "motto": "Give your agent somewhere to be.",
+  "generation": {
+    "backgroundMethod": "OpenAI image generation with a user-supplied Milk video frame as the identity reference",
+    "typographyMethod": "Deterministic FFmpeg overlay using the admitted Space Grotesk variable font",
+    "mascot": "Milk",
+    "mascotCatalog": "Open Source Avatars / 100Avatars R1 / CC0"
+  },
+  "assets": [
+    {
+      "file": "desky-through-the-screen-x.png",
+      "role": "primary reveal",
+      "prompt": "../prompts/desky-through-the-screen-poster.prompt.md",
+      "sha256": "09851474B0EE39BA0D08DDDB9A301FF42A9F05F3C14A3BA4877D088DD1583FBB"
+    },
+    {
+      "file": "desky-school-desk-x.png",
+      "role": "warm mascot follow-up",
+      "prompt": "../prompts/desky-school-desk-poster.prompt.md",
+      "sha256": "B218FB3E394083DA15654DE28E29374279D6185BF58917CD8081102C1F81ADCB"
+    },
+    {
+      "file": "desky-first-signal-x.png",
+      "role": "signed-authorization teaser",
+      "prompt": "../prompts/desky-first-signal-poster.prompt.md",
+      "sha256": "5912ADF8D5AC733CF37FC235DFE4177E82CF614DE00FE629557F26179BC264B0"
+    }
+  ]
+}
