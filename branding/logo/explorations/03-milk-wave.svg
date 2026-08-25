@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Milk wave icon concept</title>
+  <desc id="desc">The full Milk carton mascot waves from a warm white field.</desc>
+  <defs>
+    <linearGradient id="bg" x1="48" y1="48" x2="464" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFDF7"/>
+      <stop offset="1" stop-color="#E7F8F5"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#25314A" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bg)"/>
+  <circle cx="382" cy="128" r="52" fill="#75E6D7" fill-opacity=".2"/>
+  <circle cx="110" cy="391" r="72" fill="#78B7E2" fill-opacity=".16"/>
+  <g filter="url(#shadow)">
+    <path d="M168 209 200 137h102l46 72v202H168Z" fill="#FFFDF7"/>
+    <path d="m302 137 46 72v202l-40-24V196Z" fill="#EDE7D9"/>
+    <path d="M198 137h107l21 29H184Z" fill="#F3EFE4"/>
+    <rect x="198" y="112" width="108" height="38" rx="11" fill="#4E91C6"/>
+    <rect x="168" y="318" width="180" height="45" fill="#BCEFF1"/>
+    <path d="M168 363h180v48H168Z" fill="#579DCF"/>
+    <circle cx="221" cy="246" r="12" fill="#0A0E17"/>
+    <circle cx="284" cy="246" r="12" fill="#0A0E17"/>
+    <path d="M234 268c12 11 25 11 38 0" fill="none" stroke="#0A0E17" stroke-width="11" stroke-linecap="round"/>
+    <path d="M169 284c-34 23-54 52-61 87" fill="none" stroke="#FFFDF7" stroke-width="16" stroke-linecap="round"/>
+    <path d="M347 281c30-13 43-42 39-82" fill="none" stroke="#FFFDF7" stroke-width="16" stroke-linecap="round"/>
+    <path d="M386 198c-4-19 3-34 17-45M386 198c14-14 28-17 43-10M386 198c-17-1-30 4-40 16" fill="none" stroke="#FFFDF7" stroke-width="12" stroke-linecap="round"/>
+  </g>
+</svg>

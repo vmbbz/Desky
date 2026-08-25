@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Desky tray glyph</title>
+  <desc id="desc">A one-color silhouette of Milk's carton and face.</desc>
+  <defs>
+    <mask id="face-cutout" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64" style="mask-type:luminance">
+      <rect width="64" height="64" fill="#000"/>
+      <path d="M10 24 17 12h23l13 12v36H10Z" fill="#FFF"/>
+      <rect x="17" y="4" width="24" height="12" rx="3" fill="#FFF"/>
+      <circle cx="25" cy="32" r="3" fill="#000"/>
+      <circle cx="40" cy="32" r="3" fill="#000"/>
+      <path d="M28 38c3 3 6 3 9 0" fill="none" stroke="#000" stroke-width="3" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <rect width="64" height="64" fill="#000" mask="url(#face-cutout)"/>
+</svg>

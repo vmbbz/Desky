@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Desky Milk mascot foreground layer">
+  <defs>
+    <clipPath id="body-clip">
+      <path d="M137 190 180 116h129l66 74v322H137Z"/>
+    </clipPath>
+  </defs>
+  <path d="M137 190 180 116h129l66 74v322H137Z" fill="#FFFDF7"/>
+  <path d="m309 116 66 74v322l-48-31V179Z" fill="#EDE7D9"/>
+  <path d="M176 116h137l27 31H158Z" fill="#F3EFE4"/>
+  <rect x="177" y="87" width="139" height="48" rx="14" fill="#4E91C6"/>
+  <g clip-path="url(#body-clip)">
+    <rect x="120" y="337" width="270" height="66" fill="#BCEFF1"/>
+    <rect x="120" y="403" width="270" height="109" fill="#579DCF"/>
+    <path d="M327 337h62v175l-62-40Z" fill="#4385B7"/>
+  </g>
+  <circle cx="210" cy="257" r="17" fill="#0A0E17"/>
+  <circle cx="299" cy="257" r="17" fill="#0A0E17"/>
+  <path d="M228 284c18 16 38 16 57 0" fill="none" stroke="#0A0E17" stroke-width="15" stroke-linecap="round"/>
+  <circle cx="204" cy="251" r="5" fill="#FFFFFF" fill-opacity=".8"/>
+  <circle cx="293" cy="251" r="5" fill="#FFFFFF" fill-opacity=".8"/>
+</svg>

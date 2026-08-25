@@ -1,23 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
-  <title id="title">Desky application icon</title>
-  <desc id="desc">A friendly close-up of Milk, Desky's founding desktop companion.</desc>
+  <title id="title">Milk close-up icon concept</title>
+  <desc id="desc">A friendly close-up of the Milk carton mascot.</desc>
   <defs>
-    <linearGradient id="background" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="64" y1="40" x2="448" y2="472" gradientUnits="userSpaceOnUse">
       <stop stop-color="#9BF1E6"/>
       <stop offset="1" stop-color="#69B9E6"/>
     </linearGradient>
-    <filter id="mascot-shadow" x="-20%" y="-20%" width="140%" height="160%">
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%">
       <feDropShadow dx="0" dy="14" stdDeviation="14" flood-color="#0A0E17" flood-opacity=".22"/>
     </filter>
-    <clipPath id="icon-clip">
-      <rect x="16" y="16" width="480" height="480" rx="120"/>
-    </clipPath>
     <clipPath id="body-clip">
       <path d="M137 190 180 116h129l66 74v304H137Z"/>
     </clipPath>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#background)"/>
-  <g clip-path="url(#icon-clip)" filter="url(#mascot-shadow)">
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
     <path d="M137 190 180 116h129l66 74v304H137Z" fill="#FFFDF7"/>
     <path d="m309 116 66 74v304l-48-31V179Z" fill="#EDE7D9"/>
     <path d="M176 116h137l27 31H158Z" fill="#F3EFE4"/>

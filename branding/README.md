@@ -10,15 +10,18 @@ Desky gives the agents people already use a living, trustworthy place on their d
 - **Founding mascot:** Milk
 - **Brand promise:** presence without intrusion; personality without hiding control.
 
-The Desky identity is avatar-independent. Milk is the founding mascot and launch character, but the corporate mark must continue to represent the product when a user chooses another avatar.
+Milk is Desky's permanent brand character, even when a user selects a different companion from the marketplace. The chosen avatar represents the user's companion; Milk represents Desky itself.
 
 ## Official mark
 
-The mark is a **desktop portal D** with a separate **presence signal**:
+The official icon is a close-up of **Milk**. It is supported by a responsive family rather than forcing one detailed drawing into every context:
 
-- the open D is a window, a doorway and a place for an agent to inhabit;
-- the blue signal says that something is present and responsive;
-- the simple geometry stays legible at tray, taskbar and Store-icon sizes.
+- the close-up Milk icon is the primary Store, launcher and social-avatar asset;
+- the simplified Milk carton is the compact mark used beside the wordmark;
+- the one-color Milk silhouette is the tray and monochrome-system glyph;
+- the richer “Milk at the edge” scene is reserved for splash, onboarding and campaign motion.
+
+This makes the brand literal: Desky is not a letter or an abstract AI symbol; it is a companion with a recognizable face. The carton cap, asymmetric folded side, milk-blue bands and face remain the four protected recognition features.
 
 Use the supplied assets without redrawing their proportions:
 
@@ -26,8 +29,14 @@ Use the supplied assets without redrawing their proportions:
 - `logo/desky-app-icon-512.png` — transparent 512 px raster export;
 - `logo/desky-mark-on-dark.svg` and `logo/desky-mark-on-light.svg` — mark-only variants;
 - `logo/desky-lockup-on-dark.svg` and `logo/desky-lockup-on-light.svg` — mark and wordmark variants.
+- `logo/desky-tray-glyph.svg` — one-color system-tray glyph;
+- `logo/desky-companion-mark.svg` — expressive window-edge mark for large surfaces;
+- `logo/raster/` — inspected 16–256 px raster exports and tray templates;
+- `logo/platform/apple/` — unmasked background and mascot layers for Icon Composer.
 
-Keep clear space around the mark equal to the diameter of its presence signal. Do not put Milk inside the corporate mark, recolor individual pieces outside this palette, add crypto/network logos, or use the glow as the only boundary on a light background.
+Keep clear space around the compact mark equal to the height of one eye. Do not add the word `MILK` inside small icons, substitute another marketplace avatar, remove the face, turn the carton into a generic rounded robot, add crypto/network logos, or place limbs in the 48 px and smaller icon.
+
+Apple delivery must import the unmasked full-canvas layers into Icon Composer and let the system apply its final mask and Liquid Glass treatment. Windows uses the straight-on flattened master and the size-specific raster exports. The richer mark never replaces the compact tray glyph.
 
 ## Color
 
@@ -58,7 +67,7 @@ Desky campaign art uses four recurring ideas:
 
 1. **The edge:** Milk sits on a window, screen or physical desk edge.
 2. **The crossing:** a limb or shadow crosses the digital/physical boundary.
-3. **The signal:** one mint line, ripple or light source indicates presence.
+3. **The face:** Milk's expression is the recognition anchor and may react without changing construction.
 4. **The space:** generous quiet space lets the companion feel intentional.
 
 Avoid generic AI brains, robot heads, glowing coins, code rain, blockchains, hologram clutter and crypto speculation imagery.
@@ -70,7 +79,7 @@ Avoid generic AI brains, robot heads, glowing coins, code rain, blockchains, hol
 - `poster/desky-first-signal-x.png` — **technical/onchain teaser**; use for the signed-authorization story.
 - `poster/*-background.png` — clean generated masters without typography.
 
-The exact generation prompts are preserved in `prompts/`. `scripts/render-posters.ps1` reapplies deterministic brand typography to the background masters with FFmpeg.
+The exact generation prompts are preserved in `prompts/`. `scripts/render-posters.ps1` reapplies deterministic brand typography to the background masters with FFmpeg. `scripts/render-logos.ps1` regenerates the inspected raster icon family from the vector master.
 
 ## Voice
 
@@ -81,4 +90,3 @@ Say “onchain access” or “signed authorization” when that is what exists.
 ## Mascot provenance
 
 Milk comes from the admitted Open Source Avatars catalog and is tracked by Desky as a CC0 `100Avatars R1` asset. The posters are newly generated campaign concepts based on user-supplied footage and the admitted character reference; they are not redistributed upstream thumbnails or VRM binaries.
-

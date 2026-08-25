@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Milk at the edge icon concept</title>
+  <desc id="desc">Milk peeks out of a bright desktop window and grips its mint lower edge.</desc>
+  <defs>
+    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#16243A"/>
+      <stop offset="1" stop-color="#080B13"/>
+    </linearGradient>
+    <filter id="panel-shadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity=".28"/>
+    </filter>
+    <filter id="mascot-shadow" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#0A0E17" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#bg)"/>
+  <rect x="70" y="70" width="372" height="350" rx="64" fill="#F8FAFC" filter="url(#panel-shadow)"/>
+  <circle cx="110" cy="109" r="9" fill="#75E6D7"/>
+  <circle cx="139" cy="109" r="9" fill="#BCEFF1"/>
+  <circle cx="168" cy="109" r="9" fill="#78B7E2"/>
+  <g filter="url(#mascot-shadow)">
+    <path d="M160 258 195 174h105l54 84v138H160Z" fill="#FFFDF7"/>
+    <path d="m300 174 54 84v138l-42-26V244Z" fill="#EDE7D9"/>
+    <path d="M193 174h110l23 32H178Z" fill="#F3EFE4"/>
+    <rect x="193" y="146" width="110" height="42" rx="12" fill="#4E91C6"/>
+    <path d="M160 329h194v67H160Z" fill="#BCEFF1"/>
+    <path d="M312 329h42v67l-42-26Z" fill="#A7D6DF"/>
+    <circle cx="217" cy="274" r="13" fill="#0A0E17"/>
+    <circle cx="290" cy="274" r="13" fill="#0A0E17"/>
+    <path d="M232 296c14 13 30 13 44 0" fill="none" stroke="#0A0E17" stroke-width="12" stroke-linecap="round"/>
+  </g>
+  <rect x="52" y="376" width="408" height="62" rx="31" fill="#75E6D7"/>
+  <rect x="71" y="389" width="370" height="6" rx="3" fill="#FFFFFF" fill-opacity=".35"/>
+  <g fill="#FFFDF7" stroke="#D7D3C8" stroke-width="3">
+    <circle cx="174" cy="377" r="18"/>
+    <circle cx="340" cy="377" r="18"/>
+  </g>
+</svg>

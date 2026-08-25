@@ -100,6 +100,30 @@ function normalizeAvatarYaw(degrees: number): number {
   return ((degrees + 180) % 360 + 360) % 360 - 180;
 }
 
+function DeskyBrandMark() {
+  return (
+    <span className="brand__mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" focusable="false">
+        <path d="M10 19 15 10h18l9 9v27H10Z" fill="#fffdf7" />
+        <path d="m33 10 9 9v27l-7-4V18Z" fill="#e5dfd2" />
+        <path d="M15 10h19l4 4H12Z" fill="#f3efe4" />
+        <rect x="15" y="6" width="19" height="7" rx="2.5" fill="#4e91c6" />
+        <path d="M10 34h32v6H10Z" fill="#bceff1" />
+        <path d="M10 40h32v6H10Z" fill="#579dcf" />
+        <circle cx="21" cy="25" r="2.2" fill="#0a0e17" />
+        <circle cx="31" cy="25" r="2.2" fill="#0a0e17" />
+        <path
+          d="M23 29c2 2 5 2 7 0"
+          fill="none"
+          stroke="#0a0e17"
+          strokeLinecap="round"
+          strokeWidth="2.4"
+        />
+      </svg>
+    </span>
+  );
+}
+
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
@@ -866,7 +890,7 @@ export function App() {
       >
         <header className="control-center__header">
           <div className="brand">
-            <span className="brand__mark" aria-hidden="true">D</span>
+            <DeskyBrandMark />
             <div><strong>Companions</strong><span>Desky Marketplace foundation</span></div>
           </div>
           <div className="control-center__actions">
@@ -1085,7 +1109,7 @@ export function App() {
     >
       <header className="control-center__header">
         <div className="brand">
-          <span className="brand__mark" aria-hidden="true">D</span>
+          <DeskyBrandMark />
           <div><strong>Desky</strong><span>Control Center</span></div>
         </div>
         <div className="control-center__actions">
