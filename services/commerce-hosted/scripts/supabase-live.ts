@@ -144,6 +144,11 @@ try {
   if (persisted?.reasonCode !== 'settlement-dispatching') {
     throw new Error('The settlement dispatch claim did not persist across instances.');
   }
+  const failed = await first.advancePaymentAttempt(attemptId, 'failed');
+  const cancelled = await first.advanceOrder(orderId, 'cancelled', new Date(now).toISOString());
+  if (failed.state !== 'failed' || cancelled.state !== 'cancelled') {
+    throw new Error('Live verification records did not reach terminal states.');
+  }
 
   process.stdout.write(`${JSON.stringify({
     status: 'ok',
@@ -152,6 +157,8 @@ try {
     writable: health.writable,
     dispatchClaims: dispositions,
     persistedStatus: persisted.status,
+    terminalAttempt: failed.state,
+    terminalOrder: cancelled.state,
     runId,
   })}\n`);
 } finally {

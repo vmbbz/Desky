@@ -6,36 +6,14 @@ import { newDb } from 'pg-mem';
 import { Pool } from 'pg';
 
 import { supabasePoolConfiguration } from '../src/database-config';
-
-interface TableBackup { table: string; columns: string[]; rows: unknown[][] }
-interface CommerceBackup { schemaVersion: 1; createdAt: string; migrationVersion: number; tables: TableBackup[] }
-
-const tables = [
-  'commerce_identities', 'commerce_installations', 'commerce_recovery_credentials',
-  'commerce_quotes', 'commerce_orders', 'commerce_checkout_sessions', 'payment_attempts',
-  'payment_authorizations', 'settlement_provider_references', 'settlement_observations',
-  'entitlement_events', 'asset_grants', 'commerce_refresh_sessions', 'commerce_audit_events',
-] as const;
-const generatedColumns = new Set(['settlement_observations.sequence', 'entitlement_events.sequence', 'commerce_audit_events.sequence']);
-
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value && typeof value === 'object') {
-    if (value instanceof Date) return JSON.stringify(value.toISOString());
-    return `{${Object.entries(value as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${canonical(entry)}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function logicalDigest(backup: CommerceBackup): string {
-  return createHash('sha256').update(canonical(backup.tables.map((table) => ({
-    table: table.table,
-    columns: table.columns.filter((column) => !generatedColumns.has(`${table.table}.${column}`)),
-    rows: table.rows.map((row) => row.filter((_, index) => !generatedColumns.has(`${table.table}.${table.columns[index]}`)))
-      .sort((left, right) => canonical(left).localeCompare(canonical(right))),
-  })))).digest('hex');
-}
+import {
+  commerceBackupTables,
+  commerceLogicalDigest,
+  commerceLogicalTableDigest,
+  isGeneratedCommerceBackupColumn,
+  type CommerceBackup,
+  type CommerceTableBackup,
+} from '../src/commerce-backup-format';
 
 function backupKey(): Buffer {
   const value = process.env.DESKY_COMMERCE_BACKUP_KEY;
@@ -51,8 +29,8 @@ async function exportLive(): Promise<CommerceBackup> {
     const version = await pool.query('SELECT COALESCE(MAX(version),0) AS version FROM desky_commerce.commerce_schema_migrations');
     const migrationVersion = Number(version.rows[0]?.version);
     if (migrationVersion !== 2) throw new Error('Commerce backup schema version is not admitted.');
-    const exported: TableBackup[] = [];
-    for (const table of tables) {
+    const exported: CommerceTableBackup[] = [];
+    for (const table of commerceBackupTables) {
       const metadata = await pool.query(`
         SELECT column_name FROM information_schema.columns
         WHERE table_schema = 'desky_commerce' AND table_name = $1 ORDER BY ordinal_position
@@ -96,8 +74,8 @@ function decrypt(bytes: Buffer): CommerceBackup {
   ]);
   const backup = JSON.parse(plaintext.toString('utf8')) as CommerceBackup;
   if (backup.schemaVersion !== 1 || backup.migrationVersion !== 2
-    || backup.tables.length !== tables.length
-    || backup.tables.some((table, index) => table.table !== tables[index])) {
+    || backup.tables.length !== commerceBackupTables.length
+    || backup.tables.some((table, index) => table.table !== commerceBackupTables[index])) {
     throw new Error('Invalid commerce backup payload.');
   }
   return backup;
@@ -117,7 +95,7 @@ async function isolatedRestore(backup: CommerceBackup): Promise<void> {
   try {
     for (const table of backup.tables) {
       const admittedIndexes = table.columns.map((column, index) => ({ column, index }))
-        .filter(({ column }) => !generatedColumns.has(`${table.table}.${column}`));
+        .filter(({ column }) => !isGeneratedCommerceBackupColumn(table.table, column));
       for (const row of table.rows) {
         if (admittedIndexes.length === 0) continue;
         const placeholders = admittedIndexes.map((_, index) => `$${index + 1}`).join(',');
@@ -125,16 +103,23 @@ async function isolatedRestore(backup: CommerceBackup): Promise<void> {
           admittedIndexes.map(({ index }) => row[index]));
       }
     }
-    const restoredTables: TableBackup[] = [];
+    const restoredTables: CommerceTableBackup[] = [];
     for (const table of backup.tables) {
-      const admittedColumns = table.columns.filter((column) => !generatedColumns.has(`${table.table}.${column}`));
+      const admittedColumns = table.columns.filter((column) => (
+        !isGeneratedCommerceBackupColumn(table.table, column)
+      ));
       const result = await pool.query(`SELECT ${admittedColumns.join(',')} FROM desky_commerce.${table.table}`);
       restoredTables.push({ table: table.table, columns: admittedColumns,
         rows: result.rows.map((row: Record<string, unknown>) => admittedColumns.map((column) => row[column] instanceof Date
           ? (row[column] as Date).toISOString() : row[column])) });
     }
     const restored: CommerceBackup = { ...backup, tables: restoredTables };
-    if (logicalDigest(restored) !== logicalDigest(backup)) throw new Error('Commerce backup restore digest mismatch.');
+    if (commerceLogicalDigest(restored) !== commerceLogicalDigest(backup)) {
+      const mismatched = backup.tables.filter((table, index) => (
+        commerceLogicalTableDigest(table) !== commerceLogicalTableDigest(restoredTables[index])
+      )).map((table) => table.table);
+      throw new Error(`Commerce backup restore digest mismatch (${mismatched.join(',')}).`);
+    }
   } finally { await pool.end(); }
 }
 
@@ -150,7 +135,7 @@ process.stdout.write(JSON.stringify({
   schemaVersion: backup.migrationVersion,
   encryptedBytes: encrypted.byteLength,
   encryptedSha256: createHash('sha256').update(encrypted).digest('hex'),
-  logicalSha256: logicalDigest(backup),
+  logicalSha256: commerceLogicalDigest(backup),
   tables: backup.tables.map((table) => ({ table: table.table, rows: table.rows.length })),
   restore: 'verified',
 }));

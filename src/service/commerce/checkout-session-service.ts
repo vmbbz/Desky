@@ -62,6 +62,7 @@ export interface CommerceCheckoutSessionStore {
   updateCheckoutSession(
     expected: CommerceCheckoutSessionRecord,
     next: CommerceCheckoutSessionRecord,
+    closeOrderState?: 'cancelled' | 'expired',
   ): Awaitable<void>;
   approveOrder?(orderId: string, updatedAt: string): Awaitable<CommerceOrder>;
 }
@@ -322,7 +323,10 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
     if (record.session.installationId !== request.installationId) {
       throw new CommerceServiceError('authentication-failed');
     }
-    if (record.session.state === 'cancelled') return record.session;
+    if (record.session.state === 'cancelled') {
+      await this.store.updateCheckoutSession(record, record, 'cancelled');
+      return record.session;
+    }
     if (!['ready', 'awaiting-wallet'].includes(record.session.state)) {
       throw new CommerceServiceError('conflict');
     }
@@ -332,7 +336,7 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
       session: { ...record.session, state: 'cancelled' },
       updatedAt: now,
     });
-    await this.store.updateCheckoutSession(record, next);
+    await this.store.updateCheckoutSession(record, next, 'cancelled');
     return next.session;
   }
 
@@ -363,6 +367,10 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
   private async expireIfNeeded(
     record: CommerceCheckoutSessionRecord,
   ): Promise<CommerceCheckoutSessionRecord> {
+    if (record.session.state === 'expired') {
+      await this.store.updateCheckoutSession(record, record, 'expired');
+      return record;
+    }
     if (!['ready', 'awaiting-wallet'].includes(record.session.state)
       || Date.parse(record.session.expiresAt) > this.now().getTime()) return record;
     const updatedAt = this.exactNow();
@@ -371,7 +379,7 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
       session: { ...record.session, state: 'expired' },
       updatedAt,
     });
-    await this.store.updateCheckoutSession(record, expired);
+    await this.store.updateCheckoutSession(record, expired, 'expired');
     return expired;
   }
 }

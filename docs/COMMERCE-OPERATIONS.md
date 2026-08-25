@@ -7,7 +7,8 @@ This runbook applies only to the isolated Base Sepolia service at `https://desky
 - Supabase owns PostgreSQL/Auth availability and the private `desky_commerce` schema.
 - Netlify owns immutable Function deploys, production environment secrets, logs, metrics and the scheduled monitor.
 - The Windows reference device has a current-user DPAPI escrow at `C:\Users\cosyc\AppData\Local\Desky\commerce-pilot-secrets.dpapi`.
-- The verified encrypted logical archive is `C:\Users\cosyc\Desky Backups\desky-commerce-20260825-escrowed.dcbackup`.
+- The real pilot app-user/session state has a separate current-user DPAPI escrow at `C:\Users\cosyc\AppData\Local\Desky\commerce-pilot-app-user.dpapi`.
+- The current post-readiness encrypted logical archive is `C:\Users\cosyc\Desky Backups\desky-commerce-20260825-212817.dcbackup` (SHA-256 `c2f5cfa9042b1e05be8b0e400312d9a696f40feb338164ca3b4146d59024b463`).
 
 The DPAPI bundle is usable only by the same Windows user context. Before a funded or multi-user pilot, copy the four secrets into an approved off-device secret manager with audited recovery access. Do not copy plaintext into this repository, issue trackers, chat, CI logs or a backup directory.
 
@@ -32,7 +33,7 @@ Never print `$pilot` or enable PowerShell transcription while it exists.
 ## Liveness, payment readiness and reconciliation
 
 - `GET /healthz` proves schema write/read liveness and must return 200.
-- `GET /readyz` proves the entire payment dependency set. It must remain 503 until offer, merchant and facilitator admission is intentional.
+- `GET /readyz` proves the entire payment dependency set. It became 200 only after the app-user exchange passed and the exact offer, merchant, facilitator, and observer were admitted. Any later 503 closes funded testing immediately.
 - `GET /v1/operations/status` requires `Authorization: Bearer $pilot.operatorToken` and returns only bounded counts.
 - `GET /v1/operations/reconciliation` uses the same operator bearer and returns a maximum 100 non-sensitive unknown/pending/settled-but-ungranted queue entries.
 
@@ -51,11 +52,13 @@ The only admitted paid-pilot product is:
 - price: `100000` atomic Base Sepolia test USDC (displayed as 0.10 USDC);
 - release profile: `windows-direct` only;
 - facilitator: public x402.org test facilitator, Base Sepolia only;
-- merchant: an owner-provided dedicated test receive address, never a placeholder.
+- merchant: `0x4f9c8Ea2a0e77338d41d5438F319617E2e95D7c3`, the owner-provided dedicated test receive address.
 
 The code admits the exact product/revision/price; environment can choose only the merchant recipient and explicit two-letter pilot regions. Initial funded proof uses `ZA`. “Worldwide” is a product intent, not a truthful legal setting: mainnet launch requires a reviewed country allowlist, sanctions/tax/refund handling and merchant-of-record decision.
 
-Do not configure `DESKY_BASE_SEPOLIA_OFFER_JSON` or `DESKY_MERCHANT_RECIPIENT` until the owner has supplied the dedicated receive address and the successful app-user identity exchange has passed. The two recipient fields must be byte-for-byte equivalent addresses. `/readyz` must remain 503 beforehand.
+The prerequisite passed on 2026-08-25: a dedicated confirmed Supabase pilot user completed the public password grant, its bearer completed `/v1/identity/session`, and Desky issued three free grants. Only then were `DESKY_BASE_SEPOLIA_OFFER_JSON` and `DESKY_MERCHANT_RECIPIENT` configured. The two recipient fields remain byte-for-byte equivalent. The reusable provider and Desky credentials are DPAPI-protected outside the repository; dashboard/CLI login is still not an app bearer.
+
+The live quote and non-funded checkout matrix also passed: exact quote replay, wrong-region and forged-token rejection, canonical-term tamper rejection, session replay, cancellation, refresh rotation, empty reconciliation queue, and encrypted restore. Cancellation and expiry close the approved order in the same database transaction. Synthetic multi-instance verification records use the reserved `verification:` prefix and are terminalized after the proof; they must never remain in the reconciliation queue.
 
 ## Wallet preparation
 
@@ -66,6 +69,8 @@ Use separate MetaMask accounts for payer and merchant receipt. Never disclose se
 3. Test ETH is useful for ordinary wallet operations, but x402's facilitator broadcasts the EIP-3009 transfer; the purchase asset is test USDC.
 4. Confirm the page displays Toothpaste, 0.10 USDC, Base Sepolia, the exact USDC contract, merchant address and expiry before signing.
 5. Verify the resulting transaction independently in the Base Sepolia explorer and confirm restore on a clean Desky installation.
+
+The payer must not be `0x4f9c8Ea2a0e77338d41d5438F319617E2e95D7c3`. Record only its public `0x...` address in verification evidence. The remaining funded gate requires the owner to connect that separate account, inspect the exact terms, and approve the EIP-712 signature. Desky must not inspect browser-extension storage, request a seed phrase/private key, or automate human approval.
 
 ## Create and verify an encrypted logical backup
 

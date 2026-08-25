@@ -352,6 +352,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
   async updateCheckoutSession(
     expectedValue: CommerceCheckoutSessionRecord,
     nextValue: CommerceCheckoutSessionRecord,
+    closeOrderState?: 'cancelled' | 'expired',
   ): Promise<void> {
     const expected = parseCommerceCheckoutSessionRecord(expectedValue);
     const next = parseCommerceCheckoutSessionRecord(nextValue);
@@ -360,12 +361,30 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       || expected.request.idempotencyKey !== next.request.idempotencyKey) {
       throw new Error('Commerce checkout session identity is immutable.');
     }
-    const updated = await this.pool.query(`
-      UPDATE desky_commerce.commerce_checkout_sessions SET payload_text = $1, expires_at = $2
-      WHERE checkout_session_id = $3 AND payload_text = $4
-    `, [JSON.stringify(next), next.session.expiresAt,
-      expected.session.checkoutSessionId, JSON.stringify(expected)]);
-    if (rowCount(updated) !== 1) throw new Error('Concurrent commerce checkout session update.');
+    if (closeOrderState && next.session.state !== closeOrderState) {
+      throw new Error('Commerce checkout order closure does not match the session state.');
+    }
+    await this.transaction(async (client) => {
+      if (!exactReplay(expected, next)) {
+        const updated = await client.query(`
+          UPDATE desky_commerce.commerce_checkout_sessions SET payload_text = $1, expires_at = $2
+          WHERE checkout_session_id = $3 AND payload_text = $4
+        `, [JSON.stringify(next), next.session.expiresAt,
+          expected.session.checkoutSessionId, JSON.stringify(expected)]);
+        if (rowCount(updated) !== 1) throw new Error('Concurrent commerce checkout session update.');
+      }
+      if (closeOrderState) {
+        const order = await this.requireOrder(client, next.session.orderId, true);
+        const closed = transitionCommerceOrder(order, closeOrderState, next.updatedAt);
+        if (closed !== order) {
+          const updatedOrder = await client.query(`
+            UPDATE desky_commerce.commerce_orders SET payload_text = $1
+            WHERE order_id = $2 AND payload_text = $3
+          `, [JSON.stringify(closed), order.orderId, JSON.stringify(order)]);
+          if (rowCount(updatedOrder) !== 1) throw new Error('Concurrent commerce order closure.');
+        }
+      }
+    });
   }
 
   async prepareCheckoutPayment(

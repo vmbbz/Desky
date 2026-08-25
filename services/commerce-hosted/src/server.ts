@@ -29,6 +29,7 @@ import { StrictX402FacilitatorClient } from '../../../src/service/commerce/x402-
 import { getBundledMarketplaceCatalog } from '../../../src/main/marketplace-catalog';
 import { supabasePoolConfiguration } from './database-config';
 import { PgPoolBridge } from './pg-pool-bridge';
+import { commerceBackupTables } from './commerce-backup-format';
 
 const maximumRequestBytes = 32 * 1_024;
 const identifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
@@ -358,13 +359,6 @@ export async function handleReconciliationRequest(request: Request): Promise<Res
   } catch { return unavailable(request); }
 }
 
-const backupTables = [
-  'commerce_identities', 'commerce_installations', 'commerce_recovery_credentials',
-  'commerce_quotes', 'commerce_orders', 'commerce_checkout_sessions', 'payment_attempts',
-  'payment_authorizations', 'settlement_provider_references', 'settlement_observations',
-  'entitlement_events', 'asset_grants', 'commerce_refresh_sessions', 'commerce_audit_events',
-] as const;
-
 export async function handleBackupRequest(request: Request): Promise<Response> {
   if (request.method !== 'GET') return new Response(null, { status: 404 });
   try {
@@ -378,7 +372,7 @@ export async function handleBackupRequest(request: Request): Promise<Response> {
     );
     if (Number(version.rows[0]?.version) !== 2) throw new Error('backup-schema');
     const tables = [];
-    for (const table of backupTables) {
+    for (const table of commerceBackupTables) {
       const metadata = await bridge.query(`
         SELECT column_name FROM information_schema.columns
         WHERE table_schema = 'desky_commerce' AND table_name = $1 ORDER BY ordinal_position

@@ -108,6 +108,32 @@ describe('hosted commerce checkout service', () => {
     expect((await service.cancelSession({
       schemaVersion: 1, checkoutSessionId: 'checkout:1', installationId: 'install:1',
     }, 't'.repeat(32))).state).toBe('cancelled');
+    expect(store.getOrder('order:1')?.state).toBe('cancelled');
+    store.close();
+  });
+
+  it('expires the checkout session and approved order in one store operation', async () => {
+    const store = ledger();
+    const admittedOrder = prepare(store);
+    let current = now;
+    const service = new HostedCommerceCheckoutService(store, {
+      authenticate: async () => ({ accountId: 'account:1', installationId: 'install:1' }),
+    }, {
+      checkoutOrigin: 'https://commerce.desky.example', now: () => new Date(current),
+      sessionId: () => 'checkout:1',
+    });
+    await service.createSession({
+      schemaVersion: 1, approvalId: 'approval:1', accountId: 'account:1',
+      installationId: 'install:1', orderId: 'order:1', quoteId: 'quote:1',
+      termsDigest: checkoutTermsDigest(quote(), admittedOrder), approvedAt: now,
+      approvalExpiresAt: '2026-08-25T10:01:00.000Z', idempotencyKey: 'checkout-intent:1',
+      browserBindingChallenge: 'b'.repeat(43),
+    }, 't'.repeat(32));
+    current = '2026-08-25T10:01:01.000Z';
+    expect((await service.getSession({
+      schemaVersion: 1, checkoutSessionId: 'checkout:1', installationId: 'install:1',
+    }, 't'.repeat(32))).state).toBe('expired');
+    expect(store.getOrder('order:1')?.state).toBe('expired');
     store.close();
   });
 });

@@ -234,6 +234,7 @@ export class SqliteCommerceLedger {
   updateCheckoutSession(
     expectedValue: CommerceCheckoutSessionRecord,
     nextValue: CommerceCheckoutSessionRecord,
+    closeOrderState?: 'cancelled' | 'expired',
   ): void {
     const expected = parseCommerceCheckoutSessionRecord(expectedValue);
     const next = parseCommerceCheckoutSessionRecord(nextValue);
@@ -242,15 +243,37 @@ export class SqliteCommerceLedger {
       || expected.request.idempotencyKey !== next.request.idempotencyKey) {
       throw new Error('Commerce checkout session identity is immutable.');
     }
-    const result = this.database.prepare(`
-      UPDATE commerce_checkout_sessions SET payload = ?
-      WHERE checkout_session_id = ? AND payload = ?
-    `).run(
-      JSON.stringify(next),
-      expected.session.checkoutSessionId,
-      JSON.stringify(expected),
-    );
-    if (result.changes !== 1) throw new Error('Concurrent commerce checkout session update.');
+    if (closeOrderState && next.session.state !== closeOrderState) {
+      throw new Error('Commerce checkout order closure does not match the session state.');
+    }
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      if (!exactReplay(expected, next)) {
+        const result = this.database.prepare(`
+          UPDATE commerce_checkout_sessions SET payload = ?
+          WHERE checkout_session_id = ? AND payload = ?
+        `).run(
+          JSON.stringify(next),
+          expected.session.checkoutSessionId,
+          JSON.stringify(expected),
+        );
+        if (result.changes !== 1) throw new Error('Concurrent commerce checkout session update.');
+      }
+      if (closeOrderState) {
+        const order = this.requireOrder(next.session.orderId);
+        const closed = transitionCommerceOrder(order, closeOrderState, next.updatedAt);
+        if (closed !== order) {
+          const updatedOrder = this.database.prepare(`
+            UPDATE commerce_orders SET payload = ? WHERE order_id = ? AND payload = ?
+          `).run(JSON.stringify(closed), order.orderId, JSON.stringify(order));
+          if (updatedOrder.changes !== 1) throw new Error('Concurrent commerce order closure.');
+        }
+      }
+      this.database.exec('COMMIT');
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
   }
 
   createOrder(value: unknown): CommerceOrder {
