@@ -21,10 +21,28 @@ export interface CommerceCheckoutAuthenticator {
   authenticate(accessToken: string): Promise<CommerceCheckoutIdentity>;
 }
 
+export interface CommerceCheckoutSessionProjector {
+  project(record: CommerceCheckoutSessionRecord): Promise<CommerceCheckoutSessionRecord>;
+}
+
 export interface CommerceCheckoutSessionRecord {
   request: CreateCommerceCheckoutRequest;
   session: CommerceCheckoutSession;
   updatedAt: string;
+  attemptId?: string;
+  browser?: {
+    credentialDigest: string;
+    csrfDigest: string;
+    establishedAt: string;
+    expiresAt: string;
+  };
+  submission?: {
+    submissionId: string;
+    payloadDigest: string;
+    receivedAt: string;
+    leaseId: string;
+    leaseExpiresAt: string;
+  };
 }
 
 type Awaitable<T> = T | Promise<T>;
@@ -52,23 +70,103 @@ function exactRecord(value: unknown): CommerceCheckoutSessionRecord {
     throw new Error('Invalid commerce checkout session record.');
   }
   const source = value as Record<string, unknown>;
-  if (Object.keys(source).some((field) => !['request', 'session', 'updatedAt'].includes(field))
+  if (Object.keys(source).some((field) => ![
+    'request', 'session', 'updatedAt', 'attemptId', 'browser', 'submission',
+  ].includes(field))
     || typeof source.updatedAt !== 'string') {
     throw new Error('Invalid commerce checkout session record.');
   }
   const updated = Date.parse(source.updatedAt);
   const session = parseCommerceCheckoutSession(source.session);
   const request = parseCreateCommerceCheckoutRequest(source.request);
+  const attemptId = source.attemptId === undefined
+    ? undefined : serviceIdentifier(source.attemptId, 'attempt ID');
+  const browser = source.browser === undefined ? undefined : parseBrowserRecord(source.browser);
+  const submission = source.submission === undefined
+    ? undefined : parseSubmissionRecord(source.submission);
   if (!Number.isFinite(updated) || new Date(updated).toISOString() !== source.updatedAt
     || request.approvalId !== session.approvalId
     || request.accountId !== session.accountId
     || request.installationId !== session.installationId
     || request.orderId !== session.orderId
     || request.quoteId !== session.quoteId
-    || updated < Date.parse(session.createdAt)) {
+    || updated < Date.parse(session.createdAt)
+    || (browser && Date.parse(browser.establishedAt) < Date.parse(session.createdAt))
+    || (browser && Date.parse(browser.expiresAt) > Date.parse(session.expiresAt))
+    || (submission && (!browser || !attemptId
+      || Date.parse(submission.receivedAt) < Date.parse(browser.establishedAt)
+      || Date.parse(submission.leaseExpiresAt) > Date.parse(session.expiresAt)))) {
     throw new Error('Invalid commerce checkout session record.');
   }
-  return { request, session, updatedAt: source.updatedAt };
+  return { request, session, updatedAt: source.updatedAt, attemptId, browser, submission };
+}
+
+const serviceIdentifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
+const serviceDigestPattern = /^[A-Za-z0-9_-]{43}$/;
+
+function serviceIdentifier(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !serviceIdentifierPattern.test(value)) {
+    throw new Error(`Invalid commerce checkout ${field}.`);
+  }
+  return value;
+}
+
+function serviceDigest(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !serviceDigestPattern.test(value)) {
+    throw new Error(`Invalid commerce checkout ${field}.`);
+  }
+  return value;
+}
+
+function serviceTimestamp(value: unknown, field: string): string {
+  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))
+    || new Date(Date.parse(value)).toISOString() !== value) {
+    throw new Error(`Invalid commerce checkout ${field}.`);
+  }
+  return value;
+}
+
+function parseBrowserRecord(value: unknown): NonNullable<CommerceCheckoutSessionRecord['browser']> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Invalid commerce checkout browser record.');
+  }
+  const source = value as Record<string, unknown>;
+  if (Object.keys(source).some((field) => ![
+    'credentialDigest', 'csrfDigest', 'establishedAt', 'expiresAt',
+  ].includes(field))) throw new Error('Invalid commerce checkout browser record.');
+  const browser = {
+    credentialDigest: serviceDigest(source.credentialDigest, 'browser credential digest'),
+    csrfDigest: serviceDigest(source.csrfDigest, 'browser CSRF digest'),
+    establishedAt: serviceTimestamp(source.establishedAt, 'browser establishment time'),
+    expiresAt: serviceTimestamp(source.expiresAt, 'browser expiry'),
+  };
+  if (Date.parse(browser.expiresAt) <= Date.parse(browser.establishedAt)) {
+    throw new Error('Invalid commerce checkout browser lifetime.');
+  }
+  return browser;
+}
+
+function parseSubmissionRecord(
+  value: unknown,
+): NonNullable<CommerceCheckoutSessionRecord['submission']> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new Error('Invalid commerce checkout submission record.');
+  }
+  const source = value as Record<string, unknown>;
+  if (Object.keys(source).some((field) => ![
+    'submissionId', 'payloadDigest', 'receivedAt', 'leaseId', 'leaseExpiresAt',
+  ].includes(field))) throw new Error('Invalid commerce checkout submission record.');
+  const submission = {
+    submissionId: serviceIdentifier(source.submissionId, 'submission ID'),
+    payloadDigest: serviceDigest(source.payloadDigest, 'submission payload digest'),
+    receivedAt: serviceTimestamp(source.receivedAt, 'submission receipt time'),
+    leaseId: serviceIdentifier(source.leaseId, 'submission lease ID'),
+    leaseExpiresAt: serviceTimestamp(source.leaseExpiresAt, 'submission lease expiry'),
+  };
+  if (Date.parse(submission.leaseExpiresAt) <= Date.parse(submission.receivedAt)) {
+    throw new Error('Invalid commerce checkout submission lease.');
+  }
+  return submission;
 }
 
 export function parseCommerceCheckoutSessionRecord(value: unknown): CommerceCheckoutSessionRecord {
@@ -107,15 +205,18 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
       checkoutOrigin: string;
       now?: () => Date;
       sessionId?: () => string;
+      projector?: CommerceCheckoutSessionProjector;
     },
   ) {
     this.origin = normalizeOrigin(options.checkoutOrigin);
     this.now = options.now ?? (() => new Date());
     this.sessionId = options.sessionId ?? (() => `checkout:${randomUUID()}`);
+    this.projector = options.projector;
   }
 
   private readonly now: () => Date;
   private readonly sessionId: () => string;
+  private readonly projector?: CommerceCheckoutSessionProjector;
 
   async createSession(
     value: CreateCommerceCheckoutRequest,
@@ -195,7 +296,8 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
   ): Promise<CommerceCheckoutSession> {
     const request = parseCommerceCheckoutSessionRequest(value);
     const identity = await this.authenticator.authenticate(accessToken);
-    const record = await this.expireIfNeeded(await this.requireSession(request.checkoutSessionId));
+    let record = await this.expireIfNeeded(await this.requireSession(request.checkoutSessionId));
+    if (this.projector) record = await this.projector.project(record);
     this.assertIdentity(identity, record.session.accountId, request.installationId);
     if (record.session.installationId !== request.installationId) {
       throw new CommerceServiceError('authentication-failed');
@@ -209,7 +311,8 @@ export class HostedCommerceCheckoutService implements CommerceCheckoutApplicatio
   ): Promise<CommerceCheckoutSession> {
     const request = parseCommerceCheckoutSessionRequest(value);
     const identity = await this.authenticator.authenticate(accessToken);
-    const record = await this.expireIfNeeded(await this.requireSession(request.checkoutSessionId));
+    let record = await this.expireIfNeeded(await this.requireSession(request.checkoutSessionId));
+    if (this.projector) record = await this.projector.project(record);
     this.assertIdentity(identity, record.session.accountId, request.installationId);
     if (record.session.installationId !== request.installationId) {
       throw new CommerceServiceError('authentication-failed');

@@ -6,3 +6,4 @@
 - [0004 — Commerce recovery and authorization boundary](0004-commerce-recovery-boundary.md)
 - [0005 — Indeterminate payment settlement and reconciliation](0005-indeterminate-payment-settlement.md)
 - [0006 — Non-custodial hosted checkout and one-shot settlement dispatch](0006-non-custodial-hosted-checkout.md)
+- [0007 — Hosted wallet browser binding and signed-payload admission](0007-hosted-wallet-browser-security.md)

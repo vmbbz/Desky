@@ -17,6 +17,7 @@ const creation = {
   approvedAt: '2026-08-25T10:00:00.000Z',
   approvalExpiresAt: '2026-08-25T10:02:00.000Z',
   idempotencyKey: 'checkout:1',
+  browserBindingChallenge: 'b'.repeat(43),
 } as const;
 
 const session = {

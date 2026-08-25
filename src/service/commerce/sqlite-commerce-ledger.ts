@@ -338,6 +338,57 @@ export class SqliteCommerceLedger {
     return payload === undefined ? undefined : parsePaymentAttempt(JSON.parse(payload));
   }
 
+  prepareCheckoutPayment(
+    orderId: string,
+    value: unknown,
+    updatedAt: string,
+  ): { order: CommerceOrder; attempt: PaymentAttempt } {
+    const candidate = parsePaymentAttempt(value);
+    if (candidate.state !== 'created' || candidate.orderId !== orderId) {
+      throw new Error('Checkout payment preparation requires a created matching attempt.');
+    }
+    this.database.exec('BEGIN IMMEDIATE');
+    try {
+      const currentOrder = this.requireOrder(orderId);
+      const quote = this.requireQuote(currentOrder.quoteId);
+      this.assertAttemptMatchesOrderAndQuote(candidate, currentOrder, quote);
+      const existing = this.getPaymentAttempt(candidate.attemptId);
+      if (existing) {
+        if (!['awaiting-settlement', 'paid', 'granted'].includes(currentOrder.state)
+          || !exactReplay({ ...existing, state: 'created' }, candidate)) {
+          throw new Error('Checkout payment preparation replay does not match durable state.');
+        }
+        this.database.exec('COMMIT');
+        return { order: currentOrder, attempt: existing };
+      }
+      if (currentOrder.state !== 'awaiting-approval' || this.hasActiveAttempt(orderId)) {
+        throw new Error('Checkout payment preparation requires an approved order without an attempt.');
+      }
+      const nextOrder = transitionCommerceOrder(currentOrder, 'awaiting-settlement', updatedAt);
+      const nextAttempt = transitionPaymentAttempt(candidate, 'submitted');
+      const orderUpdate = this.database.prepare(`
+        UPDATE commerce_orders SET payload = ? WHERE order_id = ? AND payload = ?
+      `).run(JSON.stringify(nextOrder), orderId, JSON.stringify(currentOrder));
+      if (orderUpdate.changes !== 1) throw new Error('Concurrent checkout order preparation.');
+      const attemptInsert = this.database.prepare(`
+        INSERT INTO payment_attempts (attempt_id, order_id, quote_id, provider, payload)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        nextAttempt.attemptId,
+        nextAttempt.orderId,
+        nextAttempt.quoteId,
+        nextAttempt.provider,
+        JSON.stringify(nextAttempt),
+      );
+      if (attemptInsert.changes !== 1) throw new Error('Checkout payment attempt insert failed.');
+      this.database.exec('COMMIT');
+      return { order: nextOrder, attempt: nextAttempt };
+    } catch (error) {
+      this.database.exec('ROLLBACK');
+      throw error;
+    }
+  }
+
   advancePaymentAttempt(attemptId: string, state: PaymentAttemptState): PaymentAttempt {
     const current = this.requirePaymentAttempt(attemptId);
     if (state === 'verified' || state === 'settlement-unknown'

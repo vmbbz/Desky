@@ -1,5 +1,12 @@
+import {
+  parseCommerceOrder,
+  parseVerifiedCommerceQuote,
+  type CommerceOrder,
+  type VerifiedCommerceQuote,
+} from './commerce';
+
 export const commerceCheckoutStates = [
-  'ready', 'awaiting-wallet', 'authorization-verified', 'settlement-unknown',
+  'ready', 'awaiting-wallet', 'signature-submitted', 'authorization-verified', 'settlement-unknown',
   'settlement-pending', 'settled', 'failed', 'expired', 'cancelled',
 ] as const;
 export type CommerceCheckoutState = (typeof commerceCheckoutStates)[number];
@@ -15,6 +22,7 @@ export interface CreateCommerceCheckoutRequest {
   approvedAt: string;
   approvalExpiresAt: string;
   idempotencyKey: string;
+  browserBindingChallenge: string;
 }
 
 export interface CommerceCheckoutSessionRequest {
@@ -100,9 +108,12 @@ export function parseCreateCommerceCheckoutRequest(value: unknown): CreateCommer
   const source = exactRecord(value, [
     'schemaVersion', 'approvalId', 'accountId', 'installationId', 'orderId', 'quoteId',
     'termsDigest', 'approvedAt', 'approvalExpiresAt', 'idempotencyKey',
+    'browserBindingChallenge',
   ], 'creation request');
   if (source.schemaVersion !== 1 || typeof source.termsDigest !== 'string'
-    || !digestPattern.test(source.termsDigest)) {
+    || !digestPattern.test(source.termsDigest)
+    || typeof source.browserBindingChallenge !== 'string'
+    || !digestPattern.test(source.browserBindingChallenge)) {
     throw new Error('Invalid commerce checkout creation request.');
   }
   const request: CreateCommerceCheckoutRequest = {
@@ -116,6 +127,7 @@ export function parseCreateCommerceCheckoutRequest(value: unknown): CreateCommer
     approvedAt: readTimestamp(source.approvedAt, 'approval time'),
     approvalExpiresAt: readTimestamp(source.approvalExpiresAt, 'approval expiry'),
     idempotencyKey: readIdentifier(source.idempotencyKey, 'idempotency key'),
+    browserBindingChallenge: source.browserBindingChallenge,
   };
   if (Date.parse(request.approvalExpiresAt) <= Date.parse(request.approvedAt)
     || Date.parse(request.approvalExpiresAt) - Date.parse(request.approvedAt) > 2 * 60 * 1_000) {
@@ -180,9 +192,3 @@ export function parseCommerceCheckoutSession(value: unknown): CommerceCheckoutSe
   }
   return session;
 }
-import {
-  parseCommerceOrder,
-  parseVerifiedCommerceQuote,
-  type CommerceOrder,
-  type VerifiedCommerceQuote,
-} from './commerce';

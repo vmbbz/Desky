@@ -72,6 +72,7 @@ describe('hosted commerce checkout service', () => {
       orderId: 'order:1', quoteId: 'quote:1', termsDigest: checkoutTermsDigest(quote(), admittedOrder),
       approvedAt: now, approvalExpiresAt: '2026-08-25T10:02:00.000Z',
       idempotencyKey: 'checkout-intent:1',
+      browserBindingChallenge: 'b'.repeat(43),
     };
     const created = await service.createSession(request, 't'.repeat(32));
     expect(created.checkoutUrl).toBe('https://commerce.desky.example/checkout/checkout%3A1');
@@ -97,6 +98,7 @@ describe('hosted commerce checkout service', () => {
       installationId: 'install:1', orderId: 'order:1', quoteId: 'quote:1',
       termsDigest: checkoutTermsDigest(quote(), admittedOrder), approvedAt: now,
       approvalExpiresAt: '2026-08-25T10:02:00.000Z', idempotencyKey: 'checkout-intent:1',
+      browserBindingChallenge: 'b'.repeat(43),
     }, 't'.repeat(32));
     installationId = 'install:other';
     await expect(service.getSession({

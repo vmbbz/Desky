@@ -92,7 +92,9 @@ describe('checkout browser handoff coordinator', () => {
     };
     const approver = { confirm: vi.fn(async () => 'approved' as const) };
     const browser = { openExternal: vi.fn(async () => undefined) };
-    const coordinator = new CheckoutHandoffCoordinator(client, approver, browser);
+    const coordinator = new CheckoutHandoffCoordinator(client, approver, browser, {
+      browserBindingVerifier: () => 'v'.repeat(43),
+    });
     expect(await coordinator.start(input())).toEqual(session());
     expect(approver.confirm).toHaveBeenCalledWith(expect.objectContaining({
       currency: 'USDC',
@@ -100,9 +102,12 @@ describe('checkout browser handoff coordinator', () => {
       network: 'eip155:84532',
       recipient: quote().recipient,
     }));
-    expect(browser.openExternal).toHaveBeenCalledWith(session().checkoutUrl);
+    expect(browser.openExternal).toHaveBeenCalledWith(
+      `${session().checkoutUrl}#handoff=${'v'.repeat(43)}`,
+    );
     const request = vi.mocked(client.createSession).mock.calls[0][0];
     expect(request.termsDigest).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(request.browserBindingChallenge).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(JSON.stringify(request)).not.toContain('t'.repeat(32));
   });
 
@@ -115,7 +120,9 @@ describe('checkout browser handoff coordinator', () => {
     };
     const approver = { confirm: vi.fn(async () => 'cancelled' as const) };
     const browser = { openExternal: vi.fn() };
-    const coordinator = new CheckoutHandoffCoordinator(client, approver, browser);
+    const coordinator = new CheckoutHandoffCoordinator(client, approver, browser, {
+      browserBindingVerifier: () => 'v'.repeat(43),
+    });
     expect(await coordinator.start(input())).toBeUndefined();
     expect(client.createSession).not.toHaveBeenCalled();
     expect(browser.openExternal).not.toHaveBeenCalled();
@@ -134,6 +141,7 @@ describe('checkout browser handoff coordinator', () => {
       client,
       approver,
       { openExternal: vi.fn(async () => undefined) },
+      { browserBindingVerifier: () => 'v'.repeat(43) },
     );
     await expect(coordinator.start({
       ...input(),
@@ -160,6 +168,7 @@ describe('checkout browser handoff coordinator', () => {
       client,
       { confirm: vi.fn(async () => 'approved' as const) },
       browser,
+      { browserBindingVerifier: () => 'v'.repeat(43) },
     );
     let recoverable: CommerceCheckoutSession | undefined;
     try {

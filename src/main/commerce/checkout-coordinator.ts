@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 
 import {
   parseCommerceOrder,
@@ -85,12 +85,18 @@ export function checkoutTermsDigest(quote: VerifiedCommerceQuote, order: Commerc
 
 export class CheckoutHandoffCoordinator {
   private readonly consumedApprovals = new Set<string>();
+  private readonly browserBindings = new Map<string, string>();
+  private readonly browserBindingVerifier: () => string;
 
   constructor(
     private readonly client: CheckoutSessionClient,
     private readonly approver: CheckoutHumanApprover,
     private readonly browser: CheckoutBrowserLauncher,
-  ) {}
+    options: { browserBindingVerifier?: () => string } = {},
+  ) {
+    this.browserBindingVerifier = options.browserBindingVerifier
+      ?? (() => randomBytes(32).toString('base64url'));
+  }
 
   async start(input: StartCheckoutInput): Promise<CommerceCheckoutSession | undefined> {
     const quote = parseVerifiedCommerceQuote(input.quote);
@@ -128,6 +134,10 @@ export class CheckoutHandoffCoordinator {
       Date.parse(now) + 2 * 60 * 1_000,
       Date.parse(quote.expiresAt),
     )).toISOString();
+    const bindingVerifier = this.browserBindingVerifier();
+    if (!/^[A-Za-z0-9_-]{43}$/.test(bindingVerifier)) {
+      throw new Error('Checkout browser binding verifier is invalid.');
+    }
     const request: CreateCommerceCheckoutRequest = {
       schemaVersion: 1,
       approvalId,
@@ -139,6 +149,9 @@ export class CheckoutHandoffCoordinator {
       approvedAt: now,
       approvalExpiresAt,
       idempotencyKey,
+      browserBindingChallenge: createHash('sha256')
+        .update(bindingVerifier, 'utf8')
+        .digest('base64url'),
     };
     const session = parseCommerceCheckoutSession(
       await this.client.createSession(request, input.accessToken),
@@ -150,8 +163,9 @@ export class CheckoutHandoffCoordinator {
       throw new Error('Commerce checkout session does not match human-approved terms.');
     }
     this.assertHostedUrl(session);
+    this.browserBindings.set(session.checkoutSessionId, bindingVerifier);
     try {
-      await this.browser.openExternal(session.checkoutUrl);
+      await this.openBoundBrowser(session);
     } catch (cause) {
       throw new CheckoutBrowserLaunchError(session, { cause });
     }
@@ -164,7 +178,7 @@ export class CheckoutHandoffCoordinator {
     if (['settled', 'failed', 'expired', 'cancelled'].includes(admitted.state)) {
       throw new Error('Commerce checkout is no longer openable.');
     }
-    await this.browser.openExternal(admitted.checkoutUrl);
+    await this.openBoundBrowser(admitted);
   }
 
   async refresh(
@@ -183,6 +197,9 @@ export class CheckoutHandoffCoordinator {
       throw new Error('Commerce checkout status crossed session identity.');
     }
     this.assertHostedUrl(current);
+    if (['settled', 'failed', 'expired', 'cancelled'].includes(current.state)) {
+      this.browserBindings.delete(current.checkoutSessionId);
+    }
     return current;
   }
 
@@ -203,7 +220,16 @@ export class CheckoutHandoffCoordinator {
       throw new Error('Commerce checkout cancellation crossed session identity.');
     }
     this.assertHostedUrl(current);
+    this.browserBindings.delete(current.checkoutSessionId);
     return current;
+  }
+
+  private async openBoundBrowser(session: CommerceCheckoutSession): Promise<void> {
+    const bindingVerifier = this.browserBindings.get(session.checkoutSessionId);
+    if (!bindingVerifier) throw new Error('Commerce checkout browser binding is unavailable.');
+    const url = new URL(session.checkoutUrl);
+    url.hash = `handoff=${bindingVerifier}`;
+    await this.browser.openExternal(url.toString());
   }
 
   private assertHostedUrl(session: CommerceCheckoutSession): void {
