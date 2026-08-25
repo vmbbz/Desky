@@ -22,3 +22,6 @@ F4x.2d proved the browser handoff and one-shot settlement boundary locally, but 
 - The page is publicly reachable over HTTPS but cannot initiate payment without a valid desktop-created session and the missing server configuration.
 - Netlify's current team plan rejected built-in Database provisioning with HTTP 403. The deployed site therefore remains intentionally unhealthy/fail-closed until the owner upgrades that plan or supplies a separately managed PostgreSQL connection.
 - A production checkout will use a separate site, database, domain, secrets, deployment context, and legal/operational admission. The testnet site is never promoted in place to mainnet.
+- ADR 0009 resolves the managed-database blocker with a dedicated private-schema Supabase boundary;
+  Netlify's rejected built-in Database path remains historical evidence and is no longer a runtime
+  dependency.

@@ -150,12 +150,12 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
   async healthCheck(): Promise<{ writable: boolean; migrationVersion: number }> {
     return this.transaction(async (client) => {
       await client.query(`
-        INSERT INTO commerce_health_probe (probe_key, checked_at)
+        INSERT INTO desky_commerce.commerce_health_probe (probe_key, checked_at)
         VALUES ('primary', now())
         ON CONFLICT (probe_key) DO UPDATE SET checked_at = EXCLUDED.checked_at
       `);
       const result = await client.query(
-        'SELECT COALESCE(MAX(version), 0) AS migration_version FROM commerce_schema_migrations',
+        'SELECT COALESCE(MAX(version), 0) AS migration_version FROM desky_commerce.commerce_schema_migrations',
       );
       const version = result.rows[0]?.migration_version;
       const migrationVersion = typeof version === 'number' ? version : Number(version);
@@ -166,7 +166,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
   async storeQuote(value: unknown): Promise<VerifiedCommerceQuote> {
     const quote = parseVerifiedCommerceQuote(value);
     const inserted = await this.pool.query(`
-      INSERT INTO commerce_quotes (quote_id, account_id, expires_at, payload_text)
+      INSERT INTO desky_commerce.commerce_quotes (quote_id, account_id, expires_at, payload_text)
       VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
     `, [quote.quoteId, quote.accountId, quote.expiresAt, JSON.stringify(quote)]);
     if (rowCount(inserted) === 1) return quote;
@@ -187,12 +187,12 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       throw new Error('Commerce order does not match its authoritative quote.');
     }
     const inserted = await this.pool.query(`
-      INSERT INTO commerce_orders (order_id, quote_id, account_id, idempotency_key, payload_text)
+      INSERT INTO desky_commerce.commerce_orders (order_id, quote_id, account_id, idempotency_key, payload_text)
       VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING
     `, [order.orderId, order.quoteId, order.accountId, order.idempotencyKey, JSON.stringify(order)]);
     if (rowCount(inserted) === 1) return order;
     const result = await this.pool.query(`
-      SELECT payload_text FROM commerce_orders
+      SELECT payload_text FROM desky_commerce.commerce_orders
       WHERE order_id = $1 OR (account_id = $2 AND idempotency_key = $3)
       ORDER BY CASE WHEN order_id = $1 THEN 0 ELSE 1 END LIMIT 1
     `, [order.orderId, order.accountId, order.idempotencyKey]);
@@ -204,7 +204,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   async getQuote(quoteId: string): Promise<VerifiedCommerceQuote | undefined> {
     const result = await this.pool.query(
-      'SELECT payload_text FROM commerce_quotes WHERE quote_id = $1', [quoteId],
+      'SELECT payload_text FROM desky_commerce.commerce_quotes WHERE quote_id = $1', [quoteId],
     );
     const value = payload(result.rows[0]);
     return value ? parseVerifiedCommerceQuote(JSON.parse(value)) : undefined;
@@ -224,7 +224,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       const next = transitionCommerceOrder(current, state, updatedAt);
       if (next === current) return current;
       const updated = await client.query(`
-        UPDATE commerce_orders SET payload_text = $1
+        UPDATE desky_commerce.commerce_orders SET payload_text = $1
         WHERE order_id = $2 AND payload_text = $3
       `, [JSON.stringify(next), orderId, JSON.stringify(current)]);
       if (rowCount(updated) !== 1) throw new Error('Concurrent commerce order transition.');
@@ -252,7 +252,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     checkoutSessionId: string,
   ): Promise<CommerceCheckoutSessionRecord | undefined> {
     const result = await this.pool.query(`
-      SELECT payload_text FROM commerce_checkout_sessions WHERE checkout_session_id = $1
+      SELECT payload_text FROM desky_commerce.commerce_checkout_sessions WHERE checkout_session_id = $1
     `, [checkoutSessionId]);
     return this.checkoutRecord(result.rows[0]);
   }
@@ -261,7 +261,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     approvalId: string,
   ): Promise<CommerceCheckoutSessionRecord | undefined> {
     const result = await this.pool.query(`
-      SELECT payload_text FROM commerce_checkout_sessions WHERE approval_id = $1
+      SELECT payload_text FROM desky_commerce.commerce_checkout_sessions WHERE approval_id = $1
     `, [approvalId]);
     return this.checkoutRecord(result.rows[0]);
   }
@@ -271,7 +271,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     idempotencyKey: string,
   ): Promise<CommerceCheckoutSessionRecord | undefined> {
     const result = await this.pool.query(`
-      SELECT payload_text FROM commerce_checkout_sessions
+      SELECT payload_text FROM desky_commerce.commerce_checkout_sessions
       WHERE account_id = $1 AND idempotency_key = $2
     `, [accountId, idempotencyKey]);
     return this.checkoutRecord(result.rows[0]);
@@ -282,7 +282,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
   ): Promise<'inserted' | 'exact-replay'> {
     const record = parseCommerceCheckoutSessionRecord(value);
     const inserted = await this.pool.query(`
-      INSERT INTO commerce_checkout_sessions (
+      INSERT INTO desky_commerce.commerce_checkout_sessions (
         checkout_session_id, approval_id, account_id, installation_id,
         idempotency_key, order_id, expires_at, payload_text
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING
@@ -293,7 +293,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     ]);
     if (rowCount(inserted) === 1) return 'inserted';
     const result = await this.pool.query(`
-      SELECT payload_text FROM commerce_checkout_sessions
+      SELECT payload_text FROM desky_commerce.commerce_checkout_sessions
       WHERE checkout_session_id = $1 OR approval_id = $2
         OR (account_id = $3 AND idempotency_key = $4)
       ORDER BY CASE WHEN checkout_session_id = $1 THEN 0 WHEN approval_id = $2 THEN 1 ELSE 2 END
@@ -317,7 +317,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       throw new Error('Commerce checkout session identity is immutable.');
     }
     const updated = await this.pool.query(`
-      UPDATE commerce_checkout_sessions SET payload_text = $1, expires_at = $2
+      UPDATE desky_commerce.commerce_checkout_sessions SET payload_text = $1, expires_at = $2
       WHERE checkout_session_id = $3 AND payload_text = $4
     `, [JSON.stringify(next), next.session.expiresAt,
       expected.session.checkoutSessionId, JSON.stringify(expected)]);
@@ -351,11 +351,13 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       const nextOrder = transitionCommerceOrder(order, 'awaiting-settlement', updatedAt);
       const nextAttempt = transitionPaymentAttempt(candidate, 'submitted');
       const orderUpdate = await client.query(`
-        UPDATE commerce_orders SET payload_text = $1 WHERE order_id = $2 AND payload_text = $3
+        UPDATE desky_commerce.commerce_orders SET payload_text = $1 WHERE order_id = $2 AND payload_text = $3
       `, [JSON.stringify(nextOrder), orderId, JSON.stringify(order)]);
       if (rowCount(orderUpdate) !== 1) throw new Error('Concurrent checkout order preparation.');
       await client.query(`
-        INSERT INTO payment_attempts (attempt_id, order_id, quote_id, provider, payload_text)
+        INSERT INTO desky_commerce.payment_attempts (
+          attempt_id, order_id, quote_id, provider, payload_text
+        )
         VALUES ($1, $2, $3, $4, $5)
       `, [nextAttempt.attemptId, nextAttempt.orderId, nextAttempt.quoteId,
         nextAttempt.provider, JSON.stringify(nextAttempt)]);
@@ -372,7 +374,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       const next = transitionPaymentAttempt(current, state);
       if (next === current) return current;
       const result = await client.query(`
-        UPDATE payment_attempts SET payload_text = $1
+        UPDATE desky_commerce.payment_attempts SET payload_text = $1
         WHERE attempt_id = $2 AND payload_text = $3
       `, [JSON.stringify(next), attemptId, JSON.stringify(current)]);
       if (rowCount(result) !== 1) throw new Error('Concurrent payment attempt transition.');
@@ -400,14 +402,14 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       assertAttemptMatchesOrderAndQuote(current, order, quote);
       assertAuthorizationMatches(authorization, current, order, quote);
       await client.query(`
-        INSERT INTO payment_authorizations (
+        INSERT INTO desky_commerce.payment_authorizations (
           authorization_id, attempt_id, provider, network, payment_identifier, payload_text
         ) VALUES ($1, $2, $3, $4, $5, $6)
       `, [authorization.authorizationId, authorization.attemptId, authorization.provider,
         authorization.network, authorization.paymentIdentifier, JSON.stringify(authorization)]);
       const next = transitionPaymentAttempt(current, 'verified');
       const update = await client.query(`
-        UPDATE payment_attempts SET payload_text = $1
+        UPDATE desky_commerce.payment_attempts SET payload_text = $1
         WHERE attempt_id = $2 AND payload_text = $3
       `, [JSON.stringify(next), current.attemptId, JSON.stringify(current)]);
       if (rowCount(update) !== 1) throw new Error('Concurrent payment authorization transition.');
@@ -482,13 +484,13 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
         throw new Error('Asset grant does not match durable settlement and quote.');
       }
       await client.query(`
-        INSERT INTO entitlement_events (
+        INSERT INTO desky_commerce.entitlement_events (
           event_id, account_id, product_id, event_type, source, source_reference, payload_text
         ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       `, [event.eventId, event.accountId, event.productId, event.type,
         event.source, event.sourceReference, JSON.stringify(event)]);
       await client.query(`
-        INSERT INTO asset_grants (
+        INSERT INTO desky_commerce.asset_grants (
           grant_id, entitlement_event_id, account_id, product_id, payload_text
         ) VALUES ($1, $2, $3, $4, $5)
       `, [grant.grantId, grant.entitlementEventId, grant.accountId,
@@ -497,7 +499,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
         transitionCommerceOrder(order, 'paid', settledAt), 'granted', settledAt,
       );
       const update = await client.query(`
-        UPDATE commerce_orders SET payload_text = $1
+        UPDATE desky_commerce.commerce_orders SET payload_text = $1
         WHERE order_id = $2 AND payload_text = $3
       `, [JSON.stringify(nextOrder), order.orderId, JSON.stringify(order)]);
       if (rowCount(update) !== 1) throw new Error('Concurrent commerce settlement transition.');
@@ -508,11 +510,11 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
   async listEntitlementEvents(accountId: string, productId?: string): Promise<EntitlementEvent[]> {
     const result = productId
       ? await this.pool.query(`
-          SELECT payload_text FROM entitlement_events
+          SELECT payload_text FROM desky_commerce.entitlement_events
           WHERE account_id = $1 AND product_id = $2 ORDER BY sequence ASC
         `, [accountId, productId])
       : await this.pool.query(`
-          SELECT payload_text FROM entitlement_events
+          SELECT payload_text FROM desky_commerce.entitlement_events
           WHERE account_id = $1 ORDER BY sequence ASC
         `, [accountId]);
     return result.rows.map((row) => {
@@ -524,7 +526,8 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   async listAssetGrants(accountId: string): Promise<AssetGrant[]> {
     const result = await this.pool.query(`
-      SELECT payload_text FROM asset_grants WHERE account_id = $1 ORDER BY grant_id ASC
+      SELECT payload_text FROM desky_commerce.asset_grants
+      WHERE account_id = $1 ORDER BY grant_id ASC
     `, [accountId]);
     return result.rows.map((row) => {
       const value = payload(row);
@@ -541,7 +544,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     return this.transaction(async (client) => {
       const current = await this.requireAttempt(client, observation.attemptId, true);
       const existingResult = await client.query(`
-        SELECT payload_text FROM settlement_observations WHERE observation_id = $1
+        SELECT payload_text FROM desky_commerce.settlement_observations WHERE observation_id = $1
       `, [observation.observationId]);
       const existingPayload = payload(existingResult.rows[0]);
       if (existingPayload) {
@@ -563,13 +566,13 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
       }
       if (observation.providerReference) {
         await client.query(`
-          INSERT INTO settlement_provider_references (
+          INSERT INTO desky_commerce.settlement_provider_references (
             provider, network, provider_reference, authorization_id
           ) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING
         `, [observation.provider, observation.network,
           observation.providerReference, observation.authorizationId]);
         const owner = await client.query(`
-          SELECT authorization_id FROM settlement_provider_references
+          SELECT authorization_id FROM desky_commerce.settlement_provider_references
           WHERE provider = $1 AND network = $2 AND provider_reference = $3
         `, [observation.provider, observation.network, observation.providerReference]);
         if (owner.rows[0]?.authorization_id !== observation.authorizationId) {
@@ -577,7 +580,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
         }
       }
       await client.query(`
-        INSERT INTO settlement_observations (
+        INSERT INTO desky_commerce.settlement_observations (
           observation_id, authorization_id, attempt_id, settlement_status,
           reconciliation_id, payload_text
         ) VALUES ($1, $2, $3, $4, $5, $6)
@@ -585,7 +588,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
         observation.status, observation.reconciliationId, JSON.stringify(observation)]);
       const next = transitionPaymentAttempt(current, attemptStateForSettlement(observation.status));
       const update = await client.query(`
-        UPDATE payment_attempts SET payload_text = $1
+        UPDATE desky_commerce.payment_attempts SET payload_text = $1
         WHERE attempt_id = $2 AND payload_text = $3
       `, [JSON.stringify(next), current.attemptId, JSON.stringify(current)]);
       if (rowCount(update) !== 1) throw new Error('Concurrent settlement observation transition.');
@@ -615,7 +618,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async getOrderWith(client: PostgresQueryable, id: string, lock = false) {
     const result = await client.query(
-      `SELECT payload_text FROM commerce_orders WHERE order_id = $1${lock ? ' FOR UPDATE' : ''}`,
+      `SELECT payload_text FROM desky_commerce.commerce_orders WHERE order_id = $1${lock ? ' FOR UPDATE' : ''}`,
       [id],
     );
     const value = payload(result.rows[0]);
@@ -624,7 +627,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async getAttemptWith(client: PostgresQueryable, id: string, lock = false) {
     const result = await client.query(
-      `SELECT payload_text FROM payment_attempts WHERE attempt_id = $1${lock ? ' FOR UPDATE' : ''}`,
+      `SELECT payload_text FROM desky_commerce.payment_attempts WHERE attempt_id = $1${lock ? ' FOR UPDATE' : ''}`,
       [id],
     );
     const value = payload(result.rows[0]);
@@ -633,7 +636,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async getAuthorizationWith(client: PostgresQueryable, id: string) {
     const result = await client.query(
-      'SELECT payload_text FROM payment_authorizations WHERE authorization_id = $1', [id],
+      'SELECT payload_text FROM desky_commerce.payment_authorizations WHERE authorization_id = $1', [id],
     );
     const value = payload(result.rows[0]);
     return value ? parsePaymentAuthorizationEvidence(JSON.parse(value)) : undefined;
@@ -645,7 +648,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     lock = false,
   ) {
     const result = await client.query(`
-      SELECT payload_text FROM settlement_observations
+      SELECT payload_text FROM desky_commerce.settlement_observations
       WHERE authorization_id = $1 ORDER BY sequence DESC LIMIT 1${lock ? ' FOR UPDATE' : ''}
     `, [authorizationId]);
     const value = payload(result.rows[0]);
@@ -654,7 +657,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async getEventWith(client: PostgresQueryable, id: string) {
     const result = await client.query(
-      'SELECT payload_text FROM entitlement_events WHERE event_id = $1', [id],
+      'SELECT payload_text FROM desky_commerce.entitlement_events WHERE event_id = $1', [id],
     );
     const value = payload(result.rows[0]);
     return value ? parseEntitlementEvent(JSON.parse(value)) : undefined;
@@ -662,7 +665,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async getGrantWith(client: PostgresQueryable, id: string) {
     const result = await client.query(
-      'SELECT payload_text FROM asset_grants WHERE grant_id = $1', [id],
+      'SELECT payload_text FROM desky_commerce.asset_grants WHERE grant_id = $1', [id],
     );
     const value = payload(result.rows[0]);
     return value ? parseAssetGrant(JSON.parse(value)) : undefined;
@@ -670,7 +673,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async requireQuote(client: PostgresQueryable, id: string) {
     const result = await client.query(
-      'SELECT payload_text FROM commerce_quotes WHERE quote_id = $1', [id],
+      'SELECT payload_text FROM desky_commerce.commerce_quotes WHERE quote_id = $1', [id],
     );
     const value = payload(result.rows[0]);
     if (!value) throw new Error('Commerce quote was not found.');
@@ -697,7 +700,7 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
 
   private async requireObservation(client: PostgresQueryable, id: string) {
     const result = await client.query(
-      'SELECT payload_text FROM settlement_observations WHERE observation_id = $1', [id],
+      'SELECT payload_text FROM desky_commerce.settlement_observations WHERE observation_id = $1', [id],
     );
     const value = payload(result.rows[0]);
     if (!value) throw new Error('Commerce settlement observation was not found.');

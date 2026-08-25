@@ -59,9 +59,16 @@ async function ledger(): Promise<{
 }> {
   const memory = newDb();
   const migration = await readFile(resolve(repositoryRoot,
-    'netlify/database/migrations/0001_checkout_ledger.sql',
+    'supabase/migrations/20260825000100_checkout_ledger.sql',
   ), 'utf8');
-  memory.public.none(migration);
+  // pg-mem does not implement PostgreSQL role or GRANT/REVOKE DDL. The deployment-boundary
+  // suite asserts those exact statements, while this suite exercises the same schema and ledger.
+  const pgMemMigration = migration.split(';')
+    .map((statement) => statement.trim())
+    .filter((statement) => statement
+      && !/^(?:CREATE ROLE|GRANT|REVOKE)\b/.test(statement))
+    .join(';\n');
+  memory.public.none(`${pgMemMigration};`);
   const adapter = memory.adapters.createPg();
   const pool = new adapter.Pool();
   return {
@@ -150,10 +157,10 @@ describe('hosted PostgreSQL checkout ledger', () => {
 
     const durable = await pool.query(`
       SELECT payload_text FROM (
-        SELECT payload_text FROM commerce_checkout_sessions
-        UNION ALL SELECT payload_text FROM payment_attempts
-        UNION ALL SELECT payload_text FROM payment_authorizations
-        UNION ALL SELECT payload_text FROM settlement_observations
+        SELECT payload_text FROM desky_commerce.commerce_checkout_sessions
+        UNION ALL SELECT payload_text FROM desky_commerce.payment_attempts
+        UNION ALL SELECT payload_text FROM desky_commerce.payment_authorizations
+        UNION ALL SELECT payload_text FROM desky_commerce.settlement_observations
       ) AS durable_records
     `);
     const stored = durable.rows.map((row) => String(

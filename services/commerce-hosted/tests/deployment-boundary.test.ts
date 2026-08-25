@@ -31,11 +31,31 @@ describe('hosted checkout deployment boundary', () => {
 
   it('never provisions raw wallet or browser-secret columns', async () => {
     const migration = await readFile(resolve(repositoryRoot,
-      'netlify/database/migrations/0001_checkout_ledger.sql',
+      'supabase/migrations/20260825000100_checkout_ledger.sql',
     ), 'utf8');
     expect(migration).not.toMatch(/private[_ ]?key|seed[_ ]?phrase|wallet[_ ]?signature/i);
     expect(migration).not.toMatch(/binding[_ ]?verifier|csrf[_ ]?token|cookie[_ ]?credential/i);
     expect(migration).toContain('payment_attempts_one_active_per_order');
     expect(migration).toContain('UNIQUE (provider, network, payment_identifier)');
+    expect(migration).toContain('CREATE SCHEMA desky_commerce');
+    expect(migration).toContain('REVOKE ALL ON SCHEMA desky_commerce FROM PUBLIC');
+    expect(migration).toContain('CREATE ROLE desky_checkout_runtime');
+  });
+
+  it('keeps PostgreSQL and hosted-database dependencies out of Electron manifests', async () => {
+    const rootManifest = JSON.parse(await readFile(
+      resolve(repositoryRoot, 'package.json'), 'utf8',
+    )) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    const rootDependencies = {
+      ...rootManifest.dependencies,
+      ...rootManifest.devDependencies,
+    };
+    expect(rootDependencies).not.toHaveProperty('pg');
+    expect(rootDependencies).not.toHaveProperty('@netlify/database');
+
+    const server = await readFile(resolve(hostedRoot, 'src/server.ts'), 'utf8');
+    expect(server).toContain("supabasePoolConfiguration()");
+    expect(server).not.toContain('@netlify/database');
+    expect(server).not.toContain('getConnectionString');
   });
 });

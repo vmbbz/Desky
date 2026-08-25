@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { getConnectionString } from '@netlify/database';
-import { Pool, type PoolClient, type QueryResult } from 'pg';
+import { Pool } from 'pg';
 
 import { BaseSepoliaCheckoutRuntime } from '../../../src/service/commerce/base-sepolia-checkout-runtime';
 import {
@@ -11,40 +10,13 @@ import {
 import { HostedCheckoutBrowserService } from '../../../src/service/commerce/checkout-browser-service';
 import {
   PostgresCheckoutLedger,
-  type PostgresPool,
-  type PostgresQueryResult,
-  type PostgresTransactionClient,
 } from '../../../src/service/commerce/postgres-checkout-ledger';
 import { StrictX402FacilitatorClient } from '../../../src/service/commerce/x402-base-sepolia';
+import { supabasePoolConfiguration } from './database-config';
+import { PgPoolBridge } from './pg-pool-bridge';
 
 const maximumRequestBytes = 32 * 1_024;
 const identifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
-
-class PgClientBridge implements PostgresTransactionClient {
-  constructor(private readonly client: PoolClient) {}
-  async query(text: string, values?: unknown[]): Promise<PostgresQueryResult> {
-    const result = await this.client.query(text, values);
-    return pgResult(result);
-  }
-  release(): void { this.client.release(); }
-}
-class PgPoolBridge implements PostgresPool {
-  constructor(private readonly pool: Pool) {}
-  async query(text: string, values?: unknown[]): Promise<PostgresQueryResult> {
-    return pgResult(await this.pool.query(text, values));
-  }
-  async connect(): Promise<PostgresTransactionClient> {
-    return new PgClientBridge(await this.pool.connect());
-  }
-  async end(): Promise<void> { await this.pool.end(); }
-}
-
-function pgResult(result: QueryResult): PostgresQueryResult {
-  return {
-    rows: result.rows as Array<Record<string, unknown>>,
-    rowCount: result.rowCount,
-  };
-}
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
@@ -77,6 +49,20 @@ interface Runtime {
 }
 
 let singleton: Runtime | undefined;
+let databaseSingleton: PostgresCheckoutLedger | undefined;
+
+function database(): PostgresCheckoutLedger {
+  if (databaseSingleton) return databaseSingleton;
+  const pool = new Pool({
+    ...supabasePoolConfiguration(),
+    max: 2,
+    connectionTimeoutMillis: 5_000,
+    idleTimeoutMillis: 10_000,
+    application_name: 'desky-commerce-hosted',
+  });
+  databaseSingleton = new PostgresCheckoutLedger(new PgPoolBridge(pool));
+  return databaseSingleton;
+}
 
 function runtime(): Runtime {
   if (singleton) return singleton;
@@ -88,14 +74,7 @@ function runtime(): Runtime {
     && (authorization.trim() !== authorization || /[\r\n]/.test(authorization))) {
     throw new Error('Hosted checkout runtime is not configured.');
   }
-  const pool = new Pool({
-    connectionString: getConnectionString(),
-    max: 2,
-    connectionTimeoutMillis: 5_000,
-    idleTimeoutMillis: 10_000,
-    application_name: 'desky-commerce-hosted',
-  });
-  const ledger = new PostgresCheckoutLedger(new PgPoolBridge(pool));
+  const ledger = database();
   const facilitator = new StrictX402FacilitatorClient({
     baseUrl: facilitatorBaseUrl,
     authorization,
@@ -187,10 +166,11 @@ export async function handleBrowserRequest(path: string, request: Request): Prom
 export async function handleHealthRequest(request: Request, ready: boolean): Promise<Response> {
   if (request.method !== 'GET') return new Response(null, { status: 404 });
   try {
-    const active = runtime();
-    const database = await active.ledger.healthCheck();
-    if (!database.writable || database.migrationVersion !== 1) return unavailable(request);
-    if (ready) await active.facilitator.getSupported();
+    const databaseHealth = await database().healthCheck();
+    if (!databaseHealth.writable || databaseHealth.migrationVersion !== 1) {
+      return unavailable(request);
+    }
+    if (ready) await runtime().facilitator.getSupported();
     return Response.json({ schemaVersion: 1, status: 'ok' }, {
       status: 200,
       headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' },
