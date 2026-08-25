@@ -159,4 +159,11 @@ describe('embedded VRM usage review', () => {
       'Catalog licence CC0 conflicts with embedded licence URL https://example.com/restricted-license',
     );
   });
+
+  it('treats the SPDX CC0-1.0 identifier as the same strict licence declaration', () => {
+    expect(reviewVrmUsage({
+      metaVersion: '0', allowedUserName: 'Everyone', commercialUssageName: 'Allow',
+      licenseName: 'CC_BY_NC',
+    }, 'CC0-1.0')).toMatchObject({ status: 'blocked' });
+  });
 });

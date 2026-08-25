@@ -28,6 +28,7 @@ import {
   type CommerceCheckoutSessionStore,
 } from './checkout-session-service';
 import type { BaseSepoliaCheckoutLedger } from './base-sepolia-checkout-runtime';
+import type { ReconciliationCandidate } from './base-sepolia-settlement-observer';
 
 export interface PostgresQueryResult {
   rows: Array<Record<string, unknown>>;
@@ -250,6 +251,45 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     authorizationId: string,
   ): Promise<PaymentSettlementObservation | undefined> {
     return this.getLatestObservationWith(this.pool, authorizationId);
+  }
+
+  async listReconciliationCandidates(limit: number): Promise<ReconciliationCandidate[]> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid commerce reconciliation candidate limit.');
+    }
+    const result = await this.pool.query(`
+      SELECT a.payload_text AS authorization_payload, o.payload_text AS observation_payload
+      FROM desky_commerce.payment_authorizations a
+      JOIN desky_commerce.payment_attempts p ON p.attempt_id = a.attempt_id
+      JOIN desky_commerce.commerce_orders c ON c.order_id = p.order_id
+      JOIN desky_commerce.settlement_observations o ON o.authorization_id = a.authorization_id
+      WHERE p.payload_text::jsonb ->> 'state' IN ('settlement-unknown','settlement-pending','settled')
+        AND c.payload_text::jsonb ->> 'state' <> 'granted'
+      ORDER BY a.authorization_id ASC, o.sequence DESC LIMIT 1001
+    `);
+    if (result.rows.length > 1_000) {
+      throw new Error('Commerce reconciliation observation scan exceeds its bound.');
+    }
+    const candidates: ReconciliationCandidate[] = [];
+    const seen = new Set<string>();
+    for (const row of result.rows) {
+      const authorizationPayload = typeof row.authorization_payload === 'string'
+        ? row.authorization_payload : undefined;
+      const observationPayload = typeof row.observation_payload === 'string'
+        ? row.observation_payload : undefined;
+      if (!authorizationPayload || !observationPayload) {
+        throw new Error('Invalid commerce reconciliation candidate.');
+      }
+      const authorization = parsePaymentAuthorizationEvidence(JSON.parse(authorizationPayload));
+      if (seen.has(authorization.authorizationId)) continue;
+      seen.add(authorization.authorizationId);
+      candidates.push({
+        authorization,
+        latestObservation: parsePaymentSettlementObservation(JSON.parse(observationPayload)),
+      });
+      if (candidates.length === limit) break;
+    }
+    return candidates;
   }
 
   async getCheckoutSession(

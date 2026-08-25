@@ -18,7 +18,7 @@ export interface AdmittedAvatarRevision {
 
 const registryCommit = '0f9a1b2fd99894736563d55b2c9dc9125700d081';
 
-const admittedRevisions: readonly AdmittedAvatarRevision[] = [{
+const freeAdmittedRevisions: readonly AdmittedAvatarRevision[] = [{
   avatar: {
     avatarId: '15dce553-3d3c-4288-8c03-c69c65167447',
     productId: 'avatar.milk',
@@ -104,6 +104,46 @@ const admittedRevisions: readonly AdmittedAvatarRevision[] = [{
   sourceUpdatedAt: '2025-03-11T16:41:51.489Z',
 }];
 
+/**
+ * Rights-reviewed revisions admitted for the isolated direct-build paid pilot. They are not
+ * projected into the provider-disabled bundled catalog and therefore cannot silently become a
+ * fourth free avatar or appear in a Store build.
+ */
+const paidPilotRevisions: readonly AdmittedAvatarRevision[] = [{
+  avatar: {
+    avatarId: '4877abd5-b8f5-4f06-a24d-b6006834f330',
+    productId: 'avatar.toothpaste',
+    revisionId: 'toothpaste-6dc38124-v1',
+    name: 'Toothpaste',
+    description: 'A bright, expressive tube companion selected for Desky’s first capped paid-pilot checkout.',
+    creator: 'Polygonal Mind',
+    projectId: '100avatars-r1',
+    projectName: '100Avatars R1',
+    sourceUrl: 'https://github.com/ToxSam/open-source-avatars',
+    licenseId: 'CC0-1.0',
+    licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    attribution: 'Toothpaste by Polygonal Mind · 100Avatars R1 · CC0-1.0',
+    modelSha256: '6dc381245877db614e4021c91b1eb646a340468628a112da52ed2b66d116e719',
+    vrmVersion: '0.x',
+    performanceClass: 'light',
+    admissionStatus: 'admitted',
+    availability: 'locked',
+  },
+  registryCommit,
+  sourceRecordSha256: '6666ec558d020632b6a2d2f3891b264a5bdbaa27ff8bea718796324f989e59b6',
+  modelUrl: 'https://arweave.net/A5L5mRZbyQoLveZt8sFFiepEdd3A1VbB-yTlltq2lP8',
+  thumbnailUrl: 'https://arweave.net/fV5ZWfBSozq_frCKP2W6Ei7993JaTghLYSGzelYyxBk',
+  thumbnailSha256: '727cacd0795187cce551efe7df2b20650a5ddbcda1ce21bcae37074ddb62a68e',
+  thumbnailBytes: 1_199_496,
+  modelBytes: 1_223_740,
+  sourceUpdatedAt: '2025-03-11T16:41:51.490Z',
+}];
+
+const admittedRevisions: readonly AdmittedAvatarRevision[] = [
+  ...freeAdmittedRevisions,
+  ...paidPilotRevisions,
+];
+
 const bundledFoundationCatalog: MarketplaceCatalog = {
   schemaVersion: 1,
   catalogId: 'desky-foundation',
@@ -112,7 +152,7 @@ const bundledFoundationCatalog: MarketplaceCatalog = {
   authority: 'bundled-foundation',
   commerceMode: 'disabled',
   targetFreeAvatarCount: 3,
-  avatars: admittedRevisions.map((revision) => revision.avatar),
+  avatars: freeAdmittedRevisions.map((revision) => revision.avatar),
 };
 
 export function getBundledMarketplaceCatalog(): MarketplaceCatalog {
@@ -121,6 +161,10 @@ export function getBundledMarketplaceCatalog(): MarketplaceCatalog {
 
 export function getAdmittedAvatarRevisions(): readonly AdmittedAvatarRevision[] {
   return admittedRevisions;
+}
+
+export function getPaidPilotAvatarRevisions(): readonly AdmittedAvatarRevision[] {
+  return paidPilotRevisions;
 }
 
 export function getAdmittedAvatarRevisionByAvatarId(

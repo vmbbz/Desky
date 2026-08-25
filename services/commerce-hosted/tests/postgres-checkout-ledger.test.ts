@@ -15,6 +15,7 @@ import {
   PostgresCheckoutLedger,
   type PostgresPool,
 } from '../../../src/service/commerce/postgres-checkout-ledger';
+import { HostedPaidGrantService } from '../../../src/service/commerce/paid-grant-service';
 import {
   baseSepoliaNetwork,
   baseSepoliaUsdc,
@@ -153,6 +154,18 @@ describe('hosted PostgreSQL checkout ledger', () => {
     expect((await store.getOrder(order().orderId))?.state).toBe('awaiting-settlement');
     expect((await store.getPaymentAttempt('attempt:checkout:postgres:1'))?.state).toBe('settled');
     expect(remote.settle).toHaveBeenCalledTimes(1);
+    const settled = await store.getLatestSettlementObservation(
+      'authorization:attempt:checkout:postgres:1',
+    );
+    expect(settled?.status).toBe('settled');
+    await new HostedPaidGrantService(store).commitSettlement(settled!);
+    expect((await store.getOrder(order().orderId))?.state).toBe('granted');
+    expect(await store.listReconciliationCandidates(25)).toEqual([]);
+    expect(await store.listAssetGrants('account:1')).toEqual([
+      expect.objectContaining({
+        productId: 'avatar:banana', avatarRevisionIds: ['banana:revision:1'], state: 'active',
+      }),
+    ]);
     expect((await store.healthCheck()).migrationVersion).toBe(1);
 
     const durable = await pool.query(`

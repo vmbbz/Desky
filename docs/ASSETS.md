@@ -26,6 +26,12 @@ The project licence applies to its avatars. The registry's CC0 licence applies o
 
 This is a conservative product policy, not legal advice. Release counsel or a qualified reviewer should approve final commercial asset policy.
 
+## First paid-pilot revision
+
+Toothpaste is admitted outside the three-avatar free catalog for the isolated Base Sepolia pilot. The canonical Open Source Avatars registry record is public and non-draft at pinned commit `0f9a1b2fd99894736563d55b2c9dc9125700d081`; its `100Avatars R1` project declares CC0 and Polygonal Mind as creator. Desky pins the exact Arweave model/thumbnail URLs, byte lengths and SHA-256 values in `src/main/marketplace-catalog.ts`. The model remains remotely acquired and verified; it is not bundled into a package by this admission.
+
+Commercial access to Desky's delivery/service does not change the avatar's CC0 status or claim ownership over the underlying asset. Final production launch still requires a legal review of the catalog policy and marketplace copy.
+
 ## Asset manifest
 
 Every cached or distributed asset receives a sidecar record:

@@ -183,6 +183,12 @@ describe('Base Sepolia x402 v2 admission', () => {
       transaction: '',
       network: baseSepoliaNetwork,
     })).toThrow('Contradictory');
+    expect(parseX402SettleResponse({
+      success: true,
+      payer,
+      transaction: `0x${'AB'.repeat(32)}`,
+      network: baseSepoliaNetwork,
+    }).transaction).toBe(`0x${'ab'.repeat(32)}`);
   });
 });
 

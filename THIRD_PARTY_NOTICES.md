@@ -1,5 +1,13 @@
 # Third-party asset notices
 
+## Open Source Avatars — 100Avatars R1
+
+Desky remotely acquires hash-pinned VRM companions from the public [Open Source Avatars registry](https://github.com/ToxSam/open-source-avatars). The first free set and paid-pilot Toothpaste revision are from `100Avatars R1` by Polygonal Mind.
+
+Licence: [Creative Commons Zero v1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
+
+The paid entitlement covers Desky's product delivery and service; it does not restrict or relicense the underlying CC0 avatar. Attribution is retained voluntarily for provenance and appreciation.
+
 ## Quaternius Universal Animation Libraries
 
 Desky includes transformed, avatar-neutral animation data derived from:

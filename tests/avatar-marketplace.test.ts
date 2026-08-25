@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { getBundledMarketplaceCatalog } from '../src/main/marketplace-catalog';
+import {
+  getAdmittedAvatarRevisionByRevisionId,
+  getBundledMarketplaceCatalog,
+  getPaidPilotAvatarRevisions,
+} from '../src/main/marketplace-catalog';
 import {
   evaluateFreeEntitlement,
   parseMarketplaceCatalog,
@@ -36,5 +40,24 @@ describe('avatar marketplace foundation', () => {
       ...catalog,
       avatars: [{ ...catalog.avatars[0], admissionStatus: 'candidate' }],
     })).toThrow(/Only admitted/);
+  });
+
+  it('keeps the rights-reviewed paid pilot outside the provider-disabled free catalog', () => {
+    const catalog = getBundledMarketplaceCatalog();
+    const [toothpaste] = getPaidPilotAvatarRevisions();
+    expect(toothpaste).toMatchObject({
+      avatar: {
+        name: 'Toothpaste',
+        productId: 'avatar.toothpaste',
+        revisionId: 'toothpaste-6dc38124-v1',
+        licenseId: 'CC0-1.0',
+        availability: 'locked',
+      },
+      registryCommit: '0f9a1b2fd99894736563d55b2c9dc9125700d081',
+      modelBytes: 1_223_740,
+      thumbnailBytes: 1_199_496,
+    });
+    expect(catalog.avatars.some((avatar) => avatar.avatarId === toothpaste.avatar.avatarId)).toBe(false);
+    expect(getAdmittedAvatarRevisionByRevisionId(toothpaste.avatar.revisionId)).toBe(toothpaste);
   });
 });

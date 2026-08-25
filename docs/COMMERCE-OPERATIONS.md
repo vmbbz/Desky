@@ -36,9 +36,36 @@ Never print `$pilot` or enable PowerShell transcription while it exists.
 - `GET /v1/operations/status` requires `Authorization: Bearer $pilot.operatorToken` and returns only bounded counts.
 - `GET /v1/operations/reconciliation` uses the same operator bearer and returns a maximum 100 non-sensitive unknown/pending/settled-but-ungranted queue entries.
 
-Never retry `/settle` merely because an attempt is unknown. Record the incident, preserve the order/authorization/observation IDs, and use only an admitted facilitator-status or Base-observer procedure. A manual database edit is not reconciliation.
+Never retry `/settle` merely because an attempt is unknown. The admitted Base Sepolia observer searches the exact USDC `AuthorizationUsed(payer, nonce)` event, validates one successful receipt and exact `Transfer(payer, recipient, amount)`, waits for three confirmations, appends monotonic evidence, and invokes the atomic paid-grant transaction. Absence remains unresolved; mismatch is an error. A manual database edit is not reconciliation.
 
-The non-public `commerce-monitor` Function runs every fifteen minutes. Five-minute reconciliation age is an error; any indeterminate item is a warning. Netlify logs/Observability are pilot diagnostics. Production requires an external paging destination, named on-call owner, acknowledgement target and escalation policy.
+The non-public `commerce-monitor` Function runs every fifteen minutes and processes at most 25 candidates per pass. `DESKY_BASE_SEPOLIA_RPC_URL` is configured to the public Base Sepolia RPC for the capped pilot; it is not production infrastructure. Five-minute reconciliation age or observer validation error is an error; any indeterminate item is a warning. Netlify logs/Observability are pilot diagnostics. Production requires two independently operated authenticated RPC paths, external paging, a named on-call owner, acknowledgement target and escalation policy.
+
+## Capped Toothpaste offer
+
+The only admitted paid-pilot product is:
+
+- product: `avatar.toothpaste`, revision 1;
+- avatar revision: `toothpaste-6dc38124-v1`;
+- offer: `offer.avatar.toothpaste.base-sepolia-pilot`, revision 1;
+- catalog: `desky-paid-pilot:1`;
+- price: `100000` atomic Base Sepolia test USDC (displayed as 0.10 USDC);
+- release profile: `windows-direct` only;
+- facilitator: public x402.org test facilitator, Base Sepolia only;
+- merchant: an owner-provided dedicated test receive address, never a placeholder.
+
+The code admits the exact product/revision/price; environment can choose only the merchant recipient and explicit two-letter pilot regions. Initial funded proof uses `ZA`. “Worldwide” is a product intent, not a truthful legal setting: mainnet launch requires a reviewed country allowlist, sanctions/tax/refund handling and merchant-of-record decision.
+
+Do not configure `DESKY_BASE_SEPOLIA_OFFER_JSON` or `DESKY_MERCHANT_RECIPIENT` until the owner has supplied the dedicated receive address and the successful app-user identity exchange has passed. The two recipient fields must be byte-for-byte equivalent addresses. `/readyz` must remain 503 beforehand.
+
+## Wallet preparation
+
+Use separate MetaMask accounts for payer and merchant receipt. Never disclose seed phrases or private keys.
+
+1. Add Base Sepolia: chain ID `84532`, RPC `https://sepolia.base.org`, explorer `https://sepolia-explorer.base.org`.
+2. Fund the payer with Base Sepolia test USDC at `0x036CbD53842c5426634e7929541eC2318f3dCF7e`. Testnet tokens have no monetary value.
+3. Test ETH is useful for ordinary wallet operations, but x402's facilitator broadcasts the EIP-3009 transfer; the purchase asset is test USDC.
+4. Confirm the page displays Toothpaste, 0.10 USDC, Base Sepolia, the exact USDC contract, merchant address and expiry before signing.
+5. Verify the resulting transaction independently in the Base Sepolia explorer and confirm restore on a clean Desky installation.
 
 ## Create and verify an encrypted logical backup
 
@@ -76,7 +103,7 @@ After rotation:
 
 The current free project relies on Desky's encrypted logical export. Before production, move to a paid plan with managed daily backups or PITR, establish RPO/RTO, and restore to a separate project. Provider restore may omit custom-role passwords, so reset `desky_checkout_runtime`, update Netlify, verify grants/roles and run the full service matrix before reopening readiness.
 
-The interactively disclosed Supabase owner password must be rotated before the funded matrix. The hosted runtime uses its own least-privilege role, so owner rotation should not interrupt service.
+The owner reports that the interactively disclosed Supabase owner password was rotated on 2026-08-25. The hosted runtime uses its own least-privilege role, so the rotation did not interrupt `/healthz`. Never reuse the retired credential; confirm the new owner login privately before the funded matrix without recording it here.
 
 ## Incident stop conditions
 

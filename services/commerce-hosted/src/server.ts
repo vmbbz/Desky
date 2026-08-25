@@ -4,6 +4,11 @@ import { Pool } from 'pg';
 
 import { BaseSepoliaCheckoutRuntime } from '../../../src/service/commerce/base-sepolia-checkout-runtime';
 import {
+  BaseSepoliaReconciliationWorker,
+  BaseSepoliaSettlementObserver,
+  StrictBaseSepoliaRpcClient,
+} from '../../../src/service/commerce/base-sepolia-settlement-observer';
+import {
   CheckoutBrowserHttpApi,
   type CheckoutBrowserHttpResponse,
 } from '../../../src/service/commerce/checkout-browser-http';
@@ -16,7 +21,8 @@ import {
   PostgresCheckoutLedger,
 } from '../../../src/service/commerce/postgres-checkout-ledger';
 import { PostgresCommerceIdentityStore } from '../../../src/service/commerce/postgres-identity-store';
-import { HostedCommerceQuoteService, parseBaseSepoliaOfferPolicy } from '../../../src/service/commerce/quote-service';
+import { HostedCommerceQuoteService } from '../../../src/service/commerce/quote-service';
+import { admitToothpastePilotOffer } from '../../../src/service/commerce/paid-pilot-offer';
 import { SupabaseIdentityVerifier } from '../../../src/service/commerce/supabase-identity';
 import { CommerceTokenIssuer } from '../../../src/service/commerce/token-issuer';
 import { StrictX402FacilitatorClient } from '../../../src/service/commerce/x402-base-sepolia';
@@ -72,6 +78,7 @@ interface ServiceRuntime {
 let singleton: Runtime | undefined;
 let databaseSingleton: DatabaseRuntime | undefined;
 let serviceSingleton: ServiceRuntime | undefined;
+let reconciliationSingleton: BaseSepoliaReconciliationWorker | undefined;
 
 function database(): DatabaseRuntime {
   if (databaseSingleton) return databaseSingleton;
@@ -161,8 +168,11 @@ function serviceRuntime(): ServiceRuntime {
     },
   }, { checkoutOrigin: origin });
   const offerJson = process.env.DESKY_BASE_SEPOLIA_OFFER_JSON;
+  if (offerJson && !process.env.DESKY_BASE_SEPOLIA_RPC_URL) {
+    throw new Error('Hosted checkout runtime is not configured.');
+  }
   const quotes = offerJson
-    ? new HostedCommerceQuoteService(db.ledger, identity, parseBaseSepoliaOfferPolicy(JSON.parse(offerJson)))
+    ? new HostedCommerceQuoteService(db.ledger, identity, admitToothpastePilotOffer(JSON.parse(offerJson)))
     : undefined;
   serviceSingleton = {
     api: new HostedCommerceHttpApi(new CommerceHttpApi(identity, checkout), identity, quotes),
@@ -170,6 +180,16 @@ function serviceRuntime(): ServiceRuntime {
     tokens,
   };
   return serviceSingleton;
+}
+
+function reconciliationRuntime(): BaseSepoliaReconciliationWorker {
+  if (reconciliationSingleton) return reconciliationSingleton;
+  const client = new StrictBaseSepoliaRpcClient(requiredEnvironment('DESKY_BASE_SEPOLIA_RPC_URL'));
+  reconciliationSingleton = new BaseSepoliaReconciliationWorker(
+    database().ledger,
+    new BaseSepoliaSettlementObserver(client, 3),
+  );
+  return reconciliationSingleton;
 }
 
 async function boundedBody(request: Request): Promise<string> {
@@ -396,12 +416,15 @@ export async function runScheduledMonitor(): Promise<void> {
   const generatedAt = new Date().toISOString();
   try {
     const service = serviceRuntime();
+    const chain = process.env.DESKY_BASE_SEPOLIA_RPC_URL
+      ? await reconciliationRuntime().run(generatedAt)
+      : undefined;
     const [operations, queue] = await Promise.all([
       service.identities.operations(generatedAt),
       service.identities.reconciliationQueue(generatedAt),
     ]);
     const maximumAgeSeconds = queue.reduce((maximum, item) => Math.max(maximum, item.ageSeconds), 0);
-    const severity = maximumAgeSeconds >= 300 ? 'error'
+    const severity = (chain?.errors ?? 0) > 0 || maximumAgeSeconds >= 300 ? 'error'
       : operations.indeterminateSettlements > 0 ? 'warning' : 'info';
     const event = {
       event: 'commerce-monitor', severity, generatedAt,
@@ -409,6 +432,7 @@ export async function runScheduledMonitor(): Promise<void> {
       pendingOrders: operations.pendingOrders,
       indeterminateSettlements: operations.indeterminateSettlements,
       maximumReconciliationAgeSeconds: maximumAgeSeconds,
+      chainReconciliation: chain ?? { status: 'disabled' },
     };
     if (severity === 'error') console.error(JSON.stringify(event));
     else if (severity === 'warning') console.warn(JSON.stringify(event));
@@ -430,6 +454,7 @@ export async function handleHealthRequest(request: Request, ready: boolean): Pro
     if (ready) {
       serviceRuntime();
       await runtime().facilitator.getSupported();
+      await reconciliationRuntime().healthCheck();
     }
     return Response.json({ schemaVersion: 1, status: 'ok' }, {
       status: 200,

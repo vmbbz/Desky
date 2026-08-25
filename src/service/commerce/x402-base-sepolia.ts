@@ -337,7 +337,7 @@ export function parseX402SettleResponse(value: unknown): X402SettleResponse {
   }
   const payer = source.payer === undefined || source.payer === null
     ? undefined : readAddress(source.payer, 'settlement payer');
-  const transaction = source.transaction;
+  const transaction = source.transaction.toLowerCase();
   const amount = source.amount === undefined || source.amount === null
     ? undefined : readAtomic(source.amount, 'settled amount');
   const response: X402SettleResponse = {

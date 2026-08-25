@@ -126,6 +126,15 @@ The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_T
 
 Local VRM Animation preview is an explicit control-center action. Main owns the native file chooser and returns no raw path. It rejects files over 32 MiB, malformed/non-VRMA glTF containers, missing/invalid humanoid channel maps, oversized structural counts, and external buffer/image URIs before sending exact bytes to the ambient sandbox. The renderer additionally rejects clips over 120 seconds or 256 tracks. Selection bytes live only in process memory for the current session; this preview path cannot write the asset cache, admit a release asset, or be invoked by agent text.
 
+## x402 settlement observation
+
+- Facilitator `/verify` proves an authorization and `/settle` is dispatched at most once after a durable claim. A timeout never authorizes replay.
+- The public x402 test facilitator has no admitted status route. Reconciliation therefore uses a separate Base Sepolia HTTPS JSON-RPC observer, not model output, wallet callback text, or a second settlement call.
+- The observer requires the admitted USDC contract, exact `AuthorizationUsed(payer, nonce)`, one successful transaction receipt, one exact `Transfer(payer, recipient, amount)`, and three confirmations. Absence remains unknown. Duplicate/malformed/mismatched evidence fails closed.
+- RPC methods, redirects, media type, response bytes, scan size and candidate count are bounded. The public endpoint is testnet-only; production needs authenticated redundant providers, reorg/finality policy and external paging.
+- Only append-only settlement evidence reaches the PostgreSQL ledger. Only its atomic settled-observation-to-entitlement transaction creates a paid asset grant.
+- Toothpaste's paid-pilot admission is outside the three-avatar free catalog and all Store release profiles. Environment cannot drift its exact product revision or 0.10 test-USDC amount.
+
 ## Privacy
 
 - No analytics until a separate opt-in is presented.

@@ -307,7 +307,10 @@ export class PostgresCommerceIdentityStore {
         (SELECT COUNT(*) FROM desky_commerce.commerce_identities) AS identities,
         (SELECT COUNT(*) FROM desky_commerce.commerce_refresh_sessions WHERE revoked_at IS NULL AND expires_at > $1) AS active_sessions,
         (SELECT COUNT(*) FROM desky_commerce.commerce_orders WHERE payload_text::jsonb ->> 'state' IN ('created','awaiting-approval','awaiting-settlement','paid','disputed')) AS pending_orders,
-        (SELECT COUNT(*) FROM desky_commerce.payment_attempts WHERE payload_text::jsonb ->> 'state' IN ('settlement-unknown','settlement-pending','settled')) AS indeterminate,
+        (SELECT COUNT(*) FROM desky_commerce.payment_attempts p
+          JOIN desky_commerce.commerce_orders o ON o.order_id = p.order_id
+          WHERE p.payload_text::jsonb ->> 'state' IN ('settlement-unknown','settlement-pending','settled')
+            AND o.payload_text::jsonb ->> 'state' <> 'granted') AS indeterminate,
         (SELECT MIN((payload_text::jsonb ->> 'observedAt')::timestamptz)::text FROM desky_commerce.settlement_observations WHERE settlement_status IN ('unknown','pending')) AS oldest
     `, [now]);
     const row = result.rows[0];
@@ -325,9 +328,11 @@ export class PostgresCommerceIdentityStore {
 
   async reconciliationQueue(now: string): Promise<CommerceReconciliationQueueItem[]> {
     const result = await this.pool.query(`
-      SELECT payload_text FROM desky_commerce.payment_attempts
-      WHERE payload_text::jsonb ->> 'state' IN ('settlement-unknown','settlement-pending','settled')
-      ORDER BY attempt_id ASC LIMIT 101
+      SELECT p.payload_text FROM desky_commerce.payment_attempts p
+      JOIN desky_commerce.commerce_orders o ON o.order_id = p.order_id
+      WHERE p.payload_text::jsonb ->> 'state' IN ('settlement-unknown','settlement-pending','settled')
+        AND o.payload_text::jsonb ->> 'state' <> 'granted'
+      ORDER BY p.attempt_id ASC LIMIT 101
     `);
     if (result.rows.length > 100) throw new Error('Commerce reconciliation queue exceeds its operator bound.');
     const items: CommerceReconciliationQueueItem[] = [];

@@ -145,7 +145,7 @@ export function reviewVrmUsage(
       reasons.push(`Embedded VRM licence is incompatible: ${metadata.licenseName}`);
     }
     if (
-      declaredLicenseId.toUpperCase() === 'CC0' &&
+      isDeclaredCc0(declaredLicenseId) &&
       metadata.licenseName &&
       metadata.licenseName !== 'CC0'
     ) {
@@ -170,7 +170,7 @@ export function reviewVrmUsage(
       reasons.push('Embedded VRM permissions prohibit redistribution');
     }
     if (
-      declaredLicenseId.toUpperCase() === 'CC0' &&
+      isDeclaredCc0(declaredLicenseId) &&
       metadata.licenseUrl &&
       !isRecognizedCc0Url(metadata.licenseUrl)
     ) {
@@ -188,6 +188,10 @@ export function reviewVrmUsage(
     embeddedLicense,
     requiresCredit,
   };
+}
+
+function isDeclaredCc0(value: string): boolean {
+  return value.trim().toUpperCase() === 'CC0' || value.trim().toUpperCase() === 'CC0-1.0';
 }
 
 function isRecognizedCc0Url(value: string): boolean {
