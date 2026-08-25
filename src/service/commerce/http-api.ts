@@ -6,10 +6,33 @@ import {
   type CommerceSessionMaterial,
   type CommerceSessionRefreshRequest,
 } from '../../shared/commerce-recovery';
+import {
+  parseCommerceCheckoutSession,
+  parseCommerceCheckoutSessionRequest,
+  parseCreateCommerceCheckoutRequest,
+  type CommerceCheckoutSession,
+  type CommerceCheckoutSessionRequest,
+  type CreateCommerceCheckoutRequest,
+} from '../../shared/commerce-checkout';
 
 export interface CommerceSessionApplicationService {
   restoreCleanDevice(request: CleanDeviceRestoreRequest): Promise<CommerceSessionMaterial>;
   refreshSession(request: CommerceSessionRefreshRequest): Promise<CommerceSessionMaterial>;
+}
+
+export interface CommerceCheckoutApplicationService {
+  createSession(
+    request: CreateCommerceCheckoutRequest,
+    accessToken: string,
+  ): Promise<CommerceCheckoutSession>;
+  getSession(
+    request: CommerceCheckoutSessionRequest,
+    accessToken: string,
+  ): Promise<CommerceCheckoutSession>;
+  cancelSession(
+    request: CommerceCheckoutSessionRequest,
+    accessToken: string,
+  ): Promise<CommerceCheckoutSession>;
 }
 
 export interface CommerceHttpRequest {
@@ -18,6 +41,7 @@ export interface CommerceHttpRequest {
   contentType: string | undefined;
   body: string;
   correlationId: string;
+  authorization?: string;
 }
 
 export interface CommerceHttpResponse {
@@ -38,6 +62,21 @@ export class CommerceServiceError extends Error {
 }
 
 const identifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
+const checkoutPaths = [
+  '/v1/checkout/session',
+  '/v1/checkout/session/status',
+  '/v1/checkout/session/cancel',
+] as const;
+type CheckoutPath = (typeof checkoutPaths)[number];
+
+function bearerCredential(value: string | undefined): string | undefined {
+  if (!value?.startsWith('Bearer ')) return undefined;
+  const credential = value.slice('Bearer '.length);
+  if (credential.length < 32 || credential.length > 8_192 || /[\r\n\s]/.test(credential)) {
+    return undefined;
+  }
+  return credential;
+}
 
 function response(status: CommerceHttpResponse['status'], body: unknown): CommerceHttpResponse {
   return {
@@ -64,15 +103,22 @@ function errorResponse(
  * enforcement before buffering, rate limiting, identity-provider callbacks, and structured audit.
  */
 export class CommerceHttpApi {
-  constructor(private readonly sessions: CommerceSessionApplicationService) {}
+  constructor(
+    private readonly sessions: CommerceSessionApplicationService,
+    private readonly checkouts?: CommerceCheckoutApplicationService,
+  ) {}
 
   async handle(request: CommerceHttpRequest): Promise<CommerceHttpResponse> {
     const correlationId = identifierPattern.test(request.correlationId)
       ? request.correlationId : 'correlation:invalid';
     if (request.method !== 'POST') return errorResponse(404, 'not-found', correlationId);
-    if (request.path !== '/v1/session/restore' && request.path !== '/v1/session/refresh') {
+    const isSessionPath = request.path === '/v1/session/restore'
+      || request.path === '/v1/session/refresh';
+    const isCheckoutPath = checkoutPaths.includes(request.path as CheckoutPath);
+    if (!isSessionPath && !isCheckoutPath) {
       return errorResponse(404, 'not-found', correlationId);
     }
+    if (isCheckoutPath && !this.checkouts) return errorResponse(404, 'not-found', correlationId);
     if (!request.contentType?.toLowerCase().startsWith('application/json')) {
       return errorResponse(415, 'unsupported-content-type', correlationId);
     }
@@ -87,6 +133,18 @@ export class CommerceHttpApi {
       return errorResponse(400, 'invalid-request', correlationId);
     }
     try {
+      if (isCheckoutPath) {
+        const accessToken = bearerCredential(request.authorization);
+        if (!accessToken) return errorResponse(401, 'authentication-failed', correlationId);
+        const checkout = this.checkouts;
+        if (!checkout) return errorResponse(404, 'not-found', correlationId);
+        const session = request.path === '/v1/checkout/session'
+          ? await checkout.createSession(parseCreateCommerceCheckoutRequest(body), accessToken)
+          : request.path === '/v1/checkout/session/status'
+            ? await checkout.getSession(parseCommerceCheckoutSessionRequest(body), accessToken)
+            : await checkout.cancelSession(parseCommerceCheckoutSessionRequest(body), accessToken);
+        return response(200, parseCommerceCheckoutSession(session));
+      }
       const material = request.path === '/v1/session/restore'
         ? await this.sessions.restoreCleanDevice(parseCleanDeviceRestoreRequest(body))
         : await this.sessions.refreshSession(parseCommerceSessionRefreshRequest(body));
@@ -100,6 +158,9 @@ export class CommerceHttpApi {
         return errorResponse(503, error.code, correlationId);
       }
       if (error instanceof Error && error.message.startsWith('Invalid commerce recovery')) {
+        return errorResponse(400, 'invalid-request', correlationId);
+      }
+      if (error instanceof Error && error.message.startsWith('Invalid commerce checkout')) {
         return errorResponse(400, 'invalid-request', correlationId);
       }
       return errorResponse(500, 'internal-error', correlationId);

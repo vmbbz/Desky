@@ -6,7 +6,7 @@ Desky needs one durable answer to a simple question: “May this account/device 
 
 Payment proves that a transaction was authorized and settled. An entitlement grants product access. A JWT carries a short-lived authorization projection. These are separate objects with separate lifecycles.
 
-## Implemented foundation — F4x.1a–F4x.2b, 2026-08-25
+## Implemented foundation — F4x.1a–F4x.2c, 2026-08-25
 
 The first executable slice is deliberately provider-disabled:
 
@@ -25,8 +25,9 @@ The first executable slice is deliberately provider-disabled:
 - The distinct `desky-offline-lease+jwt` is installation-bound, revision-exact, and capped at 72 hours. Online verification pins its public key in the encrypted session so offline restart does not require JWKS. Server time and system-monotonic elapsed time detect observed rollback; a monotonic reset/offline reboot or material wall-clock rollback requires reconnection.
 - The recovery coordinator persists nothing until access token, lease, account, installation, refresh generation, catalog, exact active grants, and reconciliation all agree. No access token is persisted and recovery proofs never enter storage.
 - F4x.2b removes the old verify-as-settlement shortcut. Payment attempts now carry workflow state only; immutable authorization evidence separately binds payer/payment identifier and exact quote terms, while append-only settlement observations project `unknown | pending | settled | failed`. Unknown/pending/settled-but-ungranted orders cannot close or retry. Only a specific durable settled observation can enter the atomic entitlement-grant transaction. ADR 0005 records the indeterminate-settlement policy.
+- F4x.2c adds exact hosted checkout create/status/cancel contracts and durable sessions bound to one approval, account, installation, order, quote, and idempotency key. Main displays canonical terms once, opens only the exact hosted system-browser URL, preserves the session if the browser fails, and polls authenticated service status instead of trusting a callback. The service-only processor never persists the raw wallet signature and atomically claims a durable unknown observation before its one permitted `/settle` dispatch. ADR 0006 records the non-custodial boundary.
 
-This is not yet a deployed durable network service. The executable API/repository/recovery boundaries now pass local adversarial tests, but production still requires the hosted database adapter and migrations, real identity-provider PKCE flow, TLS/domain, managed signing-key custody, backups/restore drills, rate limits, reconciliation workers, monitoring, incident evidence, and clean-device hardware verification. Every payment provider remains unreachable. No checkout or paid UI is exposed.
+This is not yet a deployed durable network service. The executable API/repository/recovery/checkout boundaries now pass local adversarial tests, but production still requires the hosted database adapter and migrations, real identity-provider PKCE flow, TLS/domain, managed signing-key custody, authenticated wallet page and CSRF controls, backups/restore drills, rate limits, reconciliation workers, monitoring, incident evidence, and clean-device hardware verification. Every payment provider remains unreachable. No checkout or paid UI is exposed by Electron.
 
 The current protocol authority is x402 v2. Its HTTP transport uses `PAYMENT-REQUIRED` and `PAYMENT-SIGNATURE`; `PaymentRequirements.amount` is an atomic-unit string, networks use CAIP-2, and verify/settle are distinct facilitator operations. Desky will admit only the exact Base pair selected by server and release policy after F4x.1 completes; it will not infer v2 from legacy v1 headers or wallet callbacks.
 
@@ -215,10 +216,13 @@ The verified offline public key is pinned with the encrypted lease so an app res
 
 ## Restore and refresh API
 
-The admitted hosted surface is deliberately narrow:
+The admitted hosted JSON surface is deliberately narrow and provider-disabled:
 
 - `POST /v1/session/restore`: one-time recovery code + PKCE verifier + installation ID + idempotency key;
 - `POST /v1/session/refresh`: session/installation IDs + current refresh credential/generation + deterministic rotation ID + reconciliation cursor;
+- `POST /v1/checkout/session`: authenticated, exact single-use approval and canonical terms digest;
+- `POST /v1/checkout/session/status`: authenticated account/installation-bound polling;
+- `POST /v1/checkout/session/cancel`: authenticated cancellation only before authorization;
 - `GET /.well-known/jwks.json`: bounded Ed25519 public signing keys.
 
 Responses return a rotating refresh credential, short access JWT, offline lease, authoritative server time, and a full exact reconciliation snapshot. Requests and responses are `no-store`; redirects, unknown routes/fields, wrong content types, oversized bodies, identity drift, generation skips, credential reuse, and token/snapshot disagreement fail closed. The service stores refresh digests and bounded replay metadata, never plaintext credentials, wallet keys, conversation content, access tokens, or leases.
@@ -256,7 +260,7 @@ The x402 v2 adapter:
 8. commits `paid`, emits a grant once, and issues a receipt/access token;
 9. reconciles by callback and polling until a terminal state.
 
-F4x.2a makes the distinction between verification and settlement executable. A successful `/verify` response identifies a payer but is not a transaction and cannot be used as durable payment evidence. A `/settle` timeout is indeterminate because the facilitator may have broadcast the transfer. The next ledger revision must store pre-settlement payment identity separately from transaction evidence and must reconcile an unknown settlement before retry or grant.
+F4x.2a makes the distinction between verification and settlement executable. A successful `/verify` response identifies a payer but is not a transaction and cannot be used as durable payment evidence. F4x.2b stores pre-settlement payment identity separately from append-only transaction observations. F4x.2c atomically records and claims an unknown dispatch observation before `/settle`; a timeout remains indeterminate because the facilitator may have broadcast the transfer, and exact replay cannot dispatch again. Unknown settlement must reconcile before retry or grant.
 
 Security invariants:
 

@@ -24,6 +24,10 @@ import {
   type PaymentSettlementObservation,
   type PaymentSettlementStatus,
 } from '../../shared/commerce-settlement';
+import {
+  parseCommerceCheckoutSessionRecord,
+  type CommerceCheckoutSessionRecord,
+} from './checkout-session-service';
 
 export interface SettlementGrantCommit {
   orderId: string;
@@ -74,6 +78,17 @@ export class SqliteCommerceLedger {
         quote_id TEXT NOT NULL REFERENCES commerce_quotes(quote_id),
         account_id TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
+        payload TEXT NOT NULL,
+        UNIQUE(account_id, idempotency_key)
+      ) STRICT;
+
+      CREATE TABLE IF NOT EXISTS commerce_checkout_sessions (
+        checkout_session_id TEXT PRIMARY KEY,
+        approval_id TEXT NOT NULL UNIQUE,
+        account_id TEXT NOT NULL,
+        installation_id TEXT NOT NULL,
+        idempotency_key TEXT NOT NULL,
+        order_id TEXT NOT NULL REFERENCES commerce_orders(order_id),
         payload TEXT NOT NULL,
         UNIQUE(account_id, idempotency_key)
       ) STRICT;
@@ -157,6 +172,85 @@ export class SqliteCommerceLedger {
       'SELECT payload FROM commerce_quotes WHERE quote_id = ?',
     ).get(quoteId));
     return payload === undefined ? undefined : parseVerifiedCommerceQuote(JSON.parse(payload));
+  }
+
+  getCheckoutSession(checkoutSessionId: string): CommerceCheckoutSessionRecord | undefined {
+    const payload = payloadFromRow(this.database.prepare(`
+      SELECT payload FROM commerce_checkout_sessions WHERE checkout_session_id = ?
+    `).get(checkoutSessionId));
+    return payload === undefined
+      ? undefined : parseCommerceCheckoutSessionRecord(JSON.parse(payload));
+  }
+
+  getCheckoutSessionByApproval(approvalId: string): CommerceCheckoutSessionRecord | undefined {
+    const payload = payloadFromRow(this.database.prepare(`
+      SELECT payload FROM commerce_checkout_sessions WHERE approval_id = ?
+    `).get(approvalId));
+    return payload === undefined
+      ? undefined : parseCommerceCheckoutSessionRecord(JSON.parse(payload));
+  }
+
+  getCheckoutSessionByIdempotency(
+    accountId: string,
+    idempotencyKey: string,
+  ): CommerceCheckoutSessionRecord | undefined {
+    const payload = payloadFromRow(this.database.prepare(`
+      SELECT payload FROM commerce_checkout_sessions
+      WHERE account_id = ? AND idempotency_key = ?
+    `).get(accountId, idempotencyKey));
+    return payload === undefined
+      ? undefined : parseCommerceCheckoutSessionRecord(JSON.parse(payload));
+  }
+
+  insertCheckoutSession(
+    value: CommerceCheckoutSessionRecord,
+  ): 'inserted' | 'exact-replay' {
+    const record = parseCommerceCheckoutSessionRecord(value);
+    const result = this.database.prepare(`
+      INSERT OR IGNORE INTO commerce_checkout_sessions (
+        checkout_session_id, approval_id, account_id, installation_id,
+        idempotency_key, order_id, payload
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      record.session.checkoutSessionId,
+      record.session.approvalId,
+      record.session.accountId,
+      record.session.installationId,
+      record.request.idempotencyKey,
+      record.session.orderId,
+      JSON.stringify(record),
+    );
+    if (result.changes === 1) return 'inserted';
+    const existing = this.getCheckoutSession(record.session.checkoutSessionId)
+      ?? this.getCheckoutSessionByApproval(record.session.approvalId)
+      ?? this.getCheckoutSessionByIdempotency(
+        record.session.accountId,
+        record.request.idempotencyKey,
+      );
+    if (existing && exactReplay(existing, record)) return 'exact-replay';
+    throw new Error('Commerce checkout session identity collision.');
+  }
+
+  updateCheckoutSession(
+    expectedValue: CommerceCheckoutSessionRecord,
+    nextValue: CommerceCheckoutSessionRecord,
+  ): void {
+    const expected = parseCommerceCheckoutSessionRecord(expectedValue);
+    const next = parseCommerceCheckoutSessionRecord(nextValue);
+    if (expected.session.checkoutSessionId !== next.session.checkoutSessionId
+      || expected.request.approvalId !== next.request.approvalId
+      || expected.request.idempotencyKey !== next.request.idempotencyKey) {
+      throw new Error('Commerce checkout session identity is immutable.');
+    }
+    const result = this.database.prepare(`
+      UPDATE commerce_checkout_sessions SET payload = ?
+      WHERE checkout_session_id = ? AND payload = ?
+    `).run(
+      JSON.stringify(next),
+      expected.session.checkoutSessionId,
+      JSON.stringify(expected),
+    );
+    if (result.changes !== 1) throw new Error('Concurrent commerce checkout session update.');
   }
 
   createOrder(value: unknown): CommerceOrder {
@@ -323,6 +417,33 @@ export class SqliteCommerceLedger {
     observation: PaymentSettlementObservation;
     attempt: PaymentAttempt;
   } {
+    const { observation, attempt } = this.recordSettlementObservationWithDisposition(value);
+    return { observation, attempt };
+  }
+
+  /**
+   * Atomically records the pre-settlement unknown state and tells the caller whether it owns the
+   * one permitted facilitator dispatch. Exact replays never receive a second dispatch lease.
+   */
+  claimSettlementDispatch(value: unknown): {
+    claimed: boolean;
+    observation: PaymentSettlementObservation;
+    attempt: PaymentAttempt;
+  } {
+    const observation = parsePaymentSettlementObservation(value);
+    if (observation.status !== 'unknown'
+      || observation.source !== 'facilitator-response'
+      || observation.reasonCode !== 'settlement-dispatching') {
+      throw new Error('Settlement dispatch claim requires a durable facilitator unknown observation.');
+    }
+    return this.recordSettlementObservationWithDisposition(observation);
+  }
+
+  private recordSettlementObservationWithDisposition(value: unknown): {
+    claimed: boolean;
+    observation: PaymentSettlementObservation;
+    attempt: PaymentAttempt;
+  } {
     const observation = parsePaymentSettlementObservation(value);
     this.database.exec('BEGIN IMMEDIATE');
     try {
@@ -331,7 +452,7 @@ export class SqliteCommerceLedger {
       if (existing) {
         if (exactReplay(existing, observation)) {
           this.database.exec('COMMIT');
-          return { observation: existing, attempt: current };
+          return { claimed: false, observation: existing, attempt: current };
         }
         throw new Error('Settlement observation ID collision.');
       }
@@ -394,7 +515,7 @@ export class SqliteCommerceLedger {
       `).run(JSON.stringify(next), current.attemptId, JSON.stringify(current));
       if (update.changes !== 1) throw new Error('Concurrent settlement observation transition.');
       this.database.exec('COMMIT');
-      return { observation, attempt: next };
+      return { claimed: true, observation, attempt: next };
     } catch (error) {
       this.database.exec('ROLLBACK');
       throw error;
