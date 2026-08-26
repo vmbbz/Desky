@@ -23,7 +23,7 @@ const defaultClaims: CommerceAccessTokenClaims = {
   jti: 'token:1',
   scope: ['catalog:read', 'asset:read'],
   grants: ['avatar:banana'],
-  catalogVersion: 'catalog:42',
+  catalogVersions: ['catalog:42'],
 };
 
 const policy: CommerceAccessTokenPolicy = {
@@ -59,6 +59,13 @@ describe('commerce access JWT verification', () => {
     expect(claims).toEqual(defaultClaims);
     claims.grants.push('avatar:other');
     expect(verifyCommerceAccessToken(token(), policy, now).grants).toEqual(['avatar:banana']);
+  });
+
+  it('normalizes the legacy single-catalog claim during the short token rollover window', () => {
+    const { catalogVersions: _catalogVersions, ...legacy } = defaultClaims;
+    expect(verifyCommerceAccessToken(token({
+      claims: { ...legacy, catalogVersion: 'catalog:42' },
+    }), policy, now).catalogVersions).toEqual(['catalog:42']);
   });
 
   it.each([
@@ -103,6 +110,12 @@ describe('commerce access JWT verification', () => {
     expect(() => verifyCommerceAccessToken(token({
       claims: { ...defaultClaims, grants: ['avatar:banana', 'avatar:banana'] },
     }), policy, now)).toThrow('duplicate');
+    expect(() => verifyCommerceAccessToken(token({
+      claims: { ...defaultClaims, catalogVersions: ['catalog:42', 'catalog:42'] },
+    }), policy, now)).toThrow('duplicate');
+    expect(() => verifyCommerceAccessToken(token({
+      claims: { ...defaultClaims, catalogVersion: 'catalog:legacy' },
+    }), policy, now)).toThrow('claims');
     expect(() => verifyCommerceAccessToken(token(), {
       ...policy,
       clockSkewSeconds: 121,

@@ -78,11 +78,10 @@ export class CommerceTokenIssuer {
   }): { accessToken: string; offlineLease: string } {
     const grants = input.reconciliation.grants.filter((grant) => grant.state === 'active'
       && (!grant.expiresAt || Date.parse(grant.expiresAt) > input.nowSeconds * 1_000));
-    const catalogVersions = [...new Set(grants.map((grant) => grant.catalogVersion))];
+    const catalogVersions = [...new Set(grants.map((grant) => grant.catalogVersion))].sort();
     if (!identifierPattern.test(input.accountId) || !identifierPattern.test(input.installationId)
       || !identifierPattern.test(input.sessionId) || !Number.isSafeInteger(input.nowSeconds)
-      || input.reconciliation.accountId !== input.accountId || grants.length < 1
-      || catalogVersions.length !== 1) {
+      || input.reconciliation.accountId !== input.accountId || grants.length < 1) {
       throw new Error('Commerce token input is inconsistent.');
     }
     const accessToken = jwt(this.privateKey, this.keyId, commerceAccessTokenType, {
@@ -94,8 +93,8 @@ export class CommerceTokenIssuer {
       exp: input.nowSeconds + this.accessLifetimeSeconds,
       jti: input.sessionId,
       scope: ['catalog:read', 'asset:read', 'commerce:write'],
-      grants: [...new Set(grants.map((grant) => grant.productId))],
-      catalogVersion: catalogVersions[0],
+      grants: [...new Set(grants.map((grant) => grant.productId))].sort(),
+      catalogVersions,
     });
     const offlineGrants: CommerceOfflineGrant[] = grants.map((grant) => ({
       grantId: grant.grantId,

@@ -14,7 +14,7 @@ export interface CommerceAccessTokenClaims {
   jti: string;
   scope: CommerceAccessTokenScope[];
   grants: string[];
-  catalogVersion: string;
+  catalogVersions: string[];
 }
 
 export interface CommerceAccessTokenPolicy {
@@ -88,11 +88,13 @@ function readNumericDate(value: unknown, field: string): number {
 
 function parseClaims(value: unknown): CommerceAccessTokenClaims {
   const claims = exactRecord(value, [
-    'iss', 'aud', 'sub', 'iat', 'nbf', 'exp', 'jti', 'scope', 'grants', 'catalogVersion',
+    'iss', 'aud', 'sub', 'iat', 'nbf', 'exp', 'jti', 'scope', 'grants',
+    'catalogVersion', 'catalogVersions',
   ], 'claims');
   if (!Array.isArray(claims.scope) || claims.scope.length < 1
     || claims.scope.length > commerceAccessTokenScopes.length
-    || !Array.isArray(claims.grants) || claims.grants.length > 1_000) {
+    || !Array.isArray(claims.grants) || claims.grants.length > 1_000
+    || (claims.catalogVersion === undefined) === (claims.catalogVersions === undefined)) {
     throw new Error('Invalid commerce access token claims.');
   }
   const scope = claims.scope.map((entry) => {
@@ -103,7 +105,15 @@ function parseClaims(value: unknown): CommerceAccessTokenClaims {
     return entry as CommerceAccessTokenScope;
   });
   const grants = claims.grants.map((entry) => readIdentifier(entry, 'grant'));
-  if (new Set(scope).size !== scope.length || new Set(grants).size !== grants.length) {
+  const catalogVersions = claims.catalogVersion === undefined
+    ? Array.isArray(claims.catalogVersions)
+      && claims.catalogVersions.length >= 1
+      && claims.catalogVersions.length <= 1_000
+      ? claims.catalogVersions.map((entry) => readIdentifier(entry, 'catalog version'))
+      : (() => { throw new Error('Invalid commerce access token catalog versions.'); })()
+    : [readIdentifier(claims.catalogVersion, 'catalog version')];
+  if (new Set(scope).size !== scope.length || new Set(grants).size !== grants.length
+    || new Set(catalogVersions).size !== catalogVersions.length) {
     throw new Error('Invalid commerce access token duplicate claims.');
   }
   return {
@@ -116,7 +126,7 @@ function parseClaims(value: unknown): CommerceAccessTokenClaims {
     jti: readIdentifier(claims.jti, 'token ID'),
     scope,
     grants,
-    catalogVersion: readIdentifier(claims.catalogVersion, 'catalog version'),
+    catalogVersions,
   };
 }
 

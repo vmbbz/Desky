@@ -7,7 +7,8 @@ param(
   [string] $BrowserPath = 'C:\Program Files\Mozilla Firefox\firefox.exe',
   [ValidatePattern('^$|^rotate:funded:[0-9]{14}$')]
   [string] $RefreshRotationId = '',
-  [switch] $DoNotLaunch
+  [switch] $DoNotLaunch,
+  [switch] $ReopenActive
 )
 
 Set-StrictMode -Version Latest
@@ -90,6 +91,108 @@ function Save-PilotState {
   }
 }
 
+function Open-CheckoutBrowserHandoff {
+  param(
+    [Parameter(Mandatory)][string] $CheckoutUrl,
+    [Parameter(Mandatory)][string] $BindingVerifier
+  )
+  if (-not [Uri]::IsWellFormedUriString($CheckoutUrl, [UriKind]::Absolute) `
+    -or -not $CheckoutUrl.StartsWith("$ServiceOrigin/checkout/") `
+    -or $CheckoutUrl.Contains('#') `
+    -or $CheckoutUrl.Contains('?') `
+    -or $BindingVerifier -notmatch '^[A-Za-z0-9_-]{43}$') {
+    throw 'The browser handoff material is invalid.'
+  }
+
+  [byte[]] $bridgeBytes = New-Object byte[] 32
+  [Security.Cryptography.RandomNumberGenerator]::Fill($bridgeBytes)
+  $bridgeToken = ConvertTo-Base64Url -Bytes $bridgeBytes
+  [Array]::Clear($bridgeBytes, 0, $bridgeBytes.Length)
+  $bridgePath = "/desky-checkout/$bridgeToken"
+  $listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+  $listener.Start(4)
+  try {
+    $port = ([Net.IPEndPoint] $listener.LocalEndpoint).Port
+    $launchUrl = "http://127.0.0.1:$port$bridgePath"
+
+    # ArgumentList preserves the local URL as one exact argv entry. The real
+    # verifier never enters Firefox's command line; it is returned only in the
+    # one-use loopback redirect after the exact random path is presented.
+    $browserStart = [Diagnostics.ProcessStartInfo]::new()
+    $browserStart.FileName = $BrowserPath
+    $browserStart.UseShellExecute = $false
+    $browserStart.ArgumentList.Add('-new-window')
+    $browserStart.ArgumentList.Add($launchUrl)
+    $browserProcess = [Diagnostics.Process]::Start($browserStart)
+    if ($null -eq $browserProcess) { throw 'The checkout browser process did not start.' }
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(20)
+    $redirectDeadline = $null
+    $redirectServed = $false
+    while ([DateTime]::UtcNow -lt $(if ($null -ne $redirectDeadline) { $redirectDeadline } else { $deadline })) {
+      $activeDeadline = if ($null -ne $redirectDeadline) { $redirectDeadline } else { $deadline }
+      $remaining = $activeDeadline - [DateTime]::UtcNow
+      $accept = $listener.AcceptTcpClientAsync()
+      if (-not $accept.Wait($remaining)) { break }
+      $client = $accept.Result
+      try {
+        $remote = [Net.IPEndPoint] $client.Client.RemoteEndPoint
+        if (-not [Net.IPAddress]::IsLoopback($remote.Address)) { continue }
+        $stream = $client.GetStream()
+        $stream.ReadTimeout = 5000
+        [byte[]] $requestBytes = New-Object byte[] 8192
+        $requestLength = 0
+        while ($requestLength -lt $requestBytes.Length) {
+          $read = $stream.Read($requestBytes, $requestLength, $requestBytes.Length - $requestLength)
+          if ($read -le 0) { break }
+          $requestLength += $read
+          if ($requestLength -ge 4) {
+            $requestText = [Text.Encoding]::ASCII.GetString($requestBytes, 0, $requestLength)
+            if ($requestText.Contains("`r`n`r`n")) { break }
+          }
+        }
+        $requestText = [Text.Encoding]::ASCII.GetString($requestBytes, 0, $requestLength)
+        [Array]::Clear($requestBytes, 0, $requestBytes.Length)
+        $requestLine = ($requestText -split "`r`n", 2)[0]
+        $isFirefoxDocument = $requestText -match '(?im)^User-Agent:\s*[^\r\n]*Firefox/[0-9]+' `
+          -and $requestText -match '(?im)^Accept:\s*[^\r\n]*text/html' `
+          -and $requestText -match '(?im)^Sec-Fetch-Mode:\s*navigate\s*$' `
+          -and $requestText -match '(?im)^Sec-Fetch-Dest:\s*document\s*$'
+        if ($requestLine -ne "GET $bridgePath HTTP/1.1" -or -not $isFirefoxDocument) {
+          $notFound = [Text.Encoding]::ASCII.GetBytes(
+            "HTTP/1.1 404 Not Found`r`nCache-Control: no-store`r`nContent-Length: 0`r`nConnection: close`r`n`r`n"
+          )
+          $stream.Write($notFound, 0, $notFound.Length)
+          $stream.Flush()
+          continue
+        }
+        $boundUrl = "$CheckoutUrl#handoff=$BindingVerifier"
+        $responseText = "HTTP/1.1 302 Found`r`n" +
+          "Location: $boundUrl`r`n" +
+          "Cache-Control: no-store`r`n" +
+          "Pragma: no-cache`r`n" +
+          "Referrer-Policy: no-referrer`r`n" +
+          "X-Content-Type-Options: nosniff`r`n" +
+          "X-Frame-Options: DENY`r`n" +
+          "Content-Length: 0`r`n" +
+          "Connection: close`r`n`r`n"
+        $headerBytes = [Text.Encoding]::ASCII.GetBytes($responseText)
+        $stream.Write($headerBytes, 0, $headerBytes.Length)
+        $stream.Flush()
+        [Array]::Clear($headerBytes, 0, $headerBytes.Length)
+        $redirectServed = $true
+        if ($null -eq $redirectDeadline) {
+          $redirectDeadline = [DateTime]::UtcNow.AddSeconds(15)
+        }
+      }
+      finally { $client.Dispose() }
+    }
+    if ($redirectServed) { return 'loopback-fragment-redirect' }
+    throw 'The checkout browser did not claim the one-time loopback handoff.'
+  }
+  finally { $listener.Stop() }
+}
+
 if (-not [Uri]::IsWellFormedUriString($ServiceOrigin, [UriKind]::Absolute) `
   -or ([Uri]$ServiceOrigin).Scheme -ne 'https' `
   -or ([Uri]$ServiceOrigin).GetLeftPart([UriPartial]::Authority) -ne $ServiceOrigin) {
@@ -100,6 +203,9 @@ if (-not (Test-Path -LiteralPath $StatePath -PathType Leaf)) {
 }
 if (-not $DoNotLaunch -and -not (Test-Path -LiteralPath $BrowserPath -PathType Leaf)) {
   throw 'The requested browser executable is unavailable.'
+}
+if ($DoNotLaunch -and $ReopenActive) {
+  throw 'An active checkout cannot be reopened with browser launch disabled.'
 }
 
 $ready = Invoke-WebRequest `
@@ -119,6 +225,43 @@ $plain = [Security.Cryptography.ProtectedData]::Unprotect(
 )
 try {
   $state = [Text.Encoding]::UTF8.GetString($plain) | ConvertFrom-Json -Depth 20 -DateKind String
+  if ($ReopenActive) {
+    if (-not ($state.PSObject.Properties.Name -contains 'activeFundedPilot')) {
+      throw 'There is no active funded checkout to reopen.'
+    }
+    $pilot = $state.activeFundedPilot
+    if ($pilot.session.state -ne 'ready' `
+      -or $pilot.quote.offerId -ne $expectedOffer `
+      -or $pilot.quote.amountAtomic -ne '100000' `
+      -or $pilot.quote.asset.ToLowerInvariant() -ne $expectedAsset `
+      -or $pilot.quote.recipient.ToLowerInvariant() -ne $expectedRecipient `
+      -or [DateTimeOffset]::Parse($pilot.session.expiresAt).UtcDateTime -le [DateTime]::UtcNow.AddSeconds(5)) {
+      throw 'The active funded checkout is no longer safe to reopen.'
+    }
+    $launchMethod = Open-CheckoutBrowserHandoff `
+      -CheckoutUrl $pilot.session.checkoutUrl `
+      -BindingVerifier $pilot.browserBindingVerifier
+    $pilot.browserOpenedAt = [DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+    if ($pilot.PSObject.Properties.Name -contains 'browserLaunch') {
+      $pilot.browserLaunch = $launchMethod
+    }
+    else { $pilot | Add-Member -NotePropertyName browserLaunch -NotePropertyValue $launchMethod }
+    Save-PilotState -State $state
+    [pscustomobject]@{
+      schemaVersion = 1
+      launched = $true
+      product = $pilot.quote.productId
+      amount = '0.10 test USDC'
+      network = 'Base Sepolia'
+      asset = $pilot.quote.asset
+      recipient = $pilot.quote.recipient
+      checkoutState = $pilot.session.state
+      checkoutExpiresAt = $pilot.session.expiresAt
+      refreshGeneration = $state.commerceSession.refreshGeneration
+      browserLaunch = $launchMethod
+    } | ConvertTo-Json -Compress
+    return
+  }
   $pendingRotation = if ($state.PSObject.Properties.Name -contains 'pendingRefreshRotationId') {
     [string] $state.pendingRefreshRotationId
   }
@@ -244,6 +387,7 @@ try {
     session = $checkout
     browserBindingVerifier = $bindingVerifier
     browserOpenedAt = $null
+    browserLaunch = $null
   }
   if ($state.PSObject.Properties.Name -contains 'activeFundedPilot') {
     $state.activeFundedPilot = $pilot
@@ -255,11 +399,13 @@ try {
   Save-PilotState -State $state
 
   if (-not $DoNotLaunch) {
-    $boundUrl = "$($checkout.checkoutUrl)#handoff=$bindingVerifier"
-    Start-Process -FilePath $BrowserPath -ArgumentList @('-new-tab', $boundUrl)
+    $launchMethod = Open-CheckoutBrowserHandoff `
+      -CheckoutUrl $checkout.checkoutUrl `
+      -BindingVerifier $bindingVerifier
     $state.activeFundedPilot.browserOpenedAt = [DateTime]::UtcNow.ToString(
       'yyyy-MM-ddTHH:mm:ss.fffZ'
     )
+    $state.activeFundedPilot.browserLaunch = $launchMethod
     Save-PilotState -State $state
   }
 
@@ -274,6 +420,7 @@ try {
     checkoutState = $checkout.state
     checkoutExpiresAt = $checkout.expiresAt
     refreshGeneration = $fresh.refreshGeneration
+    browserLaunch = if ($DoNotLaunch) { 'not-launched' } else { $launchMethod }
   } | ConvertTo-Json -Compress
 }
 finally {

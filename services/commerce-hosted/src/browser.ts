@@ -1,10 +1,22 @@
 import { CheckoutBrowserApiClient } from '../../../src/service/commerce/checkout-browser-api-client';
 import type { CheckoutBrowserApiMaterial } from '../../../src/service/commerce/checkout-browser-api-client';
-import type { Eip1193Provider } from '../../../src/service/commerce/checkout-browser-wallet-client';
+import {
+  CheckoutWalletError,
+  type Eip1193Provider,
+} from '../../../src/service/commerce/checkout-browser-wallet-client';
 import './browser.css';
 
 declare global {
-  interface Window { ethereum?: Eip1193Provider; }
+  interface Window { ethereum?: InjectedProvider; }
+}
+type InjectedProvider = Eip1193Provider & {
+  isMetaMask?: boolean;
+  isPhantom?: boolean;
+  providers?: InjectedProvider[];
+};
+interface AnnouncedProvider {
+  info: { uuid: string; name: string; rdns: string };
+  provider: InjectedProvider;
 }
 const element = <T extends HTMLElement>(id: string): T => {
   const found = document.getElementById(id);
@@ -23,6 +35,36 @@ const sessionLabel = element<HTMLSpanElement>('session-label');
 let client: CheckoutBrowserApiClient | undefined;
 let material: CheckoutBrowserApiMaterial | undefined;
 let polling: number | undefined;
+const announcedProviders = new Map<string, AnnouncedProvider>();
+
+window.addEventListener('eip6963:announceProvider', (event: Event) => {
+  const detail = (event as CustomEvent<unknown>).detail;
+  if (!detail || typeof detail !== 'object') return;
+  const candidate = detail as Partial<AnnouncedProvider>;
+  if (!candidate.info || typeof candidate.info.uuid !== 'string'
+    || typeof candidate.info.name !== 'string' || typeof candidate.info.rdns !== 'string'
+    || !candidate.provider || typeof candidate.provider.request !== 'function') return;
+  announcedProviders.set(candidate.info.uuid, candidate as AnnouncedProvider);
+});
+window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+function preferredWallet(): { name: string; provider: Eip1193Provider } | undefined {
+  const announced = [...announcedProviders.values()];
+  const announcedMetaMask = announced.find(({ info }) => info.rdns === 'io.metamask')
+    ?? announced.find(({ info }) => info.name.toLowerCase() === 'metamask');
+  if (announcedMetaMask) {
+    return { name: announcedMetaMask.info.name, provider: announcedMetaMask.provider };
+  }
+  const injected = window.ethereum;
+  const legacy = injected?.providers ?? (injected ? [injected] : []);
+  const legacyMetaMask = legacy.find((provider) => provider.isMetaMask && !provider.isPhantom);
+  if (legacyMetaMask) return { name: 'MetaMask', provider: legacyMetaMask };
+  if (announced.length === 1) {
+    return { name: announced[0].info.name, provider: announced[0].provider };
+  }
+  if (legacy.length === 1) return { name: 'injected wallet', provider: legacy[0] };
+  return undefined;
+}
 
 function atomicUsdc(value: string): string {
   const padded = value.padStart(7, '0');
@@ -88,6 +130,20 @@ function showFailure(heading: string, detail: string): void {
   pay.textContent = 'Cannot continue';
 }
 
+function bootstrapFailureCode(error: unknown): string {
+  if (!(error instanceof Error)) return 'client-unknown';
+  if (error.message.includes('page URL')) return 'checkout-url';
+  if (error.message.includes('handoff URL')) return 'handoff-url';
+  if (error.message.includes('handoff fragment')) return 'handoff-fragment';
+  if (error.message.includes('request failed')) return 'bootstrap-http';
+  if (error.message.includes('response')) return 'bootstrap-response';
+  if (error.name === 'TypeError' || error.message.toLowerCase().includes('network')) {
+    return 'bootstrap-network';
+  }
+  if (error.name === 'SecurityError') return 'browser-history';
+  return 'client-runtime';
+}
+
 function stopPolling(): void {
   if (polling !== undefined) window.clearInterval(polling);
   polling = undefined;
@@ -102,20 +158,23 @@ function startPolling(): void {
 }
 
 pay.addEventListener('click', () => {
-  if (!client || !window.ethereum) {
-    showFailure('No compatible wallet found.', 'Install or enable an EIP-1193 wallet, then reopen this checkout from Desky.');
+  const wallet = preferredWallet();
+  if (!client || !wallet) {
+    showFailure('No unambiguous compatible wallet found.',
+      'Enable MetaMask, then reopen this checkout from Desky. Desky will not guess between multiple wallets.');
     return;
   }
   pay.disabled = true;
-  pay.textContent = 'Waiting for wallet…';
+  pay.textContent = `Waiting for ${wallet.name}…`;
   void client.signAndSubmit({
-    provider: window.ethereum,
+    provider: wallet.provider,
     submissionId: `submission:${crypto.randomUUID()}`,
     nowSeconds: Math.floor(Date.now() / 1_000),
-  }).then(render).catch(() => {
+  }).then(render).catch((error: unknown) => {
+    const failure = error instanceof CheckoutWalletError ? error.code : 'wallet-client-runtime';
     eyebrow.textContent = 'Wallet did not complete';
     title.textContent = 'Nothing was approved.';
-    lead.textContent = 'No entitlement was granted. You can retry while this checkout remains valid.';
+    lead.textContent = `No entitlement was granted. Safe diagnostic: ${failure}.`;
     statusMark.className = 'status-mark error';
     pay.disabled = false;
     pay.textContent = 'Try wallet again';
@@ -126,8 +185,9 @@ window.addEventListener('pagehide', stopPolling);
 
 try {
   client = new CheckoutBrowserApiClient(location.origin);
-  void client.bootstrapFromUrl(location.href).then(render).catch(() => {
-    showFailure('This link is incomplete or expired.', 'Return to Desky and reopen the approved checkout.');
+  void client.bootstrapFromUrl(location.href).then(render).catch((error: unknown) => {
+    showFailure('This link is incomplete or expired.',
+      `Return to Desky and reopen the approved checkout. Diagnostic: ${bootstrapFailureCode(error)}.`);
   });
 } catch {
   showFailure('Checkout configuration is invalid.', 'Return to Desky and try again later.');

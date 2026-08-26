@@ -122,6 +122,34 @@ describe('hosted PostgreSQL checkout ledger', () => {
     await store.close();
   });
 
+  it('expires idle checkout sessions and their orders without touching settlement states', async () => {
+    const { store } = await ledger();
+    await store.storeQuote(quote());
+    await store.createOrder(order());
+    const approved = await store.advanceOrder(
+      order().orderId, 'awaiting-approval', '2026-08-25T09:59:41.000Z',
+    );
+    const checkout = new HostedCommerceCheckoutService(store, {
+      authenticate: async () => ({ accountId: 'account:1', installationId: 'install:1' }),
+    }, { checkoutOrigin: origin, now: () => new Date(now), sessionId: () => 'checkout:postgres:idle' });
+    await checkout.createSession({
+      schemaVersion: 1, approvalId: 'approval:postgres:idle', accountId: 'account:1',
+      installationId: 'install:1', orderId: order().orderId, quoteId: quote().quoteId,
+      termsDigest: createHash('sha256')
+        .update(canonicalCommerceCheckoutTerms(quote(), approved)).digest('base64url'),
+      approvedAt: now, approvalExpiresAt: '2026-08-25T10:02:00.000Z',
+      idempotencyKey: 'checkout:postgres:idle', browserBindingChallenge: 'b'.repeat(43),
+    }, 't'.repeat(32));
+    expect(await store.expireIdleCheckoutSessions('2026-08-25T10:01:59.999Z')).toBe(0);
+    expect(await store.expireIdleCheckoutSessions('2026-08-25T10:02:00.000Z')).toBe(1);
+    expect((await store.getCheckoutSession('checkout:postgres:idle'))?.session.state).toBe('expired');
+    expect((await store.getOrder(order().orderId))?.state).toBe('expired');
+    expect(await store.expireIdleCheckoutSessions('2026-08-25T10:03:00.000Z')).toBe(0);
+    await expect(store.expireIdleCheckoutSessions('2026-08-25T10:03:00.000Z', 101))
+      .rejects.toThrow('expiry policy');
+    await store.close();
+  });
+
   it('runs the real checkout-to-settlement path durably without storing browser secrets', async () => {
     const { store, pool } = await ledger();
     await store.storeQuote(quote());
@@ -164,6 +192,7 @@ describe('hosted PostgreSQL checkout ledger', () => {
     }, { origin, secFetchSite: 'same-origin', cookie, csrfToken: opened.csrfToken });
 
     expect(completed.session.state).toBe('settled');
+    expect(await store.expireIdleCheckoutSessions('2026-08-25T10:10:00.000Z')).toBe(0);
     expect((await store.getOrder(order().orderId))?.state).toBe('awaiting-settlement');
     expect((await store.getPaymentAttempt('attempt:checkout:postgres:1'))?.state).toBe('settled');
     expect(remote.settle).toHaveBeenCalledTimes(1);

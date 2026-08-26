@@ -12,6 +12,28 @@ export interface Eip1193Provider {
   request(input: { method: string; params?: unknown[] }): Promise<unknown>;
 }
 
+export type CheckoutWalletFailureCode =
+  | 'wallet-user-rejected'
+  | 'wallet-account-access'
+  | 'wallet-network-switch'
+  | 'wallet-network-add'
+  | 'wallet-signature-request'
+  | 'wallet-signature-invalid'
+  | 'wallet-checkout-expired';
+
+export class CheckoutWalletError extends Error {
+  constructor(readonly code: CheckoutWalletFailureCode) {
+    super(code === 'wallet-account-access'
+      ? 'Wallet returned an invalid or ambiguous account selection.'
+      : code === 'wallet-checkout-expired'
+        ? 'Checkout authorization has expired.'
+        : code === 'wallet-signature-invalid'
+          ? 'Wallet returned an invalid EIP-3009 signature.'
+          : code);
+    this.name = 'CheckoutWalletError';
+  }
+}
+
 const baseSepoliaChainId = 84_532;
 const baseSepoliaChainHex = '0x14a34';
 const addressPattern = /^0x[0-9a-fA-F]{40}$/;
@@ -43,9 +65,52 @@ function randomNonce(random?: (bytes: Uint8Array) => Uint8Array): string {
 function readAccount(value: unknown): string {
   if (!Array.isArray(value) || value.length !== 1
     || typeof value[0] !== 'string' || !addressPattern.test(value[0])) {
-    throw new Error('Wallet returned an invalid or ambiguous account selection.');
+    throw new CheckoutWalletError('wallet-account-access');
   }
   return value[0];
+}
+
+function providerCode(error: unknown): number | undefined {
+  if (!error || typeof error !== 'object') return undefined;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'number' && Number.isSafeInteger(code) ? code : undefined;
+}
+
+async function providerRequest(
+  provider: Eip1193Provider,
+  input: { method: string; params?: unknown[] },
+  failure: CheckoutWalletFailureCode,
+): Promise<unknown> {
+  try { return await provider.request(input); } catch (error) {
+    throw new CheckoutWalletError(providerCode(error) === 4001 ? 'wallet-user-rejected' : failure);
+  }
+}
+
+async function switchToBaseSepolia(provider: Eip1193Provider): Promise<void> {
+  try {
+    await provider.request({
+      method: 'wallet_switchEthereumChain', params: [{ chainId: baseSepoliaChainHex }],
+    });
+  } catch (error) {
+    if (providerCode(error) !== 4902) {
+      throw new CheckoutWalletError(
+        providerCode(error) === 4001 ? 'wallet-user-rejected' : 'wallet-network-switch',
+      );
+    }
+    await providerRequest(provider, {
+      method: 'wallet_addEthereumChain',
+      params: [{
+        chainId: baseSepoliaChainHex,
+        chainName: 'Base Sepolia',
+        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+        rpcUrls: ['https://sepolia.base.org'],
+        blockExplorerUrls: ['https://sepolia.basescan.org'],
+      }],
+    }, 'wallet-network-add');
+    await providerRequest(provider, {
+      method: 'wallet_switchEthereumChain', params: [{ chainId: baseSepoliaChainHex }],
+    }, 'wallet-network-switch');
+  }
 }
 
 /**
@@ -71,16 +136,17 @@ export async function signBaseSepoliaCheckout(input: {
     input.expiresAtSeconds,
     input.nowSeconds + requirements.maxTimeoutSeconds,
   );
-  if (validBefore <= input.nowSeconds) throw new Error('Checkout authorization has expired.');
+  if (validBefore <= input.nowSeconds) {
+    throw new CheckoutWalletError('wallet-checkout-expired');
+  }
 
-  const account = readAccount(await input.provider.request({ method: 'eth_requestAccounts' }));
+  const account = readAccount(await providerRequest(
+    input.provider, { method: 'eth_requestAccounts' }, 'wallet-account-access',
+  ));
   if (account.toLowerCase() === requirements.payTo.toLowerCase()) {
     throw new Error('The Base Sepolia payer must differ from the merchant recipient.');
   }
-  await input.provider.request({
-    method: 'wallet_switchEthereumChain',
-    params: [{ chainId: baseSepoliaChainHex }],
-  });
+  await switchToBaseSepolia(input.provider);
   const authorization = {
     from: account,
     to: requirements.payTo,
@@ -115,12 +181,12 @@ export async function signBaseSepoliaCheckout(input: {
     },
     message: authorization,
   };
-  const signature = await input.provider.request({
+  const signature = await providerRequest(input.provider, {
     method: 'eth_signTypedData_v4',
     params: [account, JSON.stringify(typedData)],
-  });
+  }, 'wallet-signature-request');
   if (typeof signature !== 'string' || !signaturePattern.test(signature)) {
-    throw new Error('Wallet returned an invalid EIP-3009 signature.');
+    throw new CheckoutWalletError('wallet-signature-invalid');
   }
   return {
     x402Version: 2,

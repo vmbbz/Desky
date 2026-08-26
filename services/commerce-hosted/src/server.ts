@@ -255,20 +255,38 @@ function unavailable(request: Request): Response {
 }
 
 export async function handleBrowserRequest(path: string, request: Request): Promise<Response> {
+  const started = Date.now();
+  const id = correlationId(request);
+  const origin = request.headers.get('origin') ?? undefined;
+  const checkoutOrigin = process.env.DESKY_CHECKOUT_ORIGIN;
+  const originClass = checkoutOrigin && origin === checkoutOrigin ? 'checkout'
+    : /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/.test(origin ?? '') ? 'loopback-ipv4'
+      : origin ? 'other' : 'missing';
   try {
     const body = await boundedBody(request);
-    return webResponse(await runtime().api.handle({
+    const response = await runtime().api.handle({
       method: request.method,
       path,
       contentType: request.headers.get('content-type') ?? undefined,
       body,
-      origin: request.headers.get('origin') ?? undefined,
+      origin,
       cookie: request.headers.get('cookie') ?? undefined,
       csrfToken: request.headers.get('x-desky-csrf') ?? undefined,
       secFetchSite: request.headers.get('sec-fetch-site') ?? undefined,
-      correlationId: correlationId(request),
+      correlationId: id,
+    });
+    console.log(JSON.stringify({
+      event: 'commerce-browser-http', path, status: response.status, correlationId: id,
+      originClass, secFetchSite: request.headers.get('sec-fetch-site') ?? 'missing',
+      durationMs: Date.now() - started,
     }));
+    return webResponse(response);
   } catch {
+    console.error(JSON.stringify({
+      event: 'commerce-browser-http-failed', path, correlationId: id,
+      originClass, secFetchSite: request.headers.get('sec-fetch-site') ?? 'missing',
+      durationMs: Date.now() - started,
+    }));
     return unavailable(request);
   }
 }
@@ -418,6 +436,7 @@ export async function runScheduledMonitor(): Promise<void> {
   const generatedAt = new Date().toISOString();
   try {
     const service = serviceRuntime();
+    const expiredIdleCheckoutSessions = await database().ledger.expireIdleCheckoutSessions(generatedAt);
     const expiredUnstartedOrders = await database().ledger.expireUnstartedOrders(generatedAt);
     const chain = process.env.DESKY_BASE_SEPOLIA_RPC_URL
       ? await reconciliationRuntime().run(generatedAt)
@@ -433,6 +452,7 @@ export async function runScheduledMonitor(): Promise<void> {
       event: 'commerce-monitor', severity, generatedAt,
       migrationVersion: operations.migrationVersion,
       pendingOrders: operations.pendingOrders,
+      expiredIdleCheckoutSessions,
       expiredUnstartedOrders,
       indeterminateSettlements: operations.indeterminateSettlements,
       maximumReconciliationAgeSeconds: maximumAgeSeconds,

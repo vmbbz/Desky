@@ -100,7 +100,7 @@ export class CheckoutBrowserApiClient {
 
   constructor(
     originValue: string,
-    private readonly fetchImpl: CheckoutFetch = fetch,
+    private readonly fetchImpl: CheckoutFetch = (input, init) => globalThis.fetch(input, init),
   ) {
     const origin = new URL(originValue);
     if (origin.protocol !== 'https:' || origin.origin !== originValue) {
@@ -111,16 +111,31 @@ export class CheckoutBrowserApiClient {
 
   async bootstrapFromUrl(urlValue: string): Promise<CheckoutBrowserApiMaterial> {
     const checkoutSessionId = checkoutSessionIdFromUrl(urlValue, this.origin);
+    const url = new URL(urlValue);
+    if (!url.hash) {
+      return this.resume(checkoutSessionId);
+    }
     const bindingVerifier = readCheckoutHandoffVerifier(urlValue);
     const cleanUrl = new URL(urlValue);
     cleanUrl.hash = '';
     if (typeof globalThis.history !== 'undefined') {
       globalThis.history.replaceState(null, '', cleanUrl.toString());
     }
-    this.material = await this.post('/v1/browser/bootstrap', {
-      schemaVersion: 1, checkoutSessionId, bindingVerifier,
-    });
-    return structuredClone(this.material);
+    try {
+      this.material = await this.post('/v1/browser/bootstrap', {
+        schemaVersion: 1, checkoutSessionId, bindingVerifier,
+      });
+      return structuredClone(this.material);
+    } catch (bootstrapError) {
+      // A response can bind the HttpOnly cookie before a transient body or
+      // connection failure reaches JavaScript. Resume once with that cookie so
+      // reload/recovery never requires persisting the one-time verifier.
+      try {
+        return await this.resume(checkoutSessionId);
+      } catch {
+        throw bootstrapError;
+      }
+    }
   }
 
   async resume(checkoutSessionId: string): Promise<CheckoutBrowserApiMaterial> {

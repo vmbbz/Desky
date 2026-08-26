@@ -52,6 +52,7 @@ function material(input: {
   serverTime?: number;
   accessSubject?: string;
   offlineSubject?: string;
+  multipleCatalogs?: boolean;
 } = {}): CommerceSessionMaterial {
   const generation = input.generation ?? 1;
   const serverTime = input.serverTime ?? now;
@@ -67,6 +68,14 @@ function material(input: {
     state: 'active' as const,
     issuedAt: new Date(now * 1_000).toISOString(),
   };
+  const grants = input.multipleCatalogs ? [grant, {
+    ...grant,
+    grantId: 'grant:2',
+    productId: 'avatar:toothpaste',
+    avatarRevisionIds: ['toothpaste:revision:1'],
+    entitlementEventId: 'event:2',
+    catalogVersion: 'catalog:paid:1',
+  }] : [grant];
   return {
     schemaVersion: 1,
     accountId: 'account:1',
@@ -84,8 +93,8 @@ function material(input: {
       exp: serverTime + 600,
       jti: `access:${generation}`,
       scope: ['catalog:read', 'asset:read'],
-      grants: ['avatar:banana'],
-      catalogVersion: 'catalog:1',
+      grants: grants.map((entry) => entry.productId),
+      catalogVersions: [...new Set(grants.map((entry) => entry.catalogVersion))],
     }),
     offlineLease: signedToken(commerceOfflineLeaseType, {
       iss: issuer,
@@ -96,13 +105,13 @@ function material(input: {
       nbf: serverTime,
       exp: serverTime + 72 * 60 * 60,
       jti: `lease:${generation}`,
-      grants: [{
-        grantId: 'grant:1',
-        productId: 'avatar:banana',
-        productRevision: 1,
-        avatarRevisionIds: ['banana:revision:1'],
-        catalogVersion: 'catalog:1',
-      }],
+      grants: grants.map((entry) => ({
+        grantId: entry.grantId,
+        productId: entry.productId,
+        productRevision: entry.productRevision,
+        avatarRevisionIds: entry.avatarRevisionIds,
+        catalogVersion: entry.catalogVersion,
+      })),
     }),
     serverTimeSeconds: serverTime,
     reconciliation: {
@@ -111,7 +120,7 @@ function material(input: {
       accountId: 'account:1',
       generatedAt: new Date(serverTime * 1_000).toISOString(),
       cursor: `cursor:${generation}`,
-      grants: [grant],
+      grants,
       pendingOrderIds: generation === 1 ? ['order:pending'] : [],
       revokedGrantIds: [],
     },
@@ -172,8 +181,9 @@ afterEach(() => {
 describe('commerce clean-device recovery coordinator', () => {
   it('verifies restore material before persisting, rotates once, and reconciles current grants', async () => {
     const test = coordinator([
-      material(),
-      material({ generation: 2, credential: 's'.repeat(43), serverTime: now + 60 }),
+      material({ multipleCatalogs: true }),
+      material({ generation: 2, credential: 's'.repeat(43), serverTime: now + 60,
+        multipleCatalogs: true }),
     ]);
     const restored = await test.coordinator.restoreCleanDevice({
       schemaVersion: 1,
@@ -186,7 +196,7 @@ describe('commerce clean-device recovery coordinator', () => {
       accountId: 'account:1',
       pendingOrderIds: ['order:pending'],
     });
-    expect(restored.grants.map((grant) => grant.grantId)).toEqual(['grant:1']);
+    expect(restored.grants.map((entry) => entry.grantId)).toEqual(['grant:1', 'grant:2']);
     expect(test.vault.load()?.refreshGeneration).toBe(1);
 
     const refreshed = await test.coordinator.refresh(now + 60, 61_000);

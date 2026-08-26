@@ -33,10 +33,22 @@ $secretPlain = [Security.Cryptography.ProtectedData]::Unprotect(
 )
 try {
   $secrets = [Text.Encoding]::UTF8.GetString($secretPlain) | ConvertFrom-Json -Depth 10 -DateKind String
+  $operatorHeaders = @{ Authorization = "Bearer $($secrets.operatorToken)" }
+  $statusResponse = Invoke-WebRequest `
+    -Uri "$ServiceOrigin/v1/operations/status" `
+    -Method Get `
+    -Headers (@{ Accept = 'application/json' } + $operatorHeaders) `
+    -MaximumRedirection 0 `
+    -TimeoutSec 30 `
+    -SkipHttpErrorCheck
+  if ($statusResponse.StatusCode -ne 200) {
+    throw "The commerce operations status endpoint failed with status $($statusResponse.StatusCode)."
+  }
+  $operations = $statusResponse.Content | ConvertFrom-Json -Depth 5 -DateKind String
   $response = Invoke-WebRequest `
     -Uri "$ServiceOrigin/v1/operations/backup" `
     -Method Get `
-    -Headers @{ Accept = 'application/octet-stream'; Authorization = "Bearer $($secrets.operatorToken)" } `
+    -Headers (@{ Accept = 'application/octet-stream' } + $operatorHeaders) `
     -MaximumRedirection 0 `
     -TimeoutSec 30 `
     -SkipHttpErrorCheck
@@ -64,22 +76,43 @@ try {
     $backup = [Text.Encoding]::UTF8.GetString($backupPlain) | ConvertFrom-Json -Depth 40 -DateKind String
     $ordersTable = $backup.tables | Where-Object table -eq 'commerce_orders'
     $sessionsTable = $backup.tables | Where-Object table -eq 'commerce_checkout_sessions'
-    if (-not $ordersTable -or -not $sessionsTable) { throw 'The commerce backup tables are incomplete.' }
+    $observationsTable = $backup.tables | Where-Object table -eq 'settlement_observations'
+    $grantsTable = $backup.tables | Where-Object table -eq 'asset_grants'
+    if (-not $ordersTable -or -not $sessionsTable -or -not $observationsTable -or -not $grantsTable) {
+      throw 'The commerce backup tables are incomplete.'
+    }
     $orderPayloadIndex = [Array]::IndexOf([string[]] $ordersTable.columns, 'payload_text')
     $sessionPayloadIndex = [Array]::IndexOf([string[]] $sessionsTable.columns, 'payload_text')
-    if ($orderPayloadIndex -lt 0 -or $sessionPayloadIndex -lt 0) {
+    $observationPayloadIndex = [Array]::IndexOf([string[]] $observationsTable.columns, 'payload_text')
+    $grantPayloadIndex = [Array]::IndexOf([string[]] $grantsTable.columns, 'payload_text')
+    if ($orderPayloadIndex -lt 0 -or $sessionPayloadIndex -lt 0 `
+      -or $observationPayloadIndex -lt 0 -or $grantPayloadIndex -lt 0) {
       throw 'The commerce backup payload columns are unavailable.'
     }
     $orders = @($ordersTable.rows | ForEach-Object {
       ([string] $_[$orderPayloadIndex]) | ConvertFrom-Json -Depth 10 -DateKind String
     })
-    $sessions = @($sessionsTable.rows | ForEach-Object {
-      $record = ([string] $_[$sessionPayloadIndex]) | ConvertFrom-Json -Depth 15 -DateKind String
-      $record.session
+    $sessionRecords = @($sessionsTable.rows | ForEach-Object {
+      ([string] $_[$sessionPayloadIndex]) | ConvertFrom-Json -Depth 15 -DateKind String
     })
+    $observations = @($observationsTable.rows | ForEach-Object {
+      ([string] $_[$observationPayloadIndex]) | ConvertFrom-Json -Depth 10 -DateKind String
+    })
+    $grants = @($grantsTable.rows | ForEach-Object {
+      ([string] $_[$grantPayloadIndex]) | ConvertFrom-Json -Depth 10 -DateKind String
+    })
+    $sessions = @($sessionRecords | ForEach-Object { $_.session })
     [pscustomobject]@{
       schemaVersion = 1
       backupCreatedAt = $backup.createdAt
+      operations = [pscustomobject]@{
+        migrationVersion = $operations.migrationVersion
+        identities = $operations.identities
+        activeRefreshSessions = $operations.activeRefreshSessions
+        pendingOrders = $operations.pendingOrders
+        indeterminateSettlements = $operations.indeterminateSettlements
+        generatedAt = $operations.generatedAt
+      }
       orderStates = @($orders | Group-Object state | Sort-Object Name | ForEach-Object {
         [pscustomobject]@{ state = $_.Name; count = $_.Count }
       })
@@ -88,6 +121,50 @@ try {
       })
       latestOrders = @($orders | Sort-Object createdAt -Descending | Select-Object -First 5 `
         orderId, state, createdAt, updatedAt)
+      latestCheckoutSessions = @($sessionRecords | Sort-Object { $_.session.createdAt } -Descending |
+        Select-Object -First 5 | ForEach-Object {
+          [pscustomobject]@{
+            checkoutSessionId = $_.session.checkoutSessionId
+            state = $_.session.state
+            createdAt = $_.session.createdAt
+            expiresAt = $_.session.expiresAt
+            browserBound = ($_.PSObject.Properties.Name -contains 'browser') -and ($null -ne $_.browser)
+          }
+        })
+      latestSettlementObservations = @($observations | Sort-Object observedAt -Descending |
+        Select-Object -First 5 | ForEach-Object {
+          [pscustomobject]@{
+            observationId = $_.observationId
+            orderId = $_.orderId
+            status = $_.status
+            source = $_.source
+            payer = $_.payer
+            network = $_.network
+            asset = $_.asset
+            recipient = $_.recipient
+            amountAtomic = $_.amountAtomic
+            providerReference = if ($_.PSObject.Properties.Name -contains 'providerReference') {
+              $_.providerReference
+            }
+            else { $null }
+            observedAt = $_.observedAt
+            settledAt = if ($_.PSObject.Properties.Name -contains 'settledAt') { $_.settledAt } else { $null }
+            reasonCode = $_.reasonCode
+          }
+        })
+      latestAssetGrants = @($grants | Sort-Object issuedAt -Descending | Select-Object -First 5 |
+        ForEach-Object {
+          [pscustomobject]@{
+            grantId = $_.grantId
+            accountId = $_.accountId
+            productId = $_.productId
+            productRevision = $_.productRevision
+            catalogVersion = $_.catalogVersion
+            state = $_.state
+            issuedAt = $_.issuedAt
+            expiresAt = if ($_.PSObject.Properties.Name -contains 'expiresAt') { $_.expiresAt } else { $null }
+          }
+        })
     } | ConvertTo-Json -Depth 8 -Compress
   }
   finally {

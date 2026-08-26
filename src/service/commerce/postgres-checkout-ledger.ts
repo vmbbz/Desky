@@ -276,6 +276,59 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     });
   }
 
+  async expireIdleCheckoutSessions(updatedAt: string, limit = 100): Promise<number> {
+    const parsed = new Date(updatedAt);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== updatedAt
+      || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid idle commerce checkout expiry policy.');
+    }
+    return this.transaction(async (client) => {
+      const result = await client.query(`
+        SELECT payload_text
+        FROM desky_commerce.commerce_checkout_sessions
+        WHERE expires_at <= $1
+          AND payload_text::jsonb -> 'session' ->> 'state' IN ('ready', 'awaiting-wallet')
+        ORDER BY expires_at ASC, checkout_session_id ASC
+        LIMIT $2
+        FOR UPDATE
+      `, [updatedAt, limit]);
+      let expired = 0;
+      for (const row of result.rows) {
+        const currentPayload = payload(row);
+        if (!currentPayload) throw new Error('Invalid idle commerce checkout payload.');
+        const current = parseCommerceCheckoutSessionRecord(JSON.parse(currentPayload));
+        if (!['ready', 'awaiting-wallet'].includes(current.session.state)) {
+          throw new Error('Idle commerce checkout expiry selected an active settlement.');
+        }
+        const next = parseCommerceCheckoutSessionRecord({
+          ...current,
+          session: { ...current.session, state: 'expired' },
+          updatedAt,
+        });
+        const updated = await client.query(`
+          UPDATE desky_commerce.commerce_checkout_sessions SET payload_text = $1, expires_at = $2
+          WHERE checkout_session_id = $3 AND payload_text = $4
+        `, [JSON.stringify(next), next.session.expiresAt,
+          next.session.checkoutSessionId, currentPayload]);
+        if (rowCount(updated) !== 1) throw new Error('Concurrent idle commerce checkout expiry.');
+
+        const order = await this.requireOrder(client, next.session.orderId, true);
+        const closed = transitionCommerceOrder(order, 'expired', updatedAt);
+        if (closed !== order) {
+          const updatedOrder = await client.query(`
+            UPDATE desky_commerce.commerce_orders SET payload_text = $1
+            WHERE order_id = $2 AND payload_text = $3
+          `, [JSON.stringify(closed), order.orderId, JSON.stringify(order)]);
+          if (rowCount(updatedOrder) !== 1) {
+            throw new Error('Concurrent idle commerce checkout order expiry.');
+          }
+        }
+        expired += 1;
+      }
+      return expired;
+    });
+  }
+
   async getPaymentAttempt(attemptId: string): Promise<PaymentAttempt | undefined> {
     return this.getAttemptWith(this.pool, attemptId);
   }

@@ -54,6 +54,45 @@ async function service() {
 }
 
 describe('hosted authenticated identity and recovery lifecycle', () => {
+  it('issues access and offline authorization across multiple admitted catalog revisions', () => {
+    const pair = generateKeyPairSync('ed25519');
+    const tokens = new CommerceTokenIssuer({
+      issuer: origin, keyId: 'key:multi-catalog', privateKey: pair.privateKey,
+    });
+    const issued = tokens.issue({
+      accountId: 'account:multi', installationId: 'install:multi', sessionId: 'session:multi',
+      nowSeconds: Math.floor(now.getTime() / 1_000),
+      reconciliation: {
+        schemaVersion: 1, snapshotId: 'snapshot:multi', accountId: 'account:multi',
+        generatedAt: now.toISOString(), cursor: 'cursor:multi', pendingOrderIds: [],
+        revokedGrantIds: [], grants: [
+          {
+            schemaVersion: 1, grantId: 'grant:free', accountId: 'account:multi',
+            productId: 'avatar.milk', productRevision: 1, avatarRevisionIds: ['milk:revision:1'],
+            entitlementEventId: 'event:free', catalogVersion: 'desky-foundation:2',
+            state: 'active', issuedAt: now.toISOString(),
+          },
+          {
+            schemaVersion: 1, grantId: 'grant:paid', accountId: 'account:multi',
+            productId: 'avatar.toothpaste', productRevision: 1,
+            avatarRevisionIds: ['toothpaste:revision:1'], entitlementEventId: 'event:paid',
+            catalogVersion: 'desky-paid-pilot:1', state: 'active', issuedAt: now.toISOString(),
+          },
+        ],
+      },
+    });
+    const access = verifyCommerceAccessToken(issued.accessToken, {
+      issuer: origin, audience: 'desky-assets', keys: new Map([[tokens.keyId, tokens.publicKey]]),
+    }, Math.floor(now.getTime() / 1_000));
+    expect(access.grants).toEqual(['avatar.milk', 'avatar.toothpaste']);
+    expect(access.catalogVersions).toEqual(['desky-foundation:2', 'desky-paid-pilot:1']);
+    const lease = verifyCommerceOfflineLease(issued.offlineLease, 'install:multi', {
+      issuer: origin, audience: 'desky-offline', keys: new Map([[tokens.keyId, tokens.publicKey]]),
+    }, Math.floor(now.getTime() / 1_000));
+    expect(lease.grants.map((grant) => grant.catalogVersion).sort())
+      .toEqual(['desky-foundation:2', 'desky-paid-pilot:1']);
+  });
+
   it('issues verified free grants, replays identity safely, rotates refresh, and consumes recovery once', async () => {
     const test = await service();
     const verifier = 'v'.repeat(43);

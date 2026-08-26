@@ -192,7 +192,7 @@ Suggested protected claims:
   "jti": "unique-token-id",
   "scope": ["catalog:read", "asset:read"],
   "grants": ["product:avatar.milk"],
-  "catalogVersion": "..."
+  "catalogVersions": ["desky-foundation:2", "desky-paid-pilot:1"]
 }
 ```
 
@@ -205,6 +205,7 @@ Production rules:
 - short expiry, initially 5–15 minutes;
 - bounded clock skew;
 - unique `jti` for incident correlation, not routine per-request server lookup;
+- a bounded unique catalog-revision set matching every active grant; a paid add-on must not invalidate access to foundation grants merely because it was admitted by a later catalog revision;
 - no email, wallet address, payment transaction, source URL, price, or secret;
 - distinct token type/audience from login, refresh, admin, and signed catalog artifacts.
 
@@ -230,6 +231,8 @@ The admitted hosted JSON surface is deliberately narrow and provider-disabled:
 - `GET /.well-known/jwks.json`: bounded Ed25519 public signing keys.
 
 Responses return a rotating refresh credential, short access JWT, offline lease, authoritative server time, and a full exact reconciliation snapshot. Requests and responses are `no-store`; redirects, unknown routes/fields, wrong content types, oversized bodies, identity drift, generation skips, credential reuse, and token/snapshot disagreement fail closed. The service stores refresh digests and bounded replay metadata, never plaintext credentials, wallet keys, conversation content, access tokens, or leases.
+
+Access tokens issued before the 2026-08-26 funded-pilot rollover may contain the legacy singular `catalogVersion` claim. Verification normalizes that one claim to a one-element set for the token's already-bounded lifetime. New tokens contain only `catalogVersions`; presenting both shapes or duplicate/empty versions fails closed.
 
 ## Commerce-provider interface
 

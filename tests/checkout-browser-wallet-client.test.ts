@@ -91,4 +91,18 @@ describe('hosted Base Sepolia wallet client', () => {
       nowSeconds: 100, expiresAtSeconds: 200, random: (bytes) => bytes.fill(1),
     })).rejects.toThrow('differ from the merchant');
   });
+
+  it('preserves a bounded diagnostic when the user rejects wallet approval', async () => {
+    const provider: Eip1193Provider = {
+      request: vi.fn(async () => {
+        throw Object.assign(new Error('wallet detail must not escape'), { code: 4001 });
+      }),
+    };
+    await expect(signBaseSepoliaCheckout({
+      provider, paymentRequirements: requirements, resource,
+      nowSeconds: 100, expiresAtSeconds: 200, random: (bytes) => bytes.fill(1),
+    })).rejects.toMatchObject({
+      name: 'CheckoutWalletError', code: 'wallet-user-rejected',
+    });
+  });
 });

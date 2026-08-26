@@ -232,8 +232,7 @@ export class CommerceRecoveryCoordinator {
     if (accessClaims.sub !== material.accountId
       || leaseClaims.sub !== material.accountId
       || !compareStrings(accessClaims.grants, productIds)
-      || catalogVersions.length !== 1
-      || accessClaims.catalogVersion !== catalogVersions[0]
+      || !compareStrings(accessClaims.catalogVersions, catalogVersions)
       || JSON.stringify(actualLeaseGrants) !== JSON.stringify(expectedLeaseGrants)) {
       throw new Error('Commerce authorization material does not match reconciliation.');
     }
