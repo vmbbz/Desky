@@ -1496,7 +1496,9 @@ export function App() {
       ) : null}
 
       <footer>
-        <span>{gateway.insecureLocal && adapterMode === 'runtime' ? 'Local transport · development only' : `${runtimeInfo.distributionProfile} build`}</span>
+        <span>{gateway.insecureLocal && adapterMode === 'runtime'
+          ? `Local transport · ${runtimeInfo.releaseProfileId}`
+          : runtimeInfo.releaseProfileId}</span>
         <span>v{runtimeInfo.version}</span>
       </footer>
     </main>

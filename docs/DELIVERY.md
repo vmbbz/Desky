@@ -492,6 +492,8 @@ Exit gate per adapter:
 
 ## F6 — store-ready beta
 
+F6a.1 engineering foundation is complete. The mutable development distribution switch is gone: Webpack embeds one exact schema-v1 manifest, main validates it before use, and the build selects separate development-direct, release-direct, or Store-free runtime graphs. Windows Store-free packages OpenClaw only; Windows direct packages OpenClaw, Codex and Hermes; Claude remains development/admission-only. Both real ASAR artifacts pass reciprocal policy checks, and every currently admitted release profile has commerce disabled. `windows-store-third-party-commerce` remains deliberately unknown until it has a separately reviewed implementation and Store submission. Evidence: `docs/verification/F6A1-IMMUTABLE-RELEASE-PROFILES-2026-08-26.md`.
+
 Deliverables:
 
 - Store identities and commercial model resolved.
@@ -525,7 +527,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Build fail-closed F6 release manifests and artifact-policy checks for Store-free and direct profiles; signing identities, legal URLs and Store accounts remain owner gates.
+1. Add SBOM/notices generation, release digests and provenance around the completed immutable profiles; signing identities, legal URLs and Store accounts remain owner gates.
 2. Deploy a trusted operator-owned OpenClaw/Hermes ingress and run the full authenticated lifecycle through it. The locally executable TLS/certificate contract is complete; macOS remains external evidence. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
 3. Complete clean OpenClaw pairing/rotation and Windows reference-device lifecycle evidence through the final release profile.
 4. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, virtual-desktop, final CC0 VRM 1.0, and macOS evidence.

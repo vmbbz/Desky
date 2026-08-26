@@ -25,7 +25,7 @@ import {
   type LocalAnimationPreviewCommand,
   type LocalAnimationPreviewReport,
 } from '../shared/local-animation';
-import { getDistributionProfile } from './capabilities';
+import { getDistributionProfile, getReleaseManifest } from './capabilities';
 import { AvatarAssetHost } from './avatar-asset-host';
 import { AvatarCache } from './avatar-cache';
 import {
@@ -270,6 +270,9 @@ export function registerIpc(
 
   ipcMain.handle(runtimeInfoChannel, (event) => ({
     distributionProfile: getDistributionProfile(),
+    releaseProfileId: getReleaseManifest().profileId,
+    commerceMode: getReleaseManifest().commerceMode,
+    packageClass: getReleaseManifest().packageClass,
     platform: process.platform,
     version: app.getVersion(),
     surface: windows.surfaceFor(event.sender),

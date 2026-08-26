@@ -12,14 +12,10 @@ import { DesktopStateStore } from './desktop-state-store';
 import { OpenClawAdapterHost } from './openclaw/host';
 import { SecureVault } from './openclaw/secure-vault';
 import { AgentAdapterRegistry } from './adapters/registry';
-import { OpenClawRuntime } from './adapters/openclaw-runtime';
-import { agentRuntimesForProfile } from './adapters/profile-runtimes';
+import { createProfileRuntimes } from './adapters/profile-runtimes';
 import { getDistributionProfile } from './capabilities';
-import { CodexRuntime } from './codex/runtime';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { installBoundedApplicationShutdown } from './bounded-shutdown';
-import { HermesRuntime } from './hermes/runtime';
-import { ClaudeRuntime } from './claude/runtime';
 
 let windows: DeskyWindowManager | undefined;
 
@@ -48,24 +44,15 @@ void app.whenReady().then(() => {
   const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
     protectedWritableRoots: [app.getPath('home')],
   });
-  const runtimes = agentRuntimesForProfile(
-    distributionProfile,
-    new OpenClawRuntime(openClaw),
-    () => new CodexRuntime({
-      appVersion: app.getVersion(),
-      resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
-    }),
-    () => new HermesRuntime({ vault: connectionsVault }),
-    process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui'
-      || process.env.DESKY_VISUAL_TEST_EXERCISE === 'claude-ui-saved'
-      ? () => new ClaudeRuntime({
-          appVersion: app.getVersion(),
-          vault: connectionsVault,
-          cliExecutablePath: app.isPackaged ? join(process.resourcesPath, 'claude.exe') : undefined,
-          resolveWorkspaceGrant: (grantId, sandbox) => codexWorkspaceGrants.resolve(grantId, sandbox),
-        })
-      : undefined,
-  );
+  const runtimes = createProfileRuntimes({
+    appVersion: app.getVersion(),
+    openClaw,
+    vault: connectionsVault,
+    workspaceGrants: codexWorkspaceGrants,
+    packaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+    visualTestExercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
+  });
   const adapters = new AgentAdapterRegistry(
     runtimes,
     'openclaw',

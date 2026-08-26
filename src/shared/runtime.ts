@@ -21,6 +21,9 @@ export function resolveReducedMotion(
 
 export interface RuntimeInfo {
   distributionProfile: DistributionProfile;
+  releaseProfileId: string;
+  commerceMode: 'disabled';
+  packageClass: 'development' | 'release-candidate';
   platform: NodeJS.Platform;
   version: string;
   surface: SurfaceKind;

@@ -1,6 +1,6 @@
 import type { Configuration } from 'webpack';
 
-import { plugins } from './webpack.plugins';
+import { createWebpackPlugins } from './webpack.plugins';
 import { rules } from './webpack.rules';
 
 export const rendererConfig: Configuration = {
@@ -14,6 +14,6 @@ export const rendererConfig: Configuration = {
       },
     ],
   },
-  plugins,
+  plugins: createWebpackPlugins(),
   resolve: { extensions: ['.js', '.ts', '.tsx', '.json'] },
 };
