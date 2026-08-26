@@ -17,8 +17,8 @@ The Windows Store-free and Windows direct package graphs now derive from immutab
 
 | Artifact | Required graph | Forbidden graph | Result |
 | --- | --- | --- | --- |
-| `windows-store-free` | remote OpenClaw | Codex stdio, Hermes execution API, Claude SDK, x402/payment signatures | pass; 12,880,007 combined bytes inspected |
-| `windows-direct` | OpenClaw, Codex stdio, Hermes execution API | Claude SDK, x402/payment signatures | pass; 12,941,734 combined bytes inspected |
+| `windows-store-free` | remote OpenClaw | Codex stdio, Hermes execution API, Claude SDK, x402/payment signatures | pass; 12,879,998 combined bytes inspected |
+| `windows-direct` | OpenClaw, Codex stdio, Hermes execution API | Claude SDK, x402/payment signatures | pass; 12,941,725 combined bytes inspected |
 
 The verifier extracts `.webpack/main/index.js`, renderer and preload from the packaged `app.asar`. It checks the exact profile marker, package entry, executable-provider signatures, x402 routes, payment header, official Base Sepolia USDC address, and Claude SDK markers. Generated packages remain excluded from Git.
 
@@ -29,6 +29,11 @@ The verifier extracts `.webpack/main/index.js`, renderer and preload from the pa
 - Release-manifest and profile-runtime fixtures: 10 tests passed.
 - `npm run package:windows:store-free`: package and artifact policy pass.
 - `npm run package:windows:direct`: package and artifact policy pass.
+- Clean-profile Windows direct startup: remained alive for the bounded smoke interval; the exact spawned process tree was then stopped. The disposable user-data directory is outside the repository.
+- Full root suite: 90 files passed, 7 skipped; 491 tests passed, 12 skipped.
+- Hosted commerce: 5 files and 29 tests passed; typecheck and production build passed.
+- Root and hosted production dependency audits: zero reported vulnerabilities.
+- Full root audit: 31 Electron Forge/build-tool advisories remain the documented upstream release gate; no forced incompatible downgrade was applied.
 
 ## Remaining release gates
 

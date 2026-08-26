@@ -494,6 +494,8 @@ Exit gate per adapter:
 
 F6a.1 engineering foundation is complete. The mutable development distribution switch is gone: Webpack embeds one exact schema-v1 manifest, main validates it before use, and the build selects separate development-direct, release-direct, or Store-free runtime graphs. Windows Store-free packages OpenClaw only; Windows direct packages OpenClaw, Codex and Hermes; Claude remains development/admission-only. Both real ASAR artifacts pass reciprocal policy checks, and every currently admitted release profile has commerce disabled. `windows-store-third-party-commerce` remains deliberately unknown until it has a separately reviewed implementation and Store submission. Evidence: `docs/verification/F6A1-IMMUTABLE-RELEASE-PROFILES-2026-08-26.md`.
 
+The 2026-08-26 five-gate closure is recorded in `docs/verification/FIVE-GATE-CLOSURE-2026-08-26.md`: checkout authorization UX, Windows companion quality, animation-profile admission, remote adapter transport security, and immutable release profiles are committed and verified together. The full root suite passes 491 tests, hosted commerce passes 29, production audits are zero, and the known 31-item Forge/build-tool audit remains a release gate.
+
 Deliverables:
 
 - Store identities and commercial model resolved.
