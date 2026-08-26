@@ -74,6 +74,9 @@ export async function signBaseSepoliaCheckout(input: {
   if (validBefore <= input.nowSeconds) throw new Error('Checkout authorization has expired.');
 
   const account = readAccount(await input.provider.request({ method: 'eth_requestAccounts' }));
+  if (account.toLowerCase() === requirements.payTo.toLowerCase()) {
+    throw new Error('The Base Sepolia payer must differ from the merchant recipient.');
+  }
   await input.provider.request({
     method: 'wallet_switchEthereumChain',
     params: [{ chainId: baseSepoliaChainHex }],

@@ -131,7 +131,7 @@ export function parseCreateCommerceCheckoutRequest(value: unknown): CreateCommer
   };
   if (Date.parse(request.approvalExpiresAt) <= Date.parse(request.approvedAt)
     || Date.parse(request.approvalExpiresAt) - Date.parse(request.approvedAt) > 2 * 60 * 1_000) {
-    throw new Error('Commerce checkout approval lifetime is invalid.');
+    throw new Error('Invalid commerce checkout approval lifetime.');
   }
   return request;
 }

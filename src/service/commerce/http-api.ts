@@ -61,6 +61,16 @@ export class CommerceServiceError extends Error {
   }
 }
 
+export interface CommerceInternalErrorContext {
+  path: string;
+  correlationId: string;
+}
+
+export type CommerceInternalErrorReporter = (
+  error: Error,
+  context: CommerceInternalErrorContext,
+) => void;
+
 const identifierPattern = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
 const checkoutPaths = [
   '/v1/checkout/session',
@@ -106,6 +116,7 @@ export class CommerceHttpApi {
   constructor(
     private readonly sessions: CommerceSessionApplicationService,
     private readonly checkouts?: CommerceCheckoutApplicationService,
+    private readonly reportInternalError?: CommerceInternalErrorReporter,
   ) {}
 
   async handle(request: CommerceHttpRequest): Promise<CommerceHttpResponse> {
@@ -162,6 +173,13 @@ export class CommerceHttpApi {
       }
       if (error instanceof Error && error.message.startsWith('Invalid commerce checkout')) {
         return errorResponse(400, 'invalid-request', correlationId);
+      }
+      if (error instanceof Error && this.reportInternalError) {
+        try {
+          this.reportInternalError(error, { path: request.path, correlationId });
+        } catch {
+          // Observability must never change the fail-closed HTTP result.
+        }
       }
       return errorResponse(500, 'internal-error', correlationId);
     }

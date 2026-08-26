@@ -132,6 +132,7 @@ describe('Base Sepolia x402 v2 admission', () => {
   it.each([
     ['amount', { value: '1250001' }],
     ['recipient', { to: '0x1111111111111111111111111111111111111111' }],
+    ['merchant-as-payer', { from: merchant }],
     ['expired', { validBefore: String(nowSeconds) }],
     ['future', { validAfter: String(nowSeconds + 121) }],
     ['late', { validBefore: String(nowSeconds + 241) }],

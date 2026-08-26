@@ -86,5 +86,9 @@ describe('hosted Base Sepolia wallet client', () => {
       provider: provider([payer], 'bad'), paymentRequirements: requirements, resource,
       nowSeconds: 100, expiresAtSeconds: 200, random: (bytes) => bytes.fill(1),
     })).rejects.toThrow('signature');
+    await expect(signBaseSepoliaCheckout({
+      provider: provider([merchant]), paymentRequirements: requirements, resource,
+      nowSeconds: 100, expiresAtSeconds: 200, random: (bytes) => bytes.fill(1),
+    })).rejects.toThrow('differ from the merchant');
   });
 });

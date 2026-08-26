@@ -237,6 +237,45 @@ implements CommerceCheckoutSessionStore, BaseSepoliaCheckoutLedger {
     return this.advanceOrder(orderId, 'awaiting-approval', updatedAt);
   }
 
+  async expireUnstartedOrders(updatedAt: string, limit = 100): Promise<number> {
+    const parsed = new Date(updatedAt);
+    if (!Number.isFinite(parsed.getTime()) || parsed.toISOString() !== updatedAt
+      || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error('Invalid unstarted commerce order expiry policy.');
+    }
+    return this.transaction(async (client) => {
+      const result = await client.query(`
+        SELECT o.payload_text
+        FROM desky_commerce.commerce_orders o
+        JOIN desky_commerce.commerce_quotes q ON q.quote_id = o.quote_id
+        WHERE q.expires_at <= $1
+          AND o.payload_text::jsonb ->> 'state' IN ('created', 'awaiting-approval')
+        ORDER BY q.expires_at ASC, o.order_id ASC
+        LIMIT $2
+        FOR UPDATE
+      `, [updatedAt, limit]);
+      let expired = 0;
+      for (const row of result.rows) {
+        const currentPayload = payload(row);
+        if (!currentPayload) throw new Error('Invalid unstarted commerce order payload.');
+        const current = parseCommerceOrder(JSON.parse(currentPayload));
+        const checkout = await client.query(`
+          SELECT checkout_session_id FROM desky_commerce.commerce_checkout_sessions
+          WHERE order_id = $1 LIMIT 1
+        `, [current.orderId]);
+        if (checkout.rows.length > 0) continue;
+        const next = transitionCommerceOrder(current, 'expired', updatedAt);
+        const update = await client.query(`
+          UPDATE desky_commerce.commerce_orders SET payload_text = $1
+          WHERE order_id = $2 AND payload_text = $3
+        `, [JSON.stringify(next), current.orderId, currentPayload]);
+        if (rowCount(update) !== 1) throw new Error('Concurrent unstarted commerce order expiry.');
+        expired += 1;
+      }
+      return expired;
+    });
+  }
+
   async getPaymentAttempt(attemptId: string): Promise<PaymentAttempt | undefined> {
     return this.getAttemptWith(this.pool, attemptId);
   }

@@ -109,6 +109,19 @@ function payment(requirements: X402PaymentRequirements, resource: X402ResourceIn
 }
 
 describe('hosted PostgreSQL checkout ledger', () => {
+  it('expires bounded quote-only orders while preserving orders with checkout sessions', async () => {
+    const { store } = await ledger();
+    await store.storeQuote(quote());
+    await store.createOrder(order());
+    expect(await store.expireUnstartedOrders('2026-08-25T10:03:59.999Z')).toBe(0);
+    expect(await store.expireUnstartedOrders('2026-08-25T10:05:00.000Z')).toBe(1);
+    expect((await store.getOrder(order().orderId))?.state).toBe('expired');
+    expect(await store.expireUnstartedOrders('2026-08-25T10:06:00.000Z')).toBe(0);
+    await expect(store.expireUnstartedOrders('2026-08-25T10:06:00.000Z', 101))
+      .rejects.toThrow('expiry policy');
+    await store.close();
+  });
+
   it('runs the real checkout-to-settlement path durably without storing browser secrets', async () => {
     const { store, pool } = await ledger();
     await store.storeQuote(quote());

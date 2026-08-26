@@ -278,6 +278,7 @@ export function parseBaseSepoliaPaymentPayload(
     || !noncePattern.test(nonce)
     || !numericStringPattern.test(validAfter)
     || !numericStringPattern.test(validBefore)
+    || compareAddress(from, to)
     || !compareAddress(to, expectedRequirements.payTo)
     || valueAtomic !== expectedRequirements.amount) {
     throw new Error('Base Sepolia x402 payment authorization does not match the quote.');

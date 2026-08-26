@@ -176,7 +176,15 @@ function serviceRuntime(): ServiceRuntime {
     ? new HostedCommerceQuoteService(db.ledger, identity, admitToothpastePilotOffer(JSON.parse(offerJson)))
     : undefined;
   serviceSingleton = {
-    api: new HostedCommerceHttpApi(new CommerceHttpApi(identity, checkout), identity, quotes),
+    api: new HostedCommerceHttpApi(new CommerceHttpApi(identity, checkout, (error, context) => {
+      console.error(JSON.stringify({
+        event: 'commerce-internal-error',
+        path: context.path,
+        correlationId: context.correlationId,
+        errorName: error.name.slice(0, 80),
+        errorMessage: error.message.slice(0, 500),
+      }));
+    }), identity, quotes),
     identities: db.identities,
     tokens,
   };
@@ -410,6 +418,7 @@ export async function runScheduledMonitor(): Promise<void> {
   const generatedAt = new Date().toISOString();
   try {
     const service = serviceRuntime();
+    const expiredUnstartedOrders = await database().ledger.expireUnstartedOrders(generatedAt);
     const chain = process.env.DESKY_BASE_SEPOLIA_RPC_URL
       ? await reconciliationRuntime().run(generatedAt)
       : undefined;
@@ -424,6 +433,7 @@ export async function runScheduledMonitor(): Promise<void> {
       event: 'commerce-monitor', severity, generatedAt,
       migrationVersion: operations.migrationVersion,
       pendingOrders: operations.pendingOrders,
+      expiredUnstartedOrders,
       indeterminateSettlements: operations.indeterminateSettlements,
       maximumReconciliationAgeSeconds: maximumAgeSeconds,
       chainReconciliation: chain ?? { status: 'disabled' },

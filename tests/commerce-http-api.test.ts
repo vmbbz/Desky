@@ -135,6 +135,34 @@ describe('hosted commerce HTTP boundary', () => {
     }));
   });
 
+  it('reports unclassified failures without changing the fail-closed response', async () => {
+    const sessions = service();
+    const failure = new Error('database transition failed');
+    sessions.restoreCleanDevice = vi.fn(async () => { throw failure; });
+    const reporter = vi.fn();
+    const api = new CommerceHttpApi(sessions, undefined, reporter);
+    const result = await api.handle({
+      method: 'POST',
+      path: '/v1/session/restore',
+      contentType: 'application/json',
+      correlationId: 'correlation:internal',
+      body: JSON.stringify({
+        schemaVersion: 1,
+        installationId: 'install:1',
+        recoveryCode: 'c'.repeat(43),
+        proofKeyVerifier: 'p'.repeat(43),
+        idempotencyKey: 'restore:1',
+      }),
+    });
+    expect(result.status).toBe(500);
+    expect(JSON.parse(result.body)).toEqual({
+      schemaVersion: 1, error: 'internal-error', correlationId: 'correlation:internal',
+    });
+    expect(reporter).toHaveBeenCalledWith(failure, {
+      path: '/v1/session/restore', correlationId: 'correlation:internal',
+    });
+  });
+
   it('keeps checkout routes absent unless injected and then requires bearer authentication', async () => {
     const request = {
       method: 'POST', path: '/v1/checkout/session/status', contentType: 'application/json',
@@ -172,5 +200,25 @@ describe('hosted commerce HTTP boundary', () => {
         schemaVersion: 1, checkoutSessionId: 'checkout:1', installationId: 'install:1',
       }),
     })).status).toBe(401);
+  });
+
+  it('classifies an overlong checkout approval as invalid input', async () => {
+    const api = new CommerceHttpApi(service(), checkoutService());
+    const result = await api.handle({
+      method: 'POST', path: '/v1/checkout/session', contentType: 'application/json',
+      correlationId: 'correlation:lifetime', authorization: `Bearer ${'t'.repeat(32)}`,
+      body: JSON.stringify({
+        schemaVersion: 1,
+        approvalId: 'approval:1', accountId: 'account:1', installationId: 'install:1',
+        orderId: 'order:1', quoteId: 'quote:1', termsDigest: 'd'.repeat(43),
+        approvedAt: '2026-08-25T10:00:00.000Z',
+        approvalExpiresAt: '2026-08-25T10:02:00.001Z',
+        idempotencyKey: 'checkout:1', browserBindingChallenge: 'b'.repeat(43),
+      }),
+    });
+    expect(result.status).toBe(400);
+    expect(JSON.parse(result.body)).toEqual({
+      schemaVersion: 1, error: 'invalid-request', correlationId: 'correlation:lifetime',
+    });
   });
 });
