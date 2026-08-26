@@ -51,6 +51,7 @@ export interface AmbientSurfaceState {
   bounds: DesktopRectangle;
   bubblePlacement: BubblePlacement;
   displayKey: string;
+  desiredVisible: boolean;
   fullClickThrough: boolean;
   horizontalPlacement: HorizontalPlacement;
   powerSuspended: boolean;
@@ -60,6 +61,8 @@ export interface AmbientSurfaceState {
   resumeEpoch: number;
   trayAvailable: boolean;
   visible: boolean;
+  visibilityRecoveryCount: number;
+  visibilityRecoveryReason?: 'hidden-unexpectedly' | 'minimized';
   workArea: DesktopRectangle;
 }
 

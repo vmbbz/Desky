@@ -39,6 +39,10 @@ import {
   type DesktopStateStore,
 } from './desktop-state-store';
 import type { PersistedAvatarSelection } from './avatar-asset-host';
+import {
+  ambientVisibilityRecoveryReason,
+  type AmbientVisibilityRecoveryReason,
+} from './ambient-visibility-policy';
 import { createWindowOptions } from './window-options';
 
 const applicationScheme = 'desky';
@@ -1493,6 +1497,16 @@ export class DeskyWindowManager {
 
   private fullClickThrough = false;
 
+  private ambientDesiredVisible = true;
+
+  private visibilityRecoveryCount = 0;
+
+  private visibilityRecoveryReason?: AmbientVisibilityRecoveryReason;
+
+  private visibilityWatchdog?: NodeJS.Timeout;
+
+  private displayChangeTimer?: NodeJS.Timeout;
+
   private pointerRegion: AmbientPointerRegion = 'transparent';
 
   private powerSuspended = false;
@@ -1559,6 +1573,8 @@ export class DeskyWindowManager {
     screen.on('display-metrics-changed', this.handleDisplayChange);
     powerMonitor.on('suspend', this.handlePowerSuspend);
     powerMonitor.on('resume', this.handlePowerResume);
+    this.visibilityWatchdog = setInterval(this.recoverAmbientVisibility, 2_000);
+    this.visibilityWatchdog.unref();
     const ambient = this.openAmbient();
     if (process.env.DESKY_VISUAL_TEST_EDGE === 'top-left') {
       const primary = screen.getPrimaryDisplay().workArea;
@@ -1579,6 +1595,7 @@ export class DeskyWindowManager {
   }
 
   openAmbient(): BrowserWindow {
+    this.ambientDesiredVisible = true;
     if (this.ambient && !this.ambient.isDestroyed()) {
       this.showAmbientWindow(this.ambient);
       return this.ambient;
@@ -1625,6 +1642,7 @@ export class DeskyWindowManager {
       bounds: clamped.bounds,
       bubblePlacement: edgeLayout.bubblePlacement,
       displayKey: arrangement,
+      desiredVisible: this.ambientDesiredVisible,
       fullClickThrough: this.fullClickThrough,
       horizontalPlacement: edgeLayout.horizontalPlacement,
       powerSuspended: this.powerSuspended,
@@ -1638,6 +1656,8 @@ export class DeskyWindowManager {
         && !this.ambient.isDestroyed()
         && this.ambient.isVisible(),
       ),
+      visibilityRecoveryCount: this.visibilityRecoveryCount,
+      visibilityRecoveryReason: this.visibilityRecoveryReason,
       workArea: clamped.display.workArea,
     };
   }
@@ -1739,6 +1759,8 @@ export class DeskyWindowManager {
 
   dispose(): void {
     if (this.moveSaveTimer) clearTimeout(this.moveSaveTimer);
+    if (this.displayChangeTimer) clearTimeout(this.displayChangeTimer);
+    if (this.visibilityWatchdog) clearInterval(this.visibilityWatchdog);
     this.ambientDrag = undefined;
     this.persistAmbientPlacement();
     screen.removeListener('display-added', this.handleDisplayChange);
@@ -1764,10 +1786,16 @@ export class DeskyWindowManager {
     window.webContents.on('destroyed', () => this.surfaces.delete(contentsId));
     if (surface === 'ambient') {
       window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
-      window.on('minimize', () => {
-        setImmediate(() => {
-          if (this.ambient === window && !window.isDestroyed()) this.showAmbientWindow(window);
+      if (process.platform === 'darwin') {
+        window.setVisibleOnAllWorkspaces(true, {
+          visibleOnFullScreen: false,
+          skipTransformProcessType: true,
         });
+      } else if (process.platform === 'linux') {
+        window.setVisibleOnAllWorkspaces(true);
+      }
+      window.on('minimize', () => {
+        setImmediate(this.recoverAmbientVisibility);
       });
       window.on('move', () => this.schedulePlacementSave());
       window.on('show', () => this.publishAmbientState());
@@ -1804,7 +1832,16 @@ export class DeskyWindowManager {
   }
 
   private readonly handleDisplayChange = (): void => {
+    if (this.displayChangeTimer) clearTimeout(this.displayChangeTimer);
+    this.displayChangeTimer = setTimeout(() => {
+      this.displayChangeTimer = undefined;
+      this.reconcileDisplayChange();
+    }, 250);
+  };
+
+  private reconcileDisplayChange(): void {
     const displays = this.displayGeometries();
+    if (displays.length === 0) return;
     const nextArrangement = displayArrangementKey(displays);
     const storedPlacement = this.desktopState.placements[nextArrangement];
     if (this.ambient && !this.ambient.isDestroyed()
@@ -1820,7 +1857,8 @@ export class DeskyWindowManager {
     this.activeDisplayArrangement = nextArrangement;
     this.persistAmbientPlacement(displays, nextArrangement);
     this.publishAmbientState();
-  };
+    this.recoverAmbientVisibility();
+  }
 
   private readonly handlePowerSuspend = (): void => {
     if (this.powerSuspended) return;
@@ -1839,7 +1877,8 @@ export class DeskyWindowManager {
     this.powerSuspended = false;
     this.resumeEpoch += 1;
     this.clampAmbientToWorkArea();
-    if (this.ambientVisibleBeforeSuspend && this.ambient && !this.ambient.isDestroyed()) {
+    if (this.ambientDesiredVisible && this.ambientVisibleBeforeSuspend
+      && this.ambient && !this.ambient.isDestroyed()) {
       this.ambient.showInactive();
       if (this.desktopState.alwaysOnTop) this.ambient.moveTop();
       this.ambient.webContents.invalidate();
@@ -1914,6 +1953,8 @@ export class DeskyWindowManager {
 
   private showAmbientWindow(window: BrowserWindow): void {
     if (window.isDestroyed()) return;
+    this.ambientDesiredVisible = true;
+    this.visibilityRecoveryReason = undefined;
     this.clampAmbientToWorkArea();
     window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
     window.showInactive();
@@ -1923,6 +1964,8 @@ export class DeskyWindowManager {
   }
 
   private hideAmbient(): void {
+    this.ambientDesiredVisible = false;
+    this.visibilityRecoveryReason = undefined;
     if (this.ambient && !this.ambient.isDestroyed()) this.ambient.hide();
     this.publishAmbientState();
   }
@@ -1961,6 +2004,28 @@ export class DeskyWindowManager {
     this.ambient.setIgnoreMouseEvents(this.pointerRegion === 'transparent', { forward: true });
   }
 
+  private readonly recoverAmbientVisibility = (): void => {
+    if (process.env.DESKY_VISUAL_TEST_ALLOW_NATIVE_HIDE === '1') return;
+    const window = this.ambient;
+    if (!window) return;
+    const reason = ambientVisibilityRecoveryReason({
+      desiredVisible: this.ambientDesiredVisible,
+      destroyed: window.isDestroyed(),
+      minimized: !window.isDestroyed() && window.isMinimized(),
+      powerSuspended: this.powerSuspended,
+      visible: !window.isDestroyed() && window.isVisible(),
+    });
+    if (!reason || window.isDestroyed()) return;
+    this.visibilityRecoveryCount += 1;
+    this.visibilityRecoveryReason = reason;
+    this.clampAmbientToWorkArea();
+    window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
+    window.showInactive();
+    if (this.desktopState.alwaysOnTop) window.moveTop();
+    this.applyPointerPolicy();
+    this.publishAmbientState();
+  };
+
   private publishAmbientState(): void {
     const state = this.getAmbientState();
     for (const window of BrowserWindow.getAllWindows()) {
@@ -1986,6 +2051,13 @@ export class DeskyWindowManager {
     const focusedBefore = BrowserWindow.getFocusedWindow()?.id ?? null;
 
     ambient.hide();
+    await new Promise((resolve) => setTimeout(resolve, 2_250));
+    const unexpectedHideRecovered = ambient.isVisible();
+
+    this.hideAmbient();
+    await new Promise((resolve) => setTimeout(resolve, 2_250));
+    const deliberateHidePreserved = !ambient.isVisible();
+
     this.openAmbient();
     this.publishAmbientState();
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -2026,8 +2098,10 @@ export class DeskyWindowManager {
       fullClickThroughRecovered,
       recoveryAvailable: this.desktopControls.hasRecoverySurface,
       ambientRecoveredFromMinimize,
+      deliberateHidePreserved,
       shortcutRegistered: this.desktopControls.isShortcutRegistered,
       trayAvailable: this.desktopControls.isTrayAvailable,
+      unexpectedHideRecovered,
       workArea,
     }, null, 2)}\n`, 'utf8');
     app.quit();

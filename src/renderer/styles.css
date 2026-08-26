@@ -1010,6 +1010,13 @@ body[data-desky-surface="control-center"] {
   color: var(--accent);
 }
 
+.desktop-presence-card__status {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #93a0b4;
+  font-size: 9px;
+}
+
 .motion-personality-card {
   display: grid;
   gap: 10px;
@@ -1191,4 +1198,21 @@ body[data-desky-surface="control-center"] {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }
   .ambient-avatar .asset-status { transition: none; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --muted: #c2cada; }
+  button, input, select, .speech-bubble, .desktop-presence-card,
+  .motion-personality-card, .animation-preview-card { border-width: 2px; }
+}
+
+@media (forced-colors: active) {
+  * { box-shadow: none !important; text-shadow: none !important; }
+  button, input, select, .speech-bubble, .desktop-presence-card,
+  .motion-personality-card, .animation-preview-card, .connection-sheet {
+    border: 1px solid ButtonText;
+    forced-color-adjust: auto;
+  }
+  .status-dot, .status-mark { forced-color-adjust: none; background: Highlight; }
+  .ambient-avatar-hitbox:focus-visible { outline: 3px solid Highlight; }
 }

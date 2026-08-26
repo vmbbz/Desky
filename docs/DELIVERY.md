@@ -156,7 +156,7 @@ Still open in F3b/F3d:
 - Run the approved 84-clip Quaternius candidate library through the full packaged VRM 0.x/1.0 visual, interruption, transition, reduced-motion, and performance matrix; keep context-sensitive catalogue candidates disabled until reviewed.
 - Live-verify the implemented normalized agent-action command through the installed OpenClaw plugin, then extend richer reviewed gesture selection. The queue currently supports speaking emphasis plus explicit user and typed agent Wave/Jump requests.
 - Extend the implemented capability-aware blink, look-at, and state-expression controller with optional speech visemes only when truthful audio timing exists.
-- Complete full-screen suppression, visible-idle optimization, accessibility, display-reconnect/multi-monitor, and macOS lifecycle evidence. Real Windows Modern Standby recovery and longer whole-application idle/active/hidden plateaus now pass functionally on the named reference machine; the `<3%` visible-idle CPU budget remains open.
+- Complete external full-screen observation, the final visible-idle optimization margin, manual accessibility, physical display/virtual-desktop, and macOS lifecycle evidence. Real Windows Modern Standby and unexpected native-window recovery pass; the latest 20/60 timer/RAF scheduler lowers whole-app visible idle from 4.107% to 3.103%, so the `<3%` budget remains narrowly open.
 
 The implementation and validation evidence is recorded in `docs/verification/F3B-MOTION-RUNTIME-2026-08-22.md`.
 
@@ -379,7 +379,9 @@ Evidence: `docs/verification/F4-WINDOWS-REFERENCE-LIFECYCLE-2026-08-24.md`.
 
 Evidence: `docs/verification/F4-VRM1-COMPATIBILITY-2026-08-24.md`.
 
-Next: optimize the measured composed idle cost, select a product-suitable CC0 VRM 1.0 marketplace revision, and finish Windows full-screen, accessibility, and physical display matrices. Real Windows sleep/wake is closed. macOS and Claude remain owner-deferred; the owner has now directed F4x/x402 to follow this lifecycle round.
+F3d.1 adds desired-visibility recovery, debounced display reconciliation, macOS/Linux workspace policy without false Windows claims, timer/RAF frame scheduling, calm 20 FPS state loops with all deliberate motion retained at 60 FPS, forced-colors/increased-contrast styling, and renderer-visible recovery diagnostics. Packaged Windows proves unexpected hide and minimize recovery, deliberate-hide preservation, control-center focus preservation, hidden frame stability, and recovered frame advance. The comparable 30/15/10 plateau reports 3.103% visible idle, 0.081% hidden, and 3.851% warm recovered idle. Evidence: `docs/verification/F3D1-WINDOWS-VISIBILITY-PERFORMANCE-2026-08-26.md`.
+
+Next: select a product-suitable CC0 VRM 1.0 marketplace revision and finish Windows external full-screen, manual accessibility, and physical display/virtual-desktop matrices. Real Windows sleep/wake and involuntary-hide recovery are closed. macOS and Claude remain owner-deferred.
 
 ## F4x — commerce and entitlement program
 
@@ -519,7 +521,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Optimize the measured Windows visible-idle CPU path and complete full-screen, accessibility, display reconnect, multi-monitor, and virtual-desktop portions of the F4 compatibility matrix. Real sleep/wake and longer idle/active/hidden lifecycle evidence now pass; real VRM 1.0 engineering compatibility passes with external Seed-san.
+1. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, and virtual-desktop evidence. Involuntary-hide recovery, sleep/wake, lifecycle suspension and real VRM 1.0 engineering compatibility now pass.
 2. Rerun the separate live Wave evidence after provider capacity returns; local-VRMA interruption, Milk/Astronaut/Seed-san representative runtime motion, and cache corruption/restart are proved.
 3. Complete remote OpenClaw `wss://`, clean pairing/rotation, certificate-failure, and Windows reference-device lifecycle evidence.
 4. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture its remote lifecycle/certificate matrix; keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.

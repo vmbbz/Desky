@@ -44,6 +44,7 @@ $processStart.Environment['DESKY_VISUAL_TEST_STATE'] = $State
 $processStart.Environment['DESKY_VISUAL_TEST_MOTION_PREFERENCE'] = 'full'
 $processStart.Environment['DESKY_VISUAL_TEST_USER_DATA'] = $profileRoot
 $processStart.Environment['DESKY_VISUAL_TEST_DISABLE_NETWORK'] = '1'
+$processStart.Environment['DESKY_VISUAL_TEST_ALLOW_NATIVE_HIDE'] = '1'
 $processStart.Environment['DESKY_PERFORMANCE_VISIBLE_SAMPLES'] = [string]$VisibleSamples
 $processStart.Environment['DESKY_PERFORMANCE_HIDDEN_SAMPLES'] = [string]$HiddenSamples
 $processStart.Environment['DESKY_PERFORMANCE_RECOVERED_SAMPLES'] = [string]$RecoveredSamples

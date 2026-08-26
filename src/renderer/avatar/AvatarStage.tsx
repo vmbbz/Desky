@@ -47,7 +47,10 @@ import {
   smoothMotionEnvelopeZoom,
 } from './avatar-framing';
 import { AvatarMotionController } from './avatar-motion-controller';
-import { resolveAvatarTargetFrameRate } from './avatar-render-policy';
+import {
+  resolveAvatarFrameDelayMs,
+  resolveAvatarTargetFrameRate,
+} from './avatar-render-policy';
 import { loadVrmAnimationPreview } from './load-vrma-preview';
 import type { MotionCueKind, MotionCueSource } from './motion-cue-queue';
 import {
@@ -192,6 +195,7 @@ export function AvatarStage({
 
     let disposed = false;
     let frameId = 0;
+    let frameTimer: ReturnType<typeof setTimeout> | undefined;
     let currentVrm: VRM | undefined;
     let avatarRoot: Object3D | undefined;
     let activePreviewRequestId: string | undefined;
@@ -430,8 +434,12 @@ export function AvatarStage({
     let motionEnvelopeTargetZoom = 1;
     let motionEnvelopeReady = false;
     let lastReportedFramingZoom = 1;
-    let lastRenderTimestamp = 0;
     let loopActive = false;
+    const cancelScheduledFrame = () => {
+      cancelAnimationFrame(frameId);
+      if (frameTimer) clearTimeout(frameTimer);
+      frameTimer = undefined;
+    };
     const renderSuspensionReason = () => {
       if (webglContextUnrecoverable) return 'webgl-unrecoverable';
       if (webglContextLost) return 'webgl-lost';
@@ -446,15 +454,15 @@ export function AvatarStage({
       canvas.dataset.renderSuspended = String(Boolean(reason));
       canvas.dataset.renderSuspensionReason = reason;
       if (reason) {
-        if (loopActive) cancelAnimationFrame(frameId);
+        if (loopActive) cancelScheduledFrame();
         loopActive = false;
         return;
       }
       if (loopActive) return;
       clock.start();
-      lastRenderTimestamp = 0;
       loopActive = true;
-      frameId = requestAnimationFrame(animate);
+      canvas.dataset.renderScheduler = 'timer-raf';
+      scheduleFrame();
     };
     const animate = (timestamp: number) => {
       if (disposed) return;
@@ -468,17 +476,12 @@ export function AvatarStage({
       const pendingDiagnostics = motionControllerRef.current?.runtimeDiagnostics;
       const targetFrameRate = resolveAvatarTargetFrameRate({
         mode: modeRef.current,
-        activeCue: Boolean(pendingDiagnostics?.activeCueId),
+        activeCue: Boolean(
+          pendingDiagnostics?.activeCueId || pendingDiagnostics?.activeProgramId,
+        ),
         previewActive: Boolean(activePreviewRequestId),
       });
       canvas.dataset.renderTargetFps = String(targetFrameRate);
-      const minimumFrameInterval = 1000 / targetFrameRate;
-      if (lastRenderTimestamp > 0
-        && timestamp - lastRenderTimestamp < minimumFrameInterval - 0.5) {
-        frameId = requestAnimationFrame(animate);
-        return;
-      }
-      lastRenderTimestamp = timestamp;
       const delta = Math.min(clock.getDelta(), 0.1);
       motionElapsed += delta;
       const elapsed = motionElapsed;
@@ -549,8 +552,19 @@ export function AvatarStage({
       }
 
       renderer.render(scene, camera);
-      frameId = requestAnimationFrame(animate);
+      scheduleFrame(resolveAvatarFrameDelayMs(targetFrameRate, performance.now() - timestamp));
     };
+    function scheduleFrame(delayMs = 0) {
+      if (disposed || !loopActive) return;
+      if (delayMs <= 0) {
+        frameId = requestAnimationFrame(animate);
+        return;
+      }
+      frameTimer = setTimeout(() => {
+        frameTimer = undefined;
+        if (!disposed && loopActive) frameId = requestAnimationFrame(animate);
+      }, delayMs);
+    }
     const handleVisibilityChange = () => syncRenderLoop();
     document.addEventListener('visibilitychange', handleVisibilityChange);
     renderLoopControlRef.current = syncRenderLoop;
@@ -715,7 +729,7 @@ export function AvatarStage({
 
     return () => {
       disposed = true;
-      cancelAnimationFrame(frameId);
+      cancelScheduledFrame();
       loopActive = false;
       if (webglRecoveryTimer) clearTimeout(webglRecoveryTimer);
       if (renderLoopControlRef.current === syncRenderLoop) renderLoopControlRef.current = undefined;

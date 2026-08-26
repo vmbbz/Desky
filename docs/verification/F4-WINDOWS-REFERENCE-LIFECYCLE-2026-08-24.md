@@ -92,3 +92,6 @@ All captures, profiles, and package output remain ignored and uncommitted.
 - Run keyboard, Windows Narrator/UI Automation, forced-colors, and text-scaling critical paths manually on the packaged control center.
 - Run physical display disconnect/reconnect, virtual desktop, and multi-monitor scale matrices.
 
+## F3d.1 follow-up — 2026-08-26
+
+The successor evidence in `docs/verification/F3D1-WINDOWS-VISIBILITY-PERFORMANCE-2026-08-26.md` replaces display-refresh polling with timer/RAF scheduling, proves desired-visibility recovery without reversing deliberate Hide, and reduces comparable whole-app visible idle from 4.107% to 3.103%. The `<3%` target remains narrowly open.

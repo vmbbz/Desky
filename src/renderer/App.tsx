@@ -732,12 +732,14 @@ export function App() {
     return (
       <main
         className={`ambient-companion companion--${state.mode}`}
+        aria-label="Desky desktop companion"
         data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
         data-avatar-yaw-degrees={avatarYawDegrees}
         data-bubble-visible={showAmbientBubble}
         data-composer-expanded={composerExpanded}
         data-horizontal-placement={ambientState?.horizontalPlacement ?? 'center'}
         data-recovery-available={ambientState?.recoveryAvailable ?? false}
+        data-visibility-recovery-count={ambientState?.visibilityRecoveryCount ?? 0}
       >
         {composerExpanded ? (
           <>
@@ -1163,6 +1165,12 @@ export function App() {
           <button type="button" onClick={() => window.desky.performWindowAction('reset-ambient-position')}>Reset position</button>
           <button type="button" onClick={() => window.desky.performWindowAction('hide-ambient')}>Hide companion</button>
         </div>
+        <p className="desktop-presence-card__status" role="status">
+          Companion {ambientState?.visible ? 'visible' : ambientState?.desiredVisible ? 'recovering' : 'hidden'}
+          {ambientState?.visibilityRecoveryCount
+            ? ` · recovered ${ambientState.visibilityRecoveryCount} time${ambientState.visibilityRecoveryCount === 1 ? '' : 's'}`
+            : ''}
+        </p>
       </section>
 
       <section className="motion-personality-card" aria-labelledby="motion-personality-title">

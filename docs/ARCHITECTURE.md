@@ -89,6 +89,7 @@ The experience uses separate coordinated windows rather than one permanent card:
 - The ambient companion is a tightly bounded transparent window for the avatar and transient anchored bubble/composer UI. It does not activate when state changes.
 - The control center is an ordinary accessible window for setup, transcripts, approvals, settings, licences, and diagnostics.
 - The main process owns placement, work-area clamping, always-on-top policy, full-screen policy, and click-through state. Renderer code reports measured visible bounds and requests semantic window actions through typed IPC.
+- Main also owns desired visibility independently from native `isVisible()`. Unexpected hide/minimize is non-activatingly recovered, while deliberate Hide and system suspend suppress recovery. Display-topology bursts are debounced before arrangement restore/clamp/persist. Electron's all-workspaces API is used only on supported macOS/Linux platforms; it is explicitly not claimed on Windows.
 - Interactive regions remain explicit. Transparent ambient regions pass pointer input where the platform permits, and a tray/menu/global escape route can disable full click-through.
 
 The behavior and acceptance matrix are specified in `docs/COMPANION-EXPERIENCE.md`.
