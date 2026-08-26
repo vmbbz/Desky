@@ -8,6 +8,7 @@ import {
   type HermesHealthAdmission,
 } from './protocol';
 import type { AdapterSessionSummary } from '../../shared/agent-adapter';
+import { secureTransportError } from '../secure-transport';
 
 const maximumJsonBytes = 512 * 1024;
 const maximumSseFrameBytes = 256 * 1024;
@@ -23,26 +24,6 @@ export class HermesApiError extends Error {
 
 export function isHermesReconnectableError(error: unknown): boolean {
   return error instanceof HermesApiError && error.reconnectable;
-}
-
-const tlsCertificateErrorCodes = new Set([
-  'CERT_HAS_EXPIRED',
-  'DEPTH_ZERO_SELF_SIGNED_CERT',
-  'ERR_TLS_CERT_ALTNAME_INVALID',
-  'SELF_SIGNED_CERT_IN_CHAIN',
-  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
-  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
-]);
-
-function isTlsCertificateError(error: unknown): boolean {
-  let current = error;
-  for (let depth = 0; depth < 4; depth += 1) {
-    if (typeof current !== 'object' || current === null) return false;
-    const record = current as { code?: unknown; cause?: unknown };
-    if (typeof record.code === 'string' && tlsCertificateErrorCodes.has(record.code)) return true;
-    current = record.cause;
-  }
-  return false;
 }
 
 export interface HermesApiClientPort {
@@ -228,8 +209,9 @@ export class HermesApiClient implements HermesApiClientPort {
       return await this.fetchImpl(input, init);
     } catch (error) {
       if (init.signal?.aborted) throw error;
-      if (isTlsCertificateError(error)) {
-        throw new HermesApiError('Hermes TLS certificate validation failed.', false);
+      const tlsError = secureTransportError('Hermes', error);
+      if (tlsError) {
+        throw new HermesApiError(tlsError.message, false);
       }
       throw new HermesApiError('Hermes transport is unavailable.', true);
     }

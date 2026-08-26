@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import WebSocket, { type RawData } from 'ws';
+import WebSocket, { type ClientOptions, type RawData } from 'ws';
 
 import { OPENCLAW_PROTOCOL_VERSION } from '../../shared/openclaw';
 import {
@@ -17,6 +17,7 @@ import {
   readString,
   signDeviceAuth,
 } from './protocol';
+import { secureTransportError } from '../secure-transport';
 
 interface PendingRequest {
   resolve(value: unknown): void;
@@ -37,6 +38,8 @@ export interface GatewayConnectOptions {
   onSequenceGap?(expected: number, received: number): void;
 }
 
+export type GatewaySocketFactory = (url: string, options: ClientOptions) => WebSocket;
+
 export class OpenClawGatewayClient {
   private socket?: WebSocket;
   private readonly pending = new Map<string, PendingRequest>();
@@ -45,7 +48,10 @@ export class OpenClawGatewayClient {
   private lastSequence?: number;
   private challengeHandled = false;
 
-  constructor(private readonly options: GatewayConnectOptions) {}
+  constructor(
+    private readonly options: GatewayConnectOptions,
+    private readonly createSocket: GatewaySocketFactory = (url, options) => new WebSocket(url, options),
+  ) {}
 
   get connectionId(): string | undefined {
     return this.hello?.server.connId;
@@ -59,10 +65,12 @@ export class OpenClawGatewayClient {
     if (this.socket) throw new Error('Gateway client is already connected.');
     this.expectedClose = false;
     this.challengeHandled = false;
-    const socket = new WebSocket(this.options.url, {
+    const socket = this.createSocket(this.options.url, {
       handshakeTimeout: 15_000,
       maxPayload: 1_048_576,
       perMessageDeflate: false,
+      followRedirects: false,
+      rejectUnauthorized: true,
     });
     this.socket = socket;
 
@@ -78,11 +86,16 @@ export class OpenClawGatewayClient {
       };
 
       socket.on('error', (error) => {
-        if (!this.hello) fail(error);
+        if (!this.hello) fail(secureTransportError('OpenClaw', error) ?? error);
       });
       socket.on('message', (data, isBinary) => {
-        if (isBinary) return;
-        this.handleMessage(data, async (frame) => {
+        if (isBinary) {
+          const error = new Error('Gateway sent an unsupported binary frame.');
+          if (!this.hello) fail(error);
+          socket.close(1003, 'binary frame rejected');
+          return;
+        }
+        const admitted = this.handleMessage(data, async (frame) => {
           if (frame.type !== 'event' || frame.event !== 'connect.challenge' || this.challengeHandled) return;
           this.challengeHandled = true;
           const challenge = frame.payload;
@@ -105,6 +118,11 @@ export class OpenClawGatewayClient {
             fail(error instanceof Error ? error : new Error('Gateway authentication failed.'));
           }
         });
+        if (!admitted) {
+          const error = new Error('Gateway sent a malformed protocol frame.');
+          if (!this.hello) fail(error);
+          socket.close(1008, 'malformed frame rejected');
+        }
       });
       socket.on('close', (code, reason) => {
         clearTimeout(deadline);
@@ -203,12 +221,12 @@ export class OpenClawGatewayClient {
     return result;
   }
 
-  private handleMessage(data: RawData, beforeReady: (frame: GatewayFrame) => Promise<void>): void {
+  private handleMessage(data: RawData, beforeReady: (frame: GatewayFrame) => Promise<void>): boolean {
     const frame = parseGatewayFrame(data.toString());
-    if (!frame) return;
+    if (!frame) return false;
     if (frame.type === 'res') {
       const pending = this.pending.get(frame.id);
-      if (!pending) return;
+      if (!pending) return true;
       clearTimeout(pending.timeout);
       this.pending.delete(frame.id);
       if (frame.ok) pending.resolve(frame.payload);
@@ -219,7 +237,7 @@ export class OpenClawGatewayClient {
         frame.error?.retryable,
         frame.error?.retryAfterMs,
       ));
-      return;
+      return true;
     }
     if (typeof frame.seq === 'number') {
       if (this.lastSequence !== undefined && frame.seq !== this.lastSequence + 1) {
@@ -229,5 +247,6 @@ export class OpenClawGatewayClient {
     }
     if (this.hello) this.options.onEvent(frame.event, frame.payload);
     else void beforeReady(frame);
+    return true;
   }
 }

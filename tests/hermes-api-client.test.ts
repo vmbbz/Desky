@@ -118,7 +118,7 @@ describe('HermesApiClient', () => {
       (error: unknown) => error,
     );
     expect(certificateError).toEqual(
-      new HermesApiError('Hermes TLS certificate validation failed.', false),
+      new HermesApiError('Hermes TLS certificate is not trusted.', false),
     );
     expect(isHermesReconnectableError(certificateError)).toBe(false);
     expect(String(certificateError)).not.toContain('private-certificate');

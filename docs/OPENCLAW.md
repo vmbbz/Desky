@@ -2,7 +2,7 @@
 
 ## Status
 
-Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Against local OpenClaw 2026.8.1, the opt-in harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, active-turn recovery from unexpected transport loss, a successful assistant stream, Desky action capability discovery, and a real model-issued Jump tool call. A packaged-app gate also passes cancellation during real shell-tool execution and a successful same-session turn immediately afterward. Secure remote-gateway and macOS checks keep F2 open.
+Desky implements the OpenClaw Gateway v4 client surface required for F2. Contract fixtures are green. Against local OpenClaw 2026.8.1, the opt-in harness passes authentication, wrong-bootstrap rejection, stale-device-token rejection and fresh-credential recovery, advertised capabilities, session creation/subscription, approval deny, allow-once, expiry, first-answer-wins contention, duplicate acknowledgement, active-turn recovery from unexpected transport loss, a successful assistant stream, Desky action capability discovery, and a real model-issued Jump tool call. A packaged-app gate also passes cancellation during real shell-tool execution and a successful same-session turn immediately afterward. The remote transport contract now has real-socket evidence for strict TLS validation and terminal untrusted-certificate rejection. An operator-owned trusted remote Gateway matrix and macOS checks keep F2 open.
 
 The implementation is pinned to official `openclaw/openclaw` revision `66c0a23a063908fa5d83d344cebff171c7dea832`. The recommended npm packages resolved on 2026-08-22 as empty `0.0.0` placeholder tarballs, so Desky temporarily owns a narrow internal wire client behind a replaceable boundary. See ADR 0003.
 
@@ -38,6 +38,8 @@ Leaving the credential field blank uses saved access. Entering a credential expl
 
 - Unexpected disconnects retry after 1, 2, 4, 8, 16, then at most 30 seconds.
 - Authentication and other explicitly terminal Gateway errors remain visible and do not spin indefinitely.
+- Expired, not-yet-valid, untrusted, hostname-mismatched, and invalid TLS handshakes are sanitized terminal failures. They never enter the reconnect loop, and native certificate details never cross IPC.
+- The WebSocket client disables redirects and compression, enforces platform certificate validation, bounds payloads, and closes on binary or malformed protocol frames.
 - A reconnect refreshes sessions, re-subscribes the selected session with approval replay, and requests bounded history when supported.
 - An event sequence gap triggers the same bounded reconciliation path.
 - Desky deduplicates terminal events per run and never converts natural-language text into an approval.
@@ -74,6 +76,8 @@ Record the Gateway version, Desky commit, platform, connection profile, and reda
 8. Remote Store profile: connect through trusted `wss://`; confirm a bad or untrusted certificate cannot be bypassed.
 
 The 2026-08-22 packaged Windows gate additionally started a harmless 90-second shell command, invoked Desky's visible Stop control after the structured tool-start event, observed an authoritative abort acknowledgement, an errored tool result, and an aborted lifecycle terminal, then completed a new assistant turn in the same session. See the dated verification record for the redacted timings.
+
+The 2026-08-26 transport-security gate exercised actual HTTPS and `wss://` sockets against an ephemeral untrusted certificate generated outside the repository. Both Hermes and OpenClaw rejected the connection terminally without leaking certificate detail. This proves fail-closed client behavior, not a successful trusted public deployment. See `docs/verification/F5B6-REMOTE-TRANSPORT-SECURITY-2026-08-26.md`.
 
 ## Diagnostics policy
 

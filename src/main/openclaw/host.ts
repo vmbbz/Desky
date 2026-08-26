@@ -20,6 +20,7 @@ import {
   type DeviceIdentity,
 } from './protocol';
 import type { SecureVault } from './secure-vault';
+import { isTerminalSecureTransportError } from '../secure-transport';
 
 interface StoredProfile {
   gatewayUrl: string;
@@ -449,6 +450,7 @@ export class OpenClawAdapterHost {
         pairingRequestId,
         message,
       });
+      if (isTerminalSecureTransportError(error)) throw error;
       throw new Error(message);
     }
   }
@@ -517,6 +519,7 @@ export class OpenClawAdapterHost {
       if (generation !== this.generation || this.manualDisconnect) return;
       void this.connectCurrentProfile(true, generation).catch((error: unknown) => {
         if (error instanceof GatewayRequestError && !error.retryable) return;
+        if (isTerminalSecureTransportError(error)) return;
         if (generation === this.generation) this.scheduleReconnect(generation);
       });
     }, delay);

@@ -1,7 +1,7 @@
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 
-import { afterEach, describe, expect, it } from 'vitest';
-import { WebSocketServer } from 'ws';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import WebSocket, { type ClientOptions, WebSocketServer } from 'ws';
 
 import { OpenClawGatewayClient } from '../src/main/openclaw/gateway-client';
 import { generateDeviceIdentity } from '../src/main/openclaw/protocol';
@@ -70,5 +70,55 @@ describe('OpenClawGatewayClient', () => {
     expect(seenMethods).toEqual(['connect', 'sessions.list']);
     expect(gaps).toEqual([[2, 3]]);
     client.close();
+  });
+
+  it('forces strict wss transport options and sanitizes certificate failure', async () => {
+    const socket = new EventEmitter() as EventEmitter & {
+      close: ReturnType<typeof vi.fn>;
+      readyState: number;
+      bufferedAmount: number;
+    };
+    socket.close = vi.fn();
+    socket.readyState = WebSocket.CONNECTING;
+    socket.bufferedAmount = 0;
+    let capturedOptions: ClientOptions | undefined;
+    const client = new OpenClawGatewayClient({
+      url: 'wss://gateway.example/',
+      appVersion: '0.1.0',
+      platform: 'win32',
+      identity: generateDeviceIdentity(),
+      authKind: 'token',
+      credential: 'fixture-token',
+      onEvent: () => undefined,
+      onClose: () => undefined,
+    }, (_url, options) => {
+      capturedOptions = options;
+      return socket as unknown as WebSocket;
+    });
+
+    const connection = client.connect();
+    socket.emit('error', Object.assign(new Error('private certificate detail'), {
+      code: 'ERR_TLS_CERT_ALTNAME_INVALID',
+    }));
+    let failure: Error & {
+      code?: string;
+      retryable?: boolean;
+    };
+    try {
+      await connection;
+      throw new Error('Expected the remote certificate to be rejected.');
+    } catch (error) {
+      failure = error as Error & { code?: string; retryable?: boolean };
+    }
+
+    expect(capturedOptions).toMatchObject({
+      followRedirects: false,
+      rejectUnauthorized: true,
+      perMessageDeflate: false,
+      maxPayload: 1_048_576,
+    });
+    expect(failure).toMatchObject({ code: 'tls-hostname-mismatch', retryable: false });
+    expect(failure.message).toBe('OpenClaw TLS certificate does not match the endpoint.');
+    expect(failure.message).not.toContain('private certificate');
   });
 });

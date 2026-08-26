@@ -12,6 +12,7 @@ import {
 } from '../src/main/openclaw/host';
 import { SecureVault, type EncryptionProvider } from '../src/main/openclaw/secure-vault';
 import type { GatewayConnectOptions } from '../src/main/openclaw/gateway-client';
+import { SecureTransportError } from '../src/main/secure-transport';
 
 const temporaryDirectories: string[] = [];
 const requiredMethods = [
@@ -100,6 +101,15 @@ class FixtureClient implements GatewayClientPort {
 class RejectingClient extends FixtureClient {
   override connect(): Promise<never> {
     return Promise.reject(new Error('unauthorized token=bootstrap-token raw bootstrap-token'));
+  }
+}
+
+class TlsRejectingClient extends FixtureClient {
+  override connect(): Promise<never> {
+    return Promise.reject(new SecureTransportError(
+      'OpenClaw TLS certificate is expired.',
+      'tls-certificate-expired',
+    ));
   }
 }
 
@@ -305,6 +315,42 @@ describe('OpenClawAdapterHost contract fixture', () => {
     await vi.advanceTimersByTimeAsync(1_000);
     expect(clients).toHaveLength(2);
     expect(host.getState().status).toBe('connected');
+  });
+
+  it('stops reconnecting after a terminal remote certificate failure', async () => {
+    vi.useFakeTimers();
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const clients: FixtureClient[] = [];
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        const client = clients.length === 0
+          ? new FixtureClient(options)
+          : new TlsRejectingClient(options);
+        clients.push(client);
+        return client;
+      },
+    );
+    await host.connect({
+      gatewayUrl: 'wss://gateway.example/',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+
+    clients[0].options.onClose('network unavailable', false);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(clients).toHaveLength(2);
+    expect(host.getState()).toMatchObject({
+      status: 'error',
+      message: 'OpenClaw TLS certificate is expired.',
+    });
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(clients).toHaveLength(2);
   });
 
   it('fails closed when an approval acknowledgement is malformed', async () => {
