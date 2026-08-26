@@ -19,6 +19,7 @@ The system browser cannot receive Electron's commerce bearer token or perform an
 - Opening/bootstrap creates no payment attempt. Only a strictly admitted signed payload first records an opaque submission ID, canonical payload digest, and 15-second processing lease, then atomically prepares the order/attempt and enters verify/settle.
 - Raw signatures are never persisted. An exact resubmission may reclaim an expired processing lease; a changed submission ID or payload digest is rejected. F4x.2c's durable one-shot settlement claim remains the final duplicate-charge control if processes overlap.
 - Browser/ledger results project back to the authenticated desktop status route. A browser response or wallet callback alone is never payment truth.
+- Human authorization is explicitly two-step. Wallet connection and official test-USDC balance preflight are a distinct action that cannot invoke `eth_signTypedData_v4`; a second amount-labelled action requests the exact EIP-3009 signature only after displaying canonical terms and the selected public account. Signing rechecks account continuity, Base Sepolia, balance, and expiry. Client balance is advisory only and cannot replace facilitator verification or durable settlement evidence.
 - All modules remain hosted-service/browser-source only, unwired from Electron IPC and absent from current packaged applications.
 
 ## Consequences

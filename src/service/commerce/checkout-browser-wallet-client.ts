@@ -15,8 +15,11 @@ export interface Eip1193Provider {
 export type CheckoutWalletFailureCode =
   | 'wallet-user-rejected'
   | 'wallet-account-access'
+  | 'wallet-account-changed'
   | 'wallet-network-switch'
   | 'wallet-network-add'
+  | 'wallet-balance-read'
+  | 'wallet-insufficient-usdc'
   | 'wallet-signature-request'
   | 'wallet-signature-invalid'
   | 'wallet-checkout-expired';
@@ -25,8 +28,12 @@ export class CheckoutWalletError extends Error {
   constructor(readonly code: CheckoutWalletFailureCode) {
     super(code === 'wallet-account-access'
       ? 'Wallet returned an invalid or ambiguous account selection.'
+      : code === 'wallet-account-changed'
+        ? 'The selected wallet account changed after review.'
       : code === 'wallet-checkout-expired'
         ? 'Checkout authorization has expired.'
+        : code === 'wallet-insufficient-usdc'
+          ? 'The selected wallet does not have enough Base Sepolia test USDC.'
         : code === 'wallet-signature-invalid'
           ? 'Wallet returned an invalid EIP-3009 signature.'
           : code);
@@ -38,6 +45,13 @@ const baseSepoliaChainId = 84_532;
 const baseSepoliaChainHex = '0x14a34';
 const addressPattern = /^0x[0-9a-fA-F]{40}$/;
 const signaturePattern = /^0x[0-9a-fA-F]{130}$/;
+const quantityPattern = /^0x[0-9a-fA-F]+$/;
+
+export interface ConnectedCheckoutWallet {
+  account: string;
+  balanceAtomic: string;
+  sufficient: true;
+}
 
 export function readCheckoutHandoffVerifier(urlValue: string): string {
   let url: URL;
@@ -113,6 +127,75 @@ async function switchToBaseSepolia(provider: Eip1193Provider): Promise<void> {
   }
 }
 
+function balanceOfCall(account: string): string {
+  return `0x70a08231${account.slice(2).toLowerCase().padStart(64, '0')}`;
+}
+
+async function requireSufficientBalance(
+  provider: Eip1193Provider,
+  asset: string,
+  account: string,
+  amountAtomic: string,
+): Promise<string> {
+  const value = await providerRequest(provider, {
+    method: 'eth_call',
+    params: [{ to: asset, data: balanceOfCall(account) }, 'latest'],
+  }, 'wallet-balance-read');
+  if (typeof value !== 'string' || !quantityPattern.test(value) || value.length > 66) {
+    throw new CheckoutWalletError('wallet-balance-read');
+  }
+  let balance: bigint;
+  try { balance = BigInt(value); } catch { throw new CheckoutWalletError('wallet-balance-read'); }
+  if (balance < BigInt(amountAtomic)) {
+    throw new CheckoutWalletError('wallet-insufficient-usdc');
+  }
+  return balance.toString();
+}
+
+function assertSigningWindow(
+  nowSeconds: number,
+  expiresAtSeconds: number,
+  maxTimeoutSeconds: number,
+): { validAfter: number; validBefore: number } {
+  if (!Number.isSafeInteger(nowSeconds) || !Number.isSafeInteger(expiresAtSeconds)) {
+    throw new Error('Checkout is not admitted for Base Sepolia signing.');
+  }
+  const validAfter = Math.max(0, nowSeconds - 30);
+  const validBefore = Math.min(expiresAtSeconds, nowSeconds + maxTimeoutSeconds);
+  if (validBefore <= nowSeconds) throw new CheckoutWalletError('wallet-checkout-expired');
+  return { validAfter, validBefore };
+}
+
+/**
+ * Connects and preflights the selected account without requesting a payment signature.
+ * The balance read improves UX only; facilitator verification remains authoritative.
+ */
+export async function connectBaseSepoliaCheckoutWallet(input: {
+  provider: Eip1193Provider;
+  paymentRequirements: unknown;
+  nowSeconds: number;
+  expiresAtSeconds: number;
+}): Promise<ConnectedCheckoutWallet> {
+  const requirements = parseX402PaymentRequirements(input.paymentRequirements);
+  if (requirements.network !== baseSepoliaNetwork) {
+    throw new Error('Checkout is not admitted for Base Sepolia signing.');
+  }
+  assertSigningWindow(
+    input.nowSeconds, input.expiresAtSeconds, requirements.maxTimeoutSeconds,
+  );
+  const account = readAccount(await providerRequest(
+    input.provider, { method: 'eth_requestAccounts' }, 'wallet-account-access',
+  ));
+  if (account.toLowerCase() === requirements.payTo.toLowerCase()) {
+    throw new Error('The Base Sepolia payer must differ from the merchant recipient.');
+  }
+  await switchToBaseSepolia(input.provider);
+  const balanceAtomic = await requireSufficientBalance(
+    input.provider, requirements.asset, account, requirements.amount,
+  );
+  return { account, balanceAtomic, sufficient: true };
+}
+
 /**
  * Builds the exact EIP-3009 authorization in the hosted page. The wallet performs signing;
  * Desky never receives an account private key or seed phrase.
@@ -123,30 +206,30 @@ export async function signBaseSepoliaCheckout(input: {
   resource: X402ResourceInfo;
   nowSeconds: number;
   expiresAtSeconds: number;
+  expectedAccount?: string;
   random?: (bytes: Uint8Array) => Uint8Array;
 }): Promise<X402BasePaymentPayload> {
   const requirements = parseX402PaymentRequirements(input.paymentRequirements);
-  if (requirements.network !== baseSepoliaNetwork
-    || !Number.isSafeInteger(input.nowSeconds)
-    || !Number.isSafeInteger(input.expiresAtSeconds)) {
+  if (requirements.network !== baseSepoliaNetwork) {
     throw new Error('Checkout is not admitted for Base Sepolia signing.');
   }
-  const validAfter = Math.max(0, input.nowSeconds - 30);
-  const validBefore = Math.min(
-    input.expiresAtSeconds,
-    input.nowSeconds + requirements.maxTimeoutSeconds,
+  const { validAfter, validBefore } = assertSigningWindow(
+    input.nowSeconds, input.expiresAtSeconds, requirements.maxTimeoutSeconds,
   );
-  if (validBefore <= input.nowSeconds) {
-    throw new CheckoutWalletError('wallet-checkout-expired');
-  }
 
   const account = readAccount(await providerRequest(
-    input.provider, { method: 'eth_requestAccounts' }, 'wallet-account-access',
+    input.provider,
+    { method: input.expectedAccount ? 'eth_accounts' : 'eth_requestAccounts' },
+    'wallet-account-access',
   ));
+  if (input.expectedAccount && account.toLowerCase() !== input.expectedAccount.toLowerCase()) {
+    throw new CheckoutWalletError('wallet-account-changed');
+  }
   if (account.toLowerCase() === requirements.payTo.toLowerCase()) {
     throw new Error('The Base Sepolia payer must differ from the merchant recipient.');
   }
   await switchToBaseSepolia(input.provider);
+  await requireSufficientBalance(input.provider, requirements.asset, account, requirements.amount);
   const authorization = {
     from: account,
     to: requirements.payTo,

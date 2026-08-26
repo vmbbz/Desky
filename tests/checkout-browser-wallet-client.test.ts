@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  connectBaseSepoliaCheckoutWallet,
   readCheckoutHandoffVerifier,
   signBaseSepoliaCheckout,
   type Eip1193Provider,
@@ -39,6 +40,7 @@ describe('hosted Base Sepolia wallet client', () => {
     const request = vi.fn(async (input: { method: string; params?: unknown[] }) => {
       if (input.method === 'eth_requestAccounts') return [payer];
       if (input.method === 'wallet_switchEthereumChain') return null;
+      if (input.method === 'eth_call') return '0x989680';
       if (input.method === 'eth_signTypedData_v4') return `0x${'11'.repeat(65)}`;
       throw new Error('unexpected method');
     });
@@ -54,7 +56,7 @@ describe('hosted Base Sepolia wallet client', () => {
       method: 'wallet_switchEthereumChain',
       params: [{ chainId: '0x14a34' }],
     });
-    const sign = request.mock.calls[2][0];
+    const sign = request.mock.calls[3][0];
     expect(sign.method).toBe('eth_signTypedData_v4');
     const typed = JSON.parse((sign.params as string[])[1]) as Record<string, unknown>;
     expect(typed).toMatchObject({
@@ -71,6 +73,7 @@ describe('hosted Base Sepolia wallet client', () => {
       request: vi.fn(async ({ method }) => {
         if (method === 'eth_requestAccounts') return accounts;
         if (method === 'wallet_switchEthereumChain') return null;
+        if (method === 'eth_call') return '0x989680';
         return signature;
       }),
     });
@@ -104,5 +107,35 @@ describe('hosted Base Sepolia wallet client', () => {
     })).rejects.toMatchObject({
       name: 'CheckoutWalletError', code: 'wallet-user-rejected',
     });
+  });
+
+  it('connects and checks test USDC without requesting a signature', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => {
+      if (method === 'eth_requestAccounts') return [payer];
+      if (method === 'wallet_switchEthereumChain') return null;
+      if (method === 'eth_call') return '0x989680';
+      throw new Error('unexpected method');
+    });
+    await expect(connectBaseSepoliaCheckoutWallet({
+      provider: { request }, paymentRequirements: requirements,
+      nowSeconds: 100, expiresAtSeconds: 200,
+    })).resolves.toEqual({ account: payer, balanceAtomic: '10000000', sufficient: true });
+    expect(request.mock.calls.map(([input]) => input.method)).toEqual([
+      'eth_requestAccounts', 'wallet_switchEthereumChain', 'eth_call',
+    ]);
+  });
+
+  it('fails before signing when the connected account lacks test USDC', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => {
+      if (method === 'eth_requestAccounts') return [payer];
+      if (method === 'wallet_switchEthereumChain') return null;
+      if (method === 'eth_call') return '0x1';
+      throw new Error('signature must not be requested');
+    });
+    await expect(connectBaseSepoliaCheckoutWallet({
+      provider: { request }, paymentRequirements: requirements,
+      nowSeconds: 100, expiresAtSeconds: 200,
+    })).rejects.toMatchObject({ code: 'wallet-insufficient-usdc' });
+    expect(request.mock.calls.map(([input]) => input.method)).not.toContain('eth_signTypedData_v4');
   });
 });

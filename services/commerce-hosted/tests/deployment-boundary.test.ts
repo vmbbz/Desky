@@ -27,6 +27,9 @@ describe('hosted checkout deployment boundary', () => {
     expect(document).not.toMatch(/<script(?:\s[^>]*)?>\s*[^<]/);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.js$/.test(name))).toBe(true);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.css$/.test(name))).toBe(true);
+    expect(document).toContain('Connect MetaMask');
+    expect(document).toContain('Connecting a wallet does not approve or send payment.');
+    expect(document).not.toContain('Connect wallet and pay');
   });
 
   it('never provisions raw wallet or browser-secret columns', async () => {

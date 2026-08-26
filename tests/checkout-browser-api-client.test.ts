@@ -117,13 +117,22 @@ describe('hosted checkout page API client', () => {
     await client.bootstrapFromUrl(`${origin}/checkout/checkout%3A1#handoff=${'v'.repeat(43)}`);
     const wallet = {
       request: vi.fn(async ({ method }: { method: string }) => {
-        if (method === 'eth_requestAccounts') return [payer];
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [payer];
         if (method === 'wallet_switchEthereumChain') return null;
+        if (method === 'eth_call') return '0x989680';
         return `0x${'11'.repeat(65)}`;
       }),
     };
+    await expect(client.connectWallet({
+      provider: wallet,
+      nowSeconds: Math.floor(Date.parse('2026-08-25T10:00:00.000Z') / 1_000),
+    })).resolves.toMatchObject({ account: payer, sufficient: true });
+    expect(wallet.request.mock.calls.map(([input]) => input.method)).not.toContain(
+      'eth_signTypedData_v4',
+    );
     expect((await client.signAndSubmit({
       provider: wallet,
+      expectedAccount: payer,
       submissionId: 'submission:1',
       nowSeconds: Math.floor(Date.parse('2026-08-25T10:00:00.000Z') / 1_000),
       random: (bytes) => bytes.fill(0x22),
@@ -134,7 +143,10 @@ describe('hosted checkout page API client', () => {
       checkoutSessionId: 'checkout:1', submissionId: 'submission:1',
       paymentPayload: { x402Version: 2 },
     });
-    expect(wallet.request).toHaveBeenCalledTimes(3);
+    expect(wallet.request.mock.calls.map(([input]) => input.method)).toEqual([
+      'eth_requestAccounts', 'wallet_switchEthereumChain', 'eth_call',
+      'eth_accounts', 'wallet_switchEthereumChain', 'eth_call', 'eth_signTypedData_v4',
+    ]);
   });
 
   it('admits Base Sepolia through the wallet when the network is missing', async () => {
@@ -148,22 +160,28 @@ describe('hosted checkout page API client', () => {
     let switchCalls = 0;
     const wallet = {
       request: vi.fn(async ({ method }: { method: string }) => {
-        if (method === 'eth_requestAccounts') return [payer];
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [payer];
         if (method === 'wallet_switchEthereumChain' && switchCalls++ === 0) {
           throw Object.assign(new Error('missing chain'), { code: 4902 });
         }
         if (method === 'wallet_addEthereumChain' || method === 'wallet_switchEthereumChain') return null;
+        if (method === 'eth_call') return '0x989680';
         return `0x${'11'.repeat(65)}`;
       }),
     };
+    await client.connectWallet({
+      provider: wallet,
+      nowSeconds: Math.floor(Date.parse('2026-08-25T10:00:00.000Z') / 1_000),
+    });
     await expect(client.signAndSubmit({
-      provider: wallet, submissionId: 'submission:multi',
+      provider: wallet, expectedAccount: payer, submissionId: 'submission:multi',
       nowSeconds: Math.floor(Date.parse('2026-08-25T10:00:00.000Z') / 1_000),
       random: (bytes) => bytes.fill(0x33),
     })).resolves.toMatchObject({ session: { state: 'settled' } });
     expect(wallet.request.mock.calls.map(([input]) => input.method)).toEqual([
       'eth_requestAccounts', 'wallet_switchEthereumChain', 'wallet_addEthereumChain',
-      'wallet_switchEthereumChain', 'eth_signTypedData_v4',
+      'wallet_switchEthereumChain', 'eth_call', 'eth_accounts',
+      'wallet_switchEthereumChain', 'eth_call', 'eth_signTypedData_v4',
     ]);
     const submitted = JSON.parse(fetchImpl.mock.calls[1][1].body as string);
     expect(submitted.paymentPayload.payload.authorization.from).toBe(payer);

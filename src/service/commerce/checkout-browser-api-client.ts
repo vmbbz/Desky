@@ -13,8 +13,10 @@ import {
   type X402ResourceInfo,
 } from './x402-base-sepolia';
 import {
+  connectBaseSepoliaCheckoutWallet,
   readCheckoutHandoffVerifier,
   signBaseSepoliaCheckout,
+  type ConnectedCheckoutWallet,
   type Eip1193Provider,
 } from './checkout-browser-wallet-client';
 
@@ -147,6 +149,7 @@ export class CheckoutBrowserApiClient {
 
   async signAndSubmit(input: {
     provider: Eip1193Provider;
+    expectedAccount: string;
     submissionId: string;
     nowSeconds: number;
     random?: (bytes: Uint8Array) => Uint8Array;
@@ -161,6 +164,7 @@ export class CheckoutBrowserApiClient {
       resource: current.resource,
       nowSeconds: input.nowSeconds,
       expiresAtSeconds: Math.floor(Date.parse(current.session.expiresAt) / 1_000),
+      expectedAccount: input.expectedAccount,
       random: input.random,
     });
     this.material = await this.post('/v1/browser/submit', {
@@ -170,6 +174,20 @@ export class CheckoutBrowserApiClient {
       paymentPayload,
     }, current.csrfToken);
     return structuredClone(this.material);
+  }
+
+  async connectWallet(input: {
+    provider: Eip1193Provider;
+    nowSeconds: number;
+  }): Promise<ConnectedCheckoutWallet> {
+    const current = this.material;
+    if (!current) throw new Error('Hosted checkout must be loaded before wallet connection.');
+    return connectBaseSepoliaCheckoutWallet({
+      provider: input.provider,
+      paymentRequirements: current.paymentRequirements,
+      nowSeconds: input.nowSeconds,
+      expiresAtSeconds: Math.floor(Date.parse(current.session.expiresAt) / 1_000),
+    });
   }
 
   private async post(

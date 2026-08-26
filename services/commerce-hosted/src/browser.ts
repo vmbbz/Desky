@@ -30,11 +30,15 @@ const eyebrow = element<HTMLParagraphElement>('eyebrow');
 const statusMark = element<HTMLDivElement>('status-mark');
 const terms = element<HTMLDListElement>('terms');
 const pay = element<HTMLButtonElement>('pay');
+const actionNote = element<HTMLParagraphElement>('action-note');
 const sessionLabel = element<HTMLSpanElement>('session-label');
+const walletRow = element<HTMLDivElement>('wallet-row');
+const walletAccount = element<HTMLElement>('wallet-account');
 
 let client: CheckoutBrowserApiClient | undefined;
 let material: CheckoutBrowserApiMaterial | undefined;
 let polling: number | undefined;
+let connectedWallet: { name: string; provider: Eip1193Provider; account: string } | undefined;
 const announcedProviders = new Map<string, AnnouncedProvider>();
 
 window.addEventListener('eip6963:announceProvider', (event: Event) => {
@@ -94,11 +98,13 @@ function render(next: CheckoutBrowserApiMaterial): void {
     statusMark.className = 'status-mark';
     pay.disabled = true;
     pay.textContent = 'Payment confirmed';
+    actionNote.textContent = 'The service verified settlement and granted the entitlement.';
     stopPolling();
     return;
   }
   if (['failed', 'expired', 'cancelled'].includes(next.session.state)) {
-    showFailure('This checkout can no longer continue.', 'Return to Desky to start a new checkout.');
+    showFailure('This checkout can no longer continue.',
+      'It cannot be retried or signed. Return to Desky to start a new checkout.');
     stopPolling();
     return;
   }
@@ -110,15 +116,25 @@ function render(next: CheckoutBrowserApiMaterial): void {
     statusMark.className = 'status-mark pending';
     pay.disabled = true;
     pay.textContent = 'Confirmation pending';
+    actionNote.textContent = 'Do not sign again. Desky is reconciling the submitted authorization.';
     startPolling();
     return;
   }
-  eyebrow.textContent = 'Terms verified';
-  title.textContent = 'Complete in your wallet.';
-  lead.textContent = 'Review these exact testnet terms. Your wallet will ask before signing.';
+  eyebrow.textContent = connectedWallet ? 'Ready for approval' : 'Terms verified';
+  title.textContent = connectedWallet ? 'Review, then sign.' : 'Connect your wallet.';
+  lead.textContent = connectedWallet
+    ? 'Check the exact item, total, network, recipient, and paying account. The next action asks MetaMask for a payment signature.'
+    : 'Connection reveals only the selected public account and test-USDC balance. It does not approve payment.';
   statusMark.className = 'status-mark';
   pay.disabled = false;
-  pay.textContent = 'Connect wallet and pay';
+  pay.textContent = connectedWallet
+    ? `Sign ${atomicUsdc(next.view.amountAtomic)}`
+    : 'Connect MetaMask';
+  actionNote.textContent = connectedWallet
+    ? 'This is the payment step. MetaMask will show a signature approval request.'
+    : 'Connecting a wallet does not approve or send payment.';
+  walletRow.hidden = !connectedWallet;
+  walletAccount.textContent = connectedWallet ? shortAddress(connectedWallet.account) : '—';
 }
 
 function showFailure(heading: string, detail: string): void {
@@ -128,6 +144,7 @@ function showFailure(heading: string, detail: string): void {
   statusMark.className = 'status-mark error';
   pay.disabled = true;
   pay.textContent = 'Cannot continue';
+  actionNote.textContent = 'No payment or entitlement was created by this page state.';
 }
 
 function bootstrapFailureCode(error: unknown): string {
@@ -164,22 +181,62 @@ pay.addEventListener('click', () => {
       'Enable MetaMask, then reopen this checkout from Desky. Desky will not guess between multiple wallets.');
     return;
   }
+  if (!connectedWallet) {
+    pay.disabled = true;
+    pay.textContent = `Connecting ${wallet.name}…`;
+    actionNote.textContent = 'MetaMask may ask which public account to share. This is not payment approval.';
+    void client.connectWallet({
+      provider: wallet.provider,
+      nowSeconds: Math.floor(Date.now() / 1_000),
+    }).then((connected) => {
+      connectedWallet = { name: wallet.name, provider: wallet.provider, account: connected.account };
+      if (material) render(material);
+    }).catch(showWalletFailure);
+    return;
+  }
   pay.disabled = true;
-  pay.textContent = `Waiting for ${wallet.name}…`;
+  pay.textContent = `Waiting for ${connectedWallet.name} signature…`;
+  actionNote.textContent = 'Approve only if MetaMask shows the exact testnet payment you reviewed.';
   void client.signAndSubmit({
-    provider: wallet.provider,
+    provider: connectedWallet.provider,
+    expectedAccount: connectedWallet.account,
     submissionId: `submission:${crypto.randomUUID()}`,
     nowSeconds: Math.floor(Date.now() / 1_000),
-  }).then(render).catch((error: unknown) => {
+  }).then(render).catch(showWalletFailure);
+});
+
+function showWalletFailure(error: unknown): void {
     const failure = error instanceof CheckoutWalletError ? error.code : 'wallet-client-runtime';
+    if (failure === 'wallet-checkout-expired') {
+      showFailure('This checkout expired before approval.',
+        'It cannot be retried or signed. Return to Desky to start a new checkout.');
+      return;
+    }
+    if (failure === 'wallet-insufficient-usdc') {
+      eyebrow.textContent = 'Insufficient test USDC';
+      title.textContent = 'This wallet cannot cover the total.';
+      lead.textContent = 'No signature was requested and no entitlement was granted. Select a funded Base Sepolia account, then reconnect.';
+      statusMark.className = 'status-mark error';
+      connectedWallet = undefined;
+      walletRow.hidden = true;
+      pay.disabled = false;
+      pay.textContent = 'Reconnect wallet';
+      actionNote.textContent = 'A wallet connection is not payment approval.';
+      return;
+    }
     eyebrow.textContent = 'Wallet did not complete';
-    title.textContent = 'Nothing was approved.';
-    lead.textContent = `No entitlement was granted. Safe diagnostic: ${failure}.`;
+    title.textContent = failure === 'wallet-user-rejected'
+      ? 'Signature request cancelled.' : 'Wallet action did not complete.';
+    lead.textContent = failure === 'wallet-user-rejected'
+      ? 'No payment was submitted and no entitlement was granted.'
+      : `No entitlement was granted. Safe diagnostic: ${failure}.`;
     statusMark.className = 'status-mark error';
     pay.disabled = false;
-    pay.textContent = 'Try wallet again';
-  });
-});
+    pay.textContent = connectedWallet ? 'Review and sign again' : 'Reconnect wallet';
+    actionNote.textContent = connectedWallet
+      ? 'Retrying will open a new MetaMask signature request; it will not submit automatically.'
+      : 'Connecting a wallet does not approve or send payment.';
+}
 
 window.addEventListener('pagehide', stopPolling);
 

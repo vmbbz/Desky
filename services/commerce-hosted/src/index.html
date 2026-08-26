@@ -28,11 +28,13 @@
           <div><dt>Total</dt><dd id="amount">—</dd></div>
           <div><dt>Network</dt><dd id="network">—</dd></div>
           <div><dt>Recipient</dt><dd id="recipient" class="mono">—</dd></div>
+          <div id="wallet-row" hidden><dt>Paying wallet</dt><dd id="wallet-account" class="mono">—</dd></div>
           <div><dt>Expires</dt><dd id="expires">—</dd></div>
         </dl>
 
-        <button id="pay" type="button" disabled>Connect wallet and pay</button>
-        <p class="fine-print">Your wallet signs the payment. Desky never receives your private key or seed phrase.</p>
+        <button id="pay" type="button" disabled>Connect MetaMask</button>
+        <p class="action-note" id="action-note">Connecting a wallet does not approve or send payment.</p>
+        <p class="fine-print">Your wallet signs the exact payment only after a separate review step. Desky never receives your private key or seed phrase.</p>
       </section>
 
       <footer>
