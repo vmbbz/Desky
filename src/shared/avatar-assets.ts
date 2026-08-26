@@ -4,6 +4,7 @@ export type AvatarSelectionStatus = (typeof avatarSelectionStatuses)[number];
 export interface AvatarRuntimeDescriptor {
   avatarId: string;
   revisionId: string;
+  animationProfileId: string;
   name: string;
   projectId: string;
   projectName: string;

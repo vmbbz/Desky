@@ -3,6 +3,7 @@ import { VRMHumanBoneName, type VRM } from '@pixiv/three-vrm';
 import { Group } from 'three';
 
 import builtInAnimationLibrary from '../src/assets/animations/quaternius-uam-standard-v1.library.json';
+import builtInAnimationProfile from '../src/assets/animations/desky-humanoid-standard-v1.profile.json';
 import {
   admitAnimationLibrary,
   selectActionProgram,
@@ -125,10 +126,18 @@ describe('built-in admitted animation library', () => {
   });
 
   it('cryptographically admits every clip and resolves Jump as a two-file action program', async () => {
-    const library = await admitAnimationLibrary(builtInAnimationLibrary);
+    const library = await admitAnimationLibrary(builtInAnimationLibrary, builtInAnimationProfile);
     const jump = selectActionProgram(library, 'jump');
 
     expect(library.clipCount).toBe(85);
+    expect(library.profile.profileId).toBe('desky-humanoid-standard-v1');
+    expect(library.programs.map((program) => program.programId)).toEqual([
+      'phone-check',
+      'dance-break',
+      'formal-walk',
+      'jump',
+    ]);
+    expect(library.programs.every((program) => program.intensity === 1)).toBe(true);
     expect(library.stateRegistrations).toHaveLength(4);
     expect(library.stateRegistrations.find((binding) => binding.mode === 'thinking')).toMatchObject({
       hipsTranslation: 'preserve-target',
@@ -137,8 +146,20 @@ describe('built-in admitted animation library', () => {
     expect(jump?.steps.map((step) => step.clip.label)).toEqual(['Jump Start', 'Jump Land']);
   });
 
+  it('fails closed when runnable library policy and the avatar profile drift apart', async () => {
+    const missingProgram = structuredClone(builtInAnimationProfile);
+    missingProgram.programs = missingProgram.programs.filter((program) => program.programId !== 'jump');
+    await expect(admitAnimationLibrary(builtInAnimationLibrary, missingProgram))
+      .rejects.toThrow(/does not own every runnable program/);
+
+    const wrongKind = structuredClone(builtInAnimationProfile);
+    wrongKind.programs.find((program) => program.programId === 'jump')!.kind = 'ambient';
+    await expect(admitAnimationLibrary(builtInAnimationLibrary, wrongKind))
+      .rejects.toThrow(/does not admit jump/);
+  });
+
   it('binds all 85 canonical clips to structural VRM 0.x and 1.0 targets', async () => {
-    const library = await admitAnimationLibrary(builtInAnimationLibrary);
+    const library = await admitAnimationLibrary(builtInAnimationLibrary, builtInAnimationProfile);
     for (const version of ['0', '1'] as const) {
       const vrm = targetVrm(version);
       for (const definition of library.clips.values()) {
@@ -150,7 +171,7 @@ describe('built-in admitted animation library', () => {
   });
 
   it('keeps standing state clips on the target avatar floor plane', async () => {
-    const library = await admitAnimationLibrary(builtInAnimationLibrary);
+    const library = await admitAnimationLibrary(builtInAnimationLibrary, builtInAnimationProfile);
     const vrm = targetVrm('1');
     for (const mode of ['idle', 'thinking', 'speaking'] as const) {
       const registration = library.stateRegistrations.find((candidate) => candidate.mode === mode);
@@ -163,7 +184,7 @@ describe('built-in admitted animation library', () => {
   });
 
   it('executes and settles the real two-step Jump program through the single body owner', async () => {
-    const library = await admitAnimationLibrary(builtInAnimationLibrary);
+    const library = await admitAnimationLibrary(builtInAnimationLibrary, builtInAnimationProfile);
     const vrm = targetVrm('1');
     const controller = new AvatarMotionController(vrm, vrm.scene, library.stateRegistrations, {
       animationLibrary: library,

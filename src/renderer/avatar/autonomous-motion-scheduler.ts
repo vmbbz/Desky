@@ -50,7 +50,7 @@ export class AutonomousMotionScheduler {
     const eligible = this.programs.filter(
       (program) => program.trigger.kind === 'ambient'
         && program.trigger.modes.includes(mode)
-        && this.policy.categories[motionCategoryForTags(program.tags)] > 0,
+        && this.policy.categories[motionCategoryForTags(program.tags)] >= program.intensity,
     );
     if (eligible.length === 0) {
       this.resetQuietInterval();

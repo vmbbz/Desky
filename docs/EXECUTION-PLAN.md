@@ -83,7 +83,7 @@ The packaged surface supports direct manipulation after a five-pixel threshold a
 
 ### Next animation round — expressive motion layers
 
-Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x. F4.8 adds the real, provenance-reviewed Seed-san VRM 1.0 compatibility fixture and package-proves its normalized idle/listening/thinking/working/speaking/success cycle, explicit Jump, framing, reduced motion, WebGL recovery, cache repair, and offline restart. The every-enabled-clip visual matrix and a product-suitable CC0 VRM 1.0 marketplace revision remain open.
+Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x. F4.8 adds the real, provenance-reviewed Seed-san VRM 1.0 compatibility fixture and package-proves its normalized idle/listening/thinking/working/speaking/success cycle, explicit Jump, framing, reduced motion, WebGL recovery, cache repair, and offline restart. F3d.2 now binds every avatar revision to a reviewed file-defined animation profile; exact state/program ownership, required bones, intensity and root-motion policy fail closed before playback, and catalog-only programs are no longer registered into the controller. The final product-suitable CC0 VRM 1.0 marketplace revision and its every-enabled-program visual matrix remain open.
 
 - Add a deterministic queue for user-requested actions and short conversational gestures without creating a second full-body owner.
 - Add capability-aware procedural blink and restrained look-at that work without external animation files and obey reduced-motion/cancellation priority. Keep speaking on its authored state clip rather than interrupting it with a procedural full-body emphasis.
@@ -105,6 +105,8 @@ A separate additive controller uses the avatar capability inventory before drivi
 
 Status: in progress. System reduced-motion detection exists. F4.4 proves restoration after WebGL loss; F4.5 stops the loop for native/document hiding, power suspension, and WebGL unavailability and adds bounded fresh-renderer retry. F3d.1 replaces display-refresh polling with a timer/RAF scheduler: calm state loops target 20 FPS, while every autonomous program, explicit cue, preview, thinking, working, approval, and speaking state remains 60 FPS. A native desired-visibility watchdog now recovers unexpected hide/minimize without reversing deliberate Hide or suspend; display changes are reconciled after a bounded debounce. Packaged Windows proves visibility/focus recovery and idle/hidden/recovered lifecycle continuity. Whole-app visible idle improved from 4.107% to 3.103% but still narrowly misses the `<3%` target; hidden CPU averaged 0.081%. Forced-colors and increased-contrast CSS are implemented. External full-screen observation, manual assistive-technology, physical display/virtual-desktop matrices, broader reference hardware, and macOS remain open.
 
+F3d.2 implements immutable per-avatar motion-profile admission. The three free revisions and paid-pilot revision carry the profile identity into the renderer; a clean packaged six-switch Windows run committed every free-avatar activation with verified model/cache state and no exercise error. Profile drift, required-bone failure, unknown identity, unreviewed policy and root-motion violations are bounded failures. Evidence: `docs/verification/F3D2-ANIMATION-PROFILE-ADMISSION-2026-08-26.md`.
+
 - Retain the implemented Paused/System/Full/Reduced policy through accessibility and lifecycle validation.
 - Suspend rendering when hidden or Chromium-reported occluded; add explicit full-screen suppression policy.
 - Recover from WebGL loss and avatar replacement without leaking GPU resources. Restoration and terminal retry pass; one longer reference-device plateau is recorded, while broader hardware and visible-idle optimization remain.
@@ -115,7 +117,7 @@ Status: in progress. System reduced-motion detection exists. F4.4 proves restora
 
 ### Asset completion
 
-- Complete packaged visual admission for the rights-approved 84-clip Quaternius candidate library, disabling or tuning any program that fails the representative avatar matrix.
+- Complete packaged visual admission for every profile-enabled state/program on the final product VRM 1.0 revision; catalog-only Quaternius clips stay non-runnable until separately profiled and reviewed.
 - Add reviewed binary VRM 0.x and 1.0 fixtures across representative proportions.
 - Persist exact-byte provenance beside bounded cached assets and verify it on every read.
 - Add action, conversational gesture, blink, look-at, expression, and optional viseme layers only through the established motion ownership rules.

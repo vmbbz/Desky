@@ -134,7 +134,7 @@ export async function admittedAnimationLibraryFixture(input: {
     manifest.playback = 'one-shot';
     return { clipId, canonical, manifest };
   }));
-  return admitAnimationLibrary({
+  const library = {
     schemaVersion: 1,
     libraryId: 'fixture-library',
     label: 'Fixture animation library',
@@ -180,5 +180,24 @@ export async function admittedAnimationLibraryFixture(input: {
         holdSeconds: 0,
       })),
     }],
+  };
+  const programId = input.trigger === 'jump' ? 'fixture-jump' : 'fixture-ambient';
+  return admitAnimationLibrary(library, {
+    schemaVersion: 1,
+    profileId: 'fixture-profile',
+    libraryId: 'fixture-library',
+    requiredBones: ['hips'],
+    stateModes: [],
+    programs: [{
+      programId,
+      kind: input.trigger === 'jump' ? 'action' : 'ambient',
+      intensity: 1,
+    }],
+    rootMotion: 'forbidden',
+    review: {
+      status: 'approved',
+      reviewer: 'fixture-reviewer',
+      reviewedAt: '2026-08-22T12:03:00.000Z',
+    },
   });
 }

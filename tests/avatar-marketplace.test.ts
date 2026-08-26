@@ -51,6 +51,7 @@ describe('avatar marketplace foundation', () => {
         productId: 'avatar.toothpaste',
         revisionId: 'toothpaste-6dc38124-v1',
         licenseId: 'CC0-1.0',
+        animationProfileId: 'desky-humanoid-standard-v1',
         availability: 'locked',
       },
       registryCommit: '0f9a1b2fd99894736563d55b2c9dc9125700d081',

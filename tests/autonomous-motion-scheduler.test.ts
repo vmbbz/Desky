@@ -14,12 +14,14 @@ function ambientProgram(
     cooldown?: number;
     cycle?: { id: string; length: number; slots: number[] };
     tags?: string[];
+    intensity?: 1 | 2 | 3;
   } = {},
 ): AdmittedAnimationProgram {
   return {
     programId,
     label: programId,
     tags: options.tags ?? ['idle'],
+    intensity: options.intensity ?? 1,
     fallbackCue: 'weight-shift',
     trigger: {
       kind: 'ambient',
@@ -141,6 +143,16 @@ describe('AutonomousMotionScheduler', () => {
     expect(scheduler.update(0, 'idle')).toBeUndefined();
     expect(scheduler.update(2, 'idle')).toBeUndefined();
     expect(scheduler.update(3, 'idle')?.programId).toBe('phone-check');
+  });
+
+  it('requires the user category level to meet the reviewed program intensity', () => {
+    const scheduler = new AutonomousMotionScheduler([
+      ambientProgram('restrained', { minimum: 1, maximum: 1, intensity: 1 }),
+      ambientProgram('expressive', { minimum: 1, maximum: 1, intensity: 3 }),
+    ], 42, motionPersonalityForPreset('balanced'));
+
+    expect(scheduler.update(0, 'idle')).toBeUndefined();
+    expect(scheduler.update(1, 'idle')?.programId).toBe('restrained');
   });
 
   it('resets pending autonomy when the personality changes', () => {

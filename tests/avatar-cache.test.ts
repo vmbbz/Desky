@@ -52,6 +52,7 @@ function revision(bytes: Uint8Array, avatarId = 'test-avatar'): AdmittedAvatarRe
       licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
       attribution: 'Test · CC0-1.0',
       modelSha256: hash,
+      animationProfileId: 'desky-humanoid-standard-v1',
       vrmVersion: '0.x',
       performanceClass: 'light',
       admissionStatus: 'admitted',

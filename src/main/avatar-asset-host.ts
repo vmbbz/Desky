@@ -28,6 +28,7 @@ function runtimeDescriptor(revision: AdmittedAvatarRevision): AvatarRuntimeDescr
   return {
     avatarId: revision.avatar.avatarId,
     revisionId: revision.avatar.revisionId,
+    animationProfileId: revision.avatar.animationProfileId,
     name: revision.avatar.name,
     projectId: revision.avatar.projectId,
     projectName: revision.avatar.projectName,

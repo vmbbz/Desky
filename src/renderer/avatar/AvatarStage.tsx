@@ -27,7 +27,12 @@ import {
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import builtInAnimationLibrary from '../../assets/animations/quaternius-uam-standard-v1.library.json';
+import builtInAnimationProfile from '../../assets/animations/desky-humanoid-standard-v1.profile.json';
 import type { CompanionMode } from '../../shared/adapter-events';
+import {
+  assertAnimationProfileBones,
+  parseAvatarAnimationProfile,
+} from '../../shared/avatar-animation-profile';
 import { createAssetProvenance } from '../../shared/asset-provenance';
 import type { LocalAnimationPreviewCommand } from '../../shared/local-animation';
 import type { MotionPersonalityPolicy } from '../../shared/motion-personality';
@@ -575,13 +580,20 @@ export function AvatarStage({
         let animationLibrary: AdmittedAnimationLibrary | undefined;
         let animationLibraryWarning: string | undefined;
         try {
-          animationLibrary = await admitAnimationLibrary(builtInAnimationLibrary);
+          animationLibrary = await admitAnimationLibrary(
+            builtInAnimationLibrary,
+            builtInAnimationProfile,
+          );
         } catch (error) {
           animationLibraryWarning = error instanceof Error
             ? error.message
             : 'The built-in animation library failed admission.';
         }
         const { avatar, bytes: buffer } = await window.desky.avatar.getSelected();
+        const animationProfile = parseAvatarAnimationProfile(builtInAnimationProfile);
+        if (avatar.animationProfileId !== animationProfile.profileId) {
+          throw new Error(`The selected companion requires unavailable motion profile ${avatar.animationProfileId}`);
+        }
         loadedRevisionId = avatar.revisionId;
         if (disposed) return;
         setLoadState({ kind: 'loading', message: `Loading ${avatar.name}…` });
@@ -596,6 +608,7 @@ export function AvatarStage({
         if (!vrm) throw new Error('The selected file is not a readable VRM avatar');
         const capabilities = inspectVrmCapabilities(vrm);
         assertCoreHumanoid(capabilities);
+        assertAnimationProfileBones(animationProfile, capabilities.availableBones);
         const usageReview = reviewVrmUsage(vrm.meta, avatar.licenseId);
         assertVrmUsageCompatible(usageReview);
         let textureCount = 0;

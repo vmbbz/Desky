@@ -381,7 +381,9 @@ Evidence: `docs/verification/F4-VRM1-COMPATIBILITY-2026-08-24.md`.
 
 F3d.1 adds desired-visibility recovery, debounced display reconciliation, macOS/Linux workspace policy without false Windows claims, timer/RAF frame scheduling, calm 20 FPS state loops with all deliberate motion retained at 60 FPS, forced-colors/increased-contrast styling, and renderer-visible recovery diagnostics. Packaged Windows proves unexpected hide and minimize recovery, deliberate-hide preservation, control-center focus preservation, hidden frame stability, and recovered frame advance. The comparable 30/15/10 plateau reports 3.103% visible idle, 0.081% hidden, and 3.851% warm recovered idle. Evidence: `docs/verification/F3D1-WINDOWS-VISIBILITY-PERFORMANCE-2026-08-26.md`.
 
-Next: select a product-suitable CC0 VRM 1.0 marketplace revision and finish Windows external full-screen, manual accessibility, and physical display/virtual-desktop matrices. Real Windows sleep/wake and involuntary-hide recovery are closed. macOS and Claude remain owner-deferred.
+F3d.2 closes the executable avatar/animation-profile foundation. Marketplace revision 3 requires every avatar to name a reviewed profile. `desky-humanoid-standard-v1` owns the exact built-in library, 15 required humanoid bones, four state modes, three autonomous programs, Jump, reviewed intensity, and forbidden root motion. Runtime fails on library/profile drift and registers only those four runnable programs, leaving eleven catalog programs non-executable. Structural VRM 0.x/1.0 binding covers all 85 canonical clips. A clean packaged Windows six-switch run downloaded, verified, and transactionally committed all three free companions with no exercise error. The product-suitable CC0 VRM 1.0 selection and its final visual matrix remain external product evidence. Evidence: `docs/verification/F3D2-ANIMATION-PROFILE-ADMISSION-2026-08-26.md`.
+
+Next: complete remote OpenClaw/Hermes transport closure, then the fail-closed Store-beta release profiles. Product-suitable CC0 VRM 1.0 selection, Windows external full-screen/manual accessibility/physical-display evidence, macOS, and Claude remain owner/external gates.
 
 ## F4x — commerce and entitlement program
 
@@ -521,10 +523,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, and virtual-desktop evidence. Involuntary-hide recovery, sleep/wake, lifecycle suspension and real VRM 1.0 engineering compatibility now pass.
-2. Rerun the separate live Wave evidence after provider capacity returns; local-VRMA interruption, Milk/Astronaut/Seed-san representative runtime motion, and cache corruption/restart are proved.
-3. Complete remote OpenClaw `wss://`, clean pairing/rotation, certificate-failure, and Windows reference-device lifecycle evidence.
-4. Deploy the admitted direct Hermes adapter behind a real operator-owned HTTPS ingress and capture its remote lifecycle/certificate matrix; keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
-5. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet remains disabled. Owner-deferred lanes are macOS equivalence/Keychain and Claude's authenticated matrix.
+1. Complete remote OpenClaw `wss://`, clean pairing/rotation, certificate-failure, and Windows reference-device lifecycle evidence.
+2. Complete the locally executable Hermes HTTPS/certificate ingress contract; a real operator-owned public ingress remains deployment evidence. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
+3. Build fail-closed F6 release manifests and artifact-policy checks for Store-free and direct profiles; signing identities, legal URLs and Store accounts remain owner gates.
+4. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, virtual-desktop, final CC0 VRM 1.0, and macOS evidence.
+5. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet remains disabled. Rerun live Wave when provider capacity is available. Owner-deferred lanes remain macOS/Keychain and Claude's authenticated matrix.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

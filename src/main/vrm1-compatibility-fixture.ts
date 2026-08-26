@@ -25,6 +25,7 @@ export const vrm1CompatibilityRevision: AdmittedAvatarRevision = {
     licenseUrl: 'https://vrm.dev/licenses/1.0/',
     attribution: 'Seed-san by VirtualCast, Inc. · VRM Public License 1.0',
     modelSha256: '624d0d554bc205bbdc33e22a68a2c3c20edebb3e573011ead8878a65e5329b23',
+    animationProfileId: 'desky-humanoid-standard-v1',
     vrmVersion: '1.0',
     performanceClass: 'standard',
     admissionStatus: 'candidate',
@@ -97,6 +98,7 @@ export function admitVrm1CompatibilityFixture(bytes: Uint8Array): SelectedAvatar
     avatar: {
       avatarId: revision.avatar.avatarId,
       revisionId: revision.avatar.revisionId,
+      animationProfileId: revision.avatar.animationProfileId,
       name: revision.avatar.name,
       projectId: revision.avatar.projectId,
       projectName: revision.avatar.projectName,

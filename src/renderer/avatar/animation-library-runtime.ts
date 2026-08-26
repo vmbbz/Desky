@@ -1,5 +1,9 @@
 import type { AvatarActionKind } from '../../shared/agent-actions';
 import {
+  parseAvatarAnimationProfile,
+  type AvatarAnimationProfile,
+} from '../../shared/avatar-animation-profile';
+import {
   parseAnimationLibrary,
   type AnimationLibrary,
   type AnimationProgram,
@@ -33,6 +37,7 @@ export interface AdmittedAnimationProgramStep extends AnimationProgramStep {
 
 export interface AdmittedAnimationProgram extends Omit<AnimationProgram, 'steps' | 'fallbackCue'> {
   fallbackCue?: MotionCueKind;
+  intensity: 1 | 2 | 3;
   steps: readonly AdmittedAnimationProgramStep[];
 }
 
@@ -42,6 +47,7 @@ export interface AdmittedAnimationLibrary {
   label: string;
   creator: string;
   licenseId: 'CC0-1.0' | 'MIXED';
+  profile: AvatarAnimationProfile;
   clipCount: number;
   clips: ReadonlyMap<string, AdmittedAnimationLibraryClip>;
   stateRegistrations: readonly MotionClipRegistration[];
@@ -80,8 +86,31 @@ function validateProgramLayer(program: AnimationProgram, library: AnimationLibra
   }
 }
 
-export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAnimationLibrary> {
+export async function admitAnimationLibrary(
+  value: unknown,
+  profileValue: unknown,
+): Promise<AdmittedAnimationLibrary> {
   const library = parseAnimationLibrary(value);
+  const profile = parseAvatarAnimationProfile(profileValue);
+  if (profile.libraryId !== library.libraryId) {
+    throw new Error(`Animation profile ${profile.profileId} targets a different library`);
+  }
+  const profilePrograms = new Map(profile.programs.map((program) => [program.programId, program]));
+  const runnablePrograms = library.programs.filter((program) => program.trigger.kind !== 'catalog');
+  if (runnablePrograms.length !== profilePrograms.size) {
+    throw new Error(`Animation profile ${profile.profileId} does not own every runnable program`);
+  }
+  for (const program of runnablePrograms) {
+    const admission = profilePrograms.get(program.programId);
+    if (!admission || admission.kind !== program.trigger.kind) {
+      throw new Error(`Animation profile ${profile.profileId} does not admit ${program.programId}`);
+    }
+  }
+  const stateModes = new Set(library.states.map((state) => state.mode));
+  if (stateModes.size !== profile.stateModes.length
+    || profile.stateModes.some((mode) => !stateModes.has(mode))) {
+    throw new Error(`Animation profile ${profile.profileId} does not own every state binding`);
+  }
   const clips = new Map<string, AdmittedAnimationLibraryClip>();
 
   await Promise.all(library.clips.map(async (definition) => {
@@ -125,8 +154,9 @@ export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAni
     });
   }));
 
-  const programs = library.programs.map((program): AdmittedAnimationProgram => {
+  const programs = runnablePrograms.map((program): AdmittedAnimationProgram => {
     validateProgramLayer(program, library);
+    const profileProgram = profilePrograms.get(program.programId)!;
     const fallbackCue = program.fallbackCue;
     if (fallbackCue !== undefined && !motionCueKinds.includes(fallbackCue as MotionCueKind)) {
       throw new Error(`Animation program ${program.programId} has an unsupported fallback cue`);
@@ -134,8 +164,16 @@ export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAni
     if (program.trigger.kind !== 'catalog' && fallbackCue === undefined) {
       throw new Error(`Runnable animation program ${program.programId} requires a procedural fallback`);
     }
+    for (const step of program.steps) {
+      const definition = library.clips.find((clip) => clip.clipId === step.clipId);
+      const manifest = definition && parseAnimationAssetManifest(definition.manifest);
+      if (profile.rootMotion === 'forbidden' && manifest?.conversion.includeRootMotion) {
+        throw new Error(`Animation profile ${profile.profileId} forbids root motion in ${program.programId}`);
+      }
+    }
     return deepFreeze({
       ...program,
+      intensity: profileProgram.intensity,
       fallbackCue: fallbackCue as MotionCueKind | undefined,
       steps: program.steps.map((step) => {
         const clip = clips.get(step.clipId);
@@ -151,6 +189,7 @@ export async function admitAnimationLibrary(value: unknown): Promise<AdmittedAni
     label: library.label,
     creator: library.creator,
     licenseId: library.licenseId,
+    profile: deepFreeze(profile),
     clipCount: clips.size,
     clips,
     stateRegistrations: Object.freeze(stateRegistrations),

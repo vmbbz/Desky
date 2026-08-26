@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "profileId": "desky-humanoid-standard-v1",
+  "libraryId": "quaternius-uam-standard-v1",
+  "requiredBones": [
+    "hips",
+    "spine",
+    "head",
+    "leftUpperLeg",
+    "leftLowerLeg",
+    "leftFoot",
+    "rightUpperLeg",
+    "rightLowerLeg",
+    "rightFoot",
+    "leftUpperArm",
+    "leftLowerArm",
+    "leftHand",
+    "rightUpperArm",
+    "rightLowerArm",
+    "rightHand"
+  ],
+  "stateModes": ["idle", "thinking", "speaking", "working"],
+  "programs": [
+    { "programId": "phone-check", "kind": "ambient", "intensity": 1 },
+    { "programId": "dance-break", "kind": "ambient", "intensity": 1 },
+    { "programId": "formal-walk", "kind": "ambient", "intensity": 1 },
+    { "programId": "jump", "kind": "action", "intensity": 1 }
+  ],
+  "rootMotion": "forbidden",
+  "review": {
+    "status": "approved",
+    "reviewer": "project-owner",
+    "reviewedAt": "2026-08-26T20:00:00.000Z"
+  }
+}

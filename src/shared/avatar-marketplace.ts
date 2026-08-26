@@ -23,6 +23,7 @@ export interface MarketplaceAvatar {
   licenseUrl: string;
   attribution: string;
   modelSha256: string;
+  animationProfileId: string;
   vrmVersion: '0.x' | '1.0';
   performanceClass: 'light' | 'standard' | 'rich';
   admissionStatus: AvatarAdmissionStatus;
@@ -136,6 +137,7 @@ function parseAvatar(value: unknown): MarketplaceAvatar {
     licenseUrl: readHttpsUrl(value.licenseUrl, 'licence URL'),
     attribution: readString(value.attribution, 'attribution', 1_000),
     modelSha256,
+    animationProfileId: readId(value.animationProfileId, 'animation profile ID'),
     vrmVersion: value.vrmVersion,
     performanceClass: value.performanceClass,
     admissionStatus: value.admissionStatus as AvatarAdmissionStatus,
