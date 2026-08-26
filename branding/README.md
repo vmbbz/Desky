@@ -34,6 +34,8 @@ Use the supplied assets without redrawing their proportions:
 - `logo/raster/` — inspected 16–256 px raster exports and tray templates;
 - `logo/platform/apple/` — unmasked background and mascot layers for Icon Composer.
 
+The hosted checkout uses `desky-lockup-on-dark.svg` in its header and the cropped Milk application icon for browser favicon and touch-icon surfaces. Its build copies these masters under content-hashed filenames, so the checkout cannot drift to a separately redrawn mark. The retired abstract `D` portal must not return on hosted commerce surfaces.
+
 Keep clear space around the compact mark equal to the height of one eye. Do not add the word `MILK` inside small icons, substitute another marketplace avatar, remove the face, turn the carton into a generic rounded robot, add crypto/network logos, or place limbs in the 48 px and smaller icon.
 
 Apple delivery must import the unmasked full-canvas layers into Icon Composer and let the system apply its final mask and Liquid Glass treatment. Windows uses the straight-on flattened master and the size-specific raster exports. The richer mark never replaces the compact tray glyph.

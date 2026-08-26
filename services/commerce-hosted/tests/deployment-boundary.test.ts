@@ -27,6 +27,13 @@ describe('hosted checkout deployment boundary', () => {
     expect(document).not.toMatch(/<script(?:\s[^>]*)?>\s*[^<]/);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.js$/.test(name))).toBe(true);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.css$/.test(name))).toBe(true);
+    expect(document).toMatch(/<img class="brand-lockup" src="\/assets\/desky-lockup-on-dark-[A-F0-9]+\.svg" alt="Desky">/);
+    expect(document).toMatch(/<link rel="icon" type="image\/svg\+xml" href="\/assets\/desky-favicon-[A-F0-9]+\.svg">/);
+    expect(document).toMatch(/<link rel="alternate icon" type="image\/png" sizes="32x32" href="\/assets\/desky-favicon-32-[A-F0-9]+\.png">/);
+    expect(document).toMatch(/<link rel="apple-touch-icon" sizes="256x256" href="\/assets\/desky-touch-icon-[A-F0-9]+\.png">/);
+    expect(assets.some((name) => /^desky-lockup-on-dark-[A-F0-9]+\.svg$/.test(name))).toBe(true);
+    expect(assets.some((name) => /^desky-favicon-[A-F0-9]+\.svg$/.test(name))).toBe(true);
+    expect(document).not.toContain('class="brand-mark"');
     expect(document).toContain('Connect MetaMask');
     expect(document).toContain('Connecting a wallet does not approve or send payment.');
     expect(document).not.toContain('Connect wallet and pay');
