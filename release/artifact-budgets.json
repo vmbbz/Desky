@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "windows-store-free": {
+      ".msix": {
+        "maximumBytes": 180000000,
+        "purpose": "Microsoft Store upload package"
+      }
+    },
+    "windows-direct": {
+      ".exe": {
+        "maximumBytes": 195000000,
+        "purpose": "Website Squirrel bootstrap installer"
+      },
+      ".nupkg": {
+        "maximumBytes": 195000000,
+        "purpose": "Website signed update payload"
+      }
+    }
+  }
+}

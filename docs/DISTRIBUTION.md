@@ -90,6 +90,18 @@ F6a replaces the mutable `DESKY_DISTRIBUTION` helper with a build-time embedded 
 
 The currently admitted immutable profiles are `windows-store-free`, `windows-direct`, `macos-store`, and `macos-direct`. Every one has `commerceMode: disabled`. A `windows-store-third-party-commerce` profile deliberately does not exist yet: adding it requires a reviewed manifest/code graph, declarations, legal and operations gates, and a new Store submission. The Store-free Webpack graph substitutes an OpenClaw-only runtime bootstrap, while release-direct substitutes OpenClaw, Codex and Hermes without the unadmitted Claude SDK. Post-package ASAR inspection proves local-process execution signatures are absent from Store-free, admitted direct signatures are present in direct, Claude SDK signatures are absent from both release candidates, and x402 routes/payment headers/test-USDC configuration are absent from every current desktop artifact.
 
+## F6a.2 Windows release engineering
+
+Windows now has two fail-closed maker commands rather than a generic Forge output:
+
+- `npm run make:windows:store-free` builds the production MSIX and requires the exact Partner Center package identity, publisher subject and publisher display name. It is intentionally unsigned because Partner Center applies the Store signature.
+- `npm run make:windows:direct` builds the website Squirrel installer/update payload and requires an external absolute PFX path, password and publisher display name. Those secrets are environment inputs and never repository files.
+- The corresponding `:dev` commands use visibly separate development identities. Their packages are test evidence only and generated metadata marks them non-uploadable.
+
+Each successful Windows make independently unpacks the artifact, validates its manifest and official logo assets, inspects the packaged ASAR against the immutable capability policy, verifies signature state appropriate to the mode, enforces the committed byte budget, and emits a reproducible CycloneDX 1.6 source-runtime SBOM, combined notices, production audit result, SHA-256 digest set and explicitly non-SLSA build metadata under ignored `out/release-evidence/`. Production evidence also requires a clean Git tree.
+
+The reference Windows machine passed the development MSIX `0.1.0.0 -> 0.1.1.0` install/update/launch/uninstall lifecycle and the isolated direct installer install/launch/uninstall lifecycle. The Squirrel `RELEASES` manifest is bound to the exact full update payload, but applying a direct version advance remains a production signing/feed gate. Microsoft WACK is driven by `scripts/run-windows-app-certification.ps1`; development trust is scoped to `LocalMachine\\TrustedPeople` for the run and its exact certificate/private key is removed afterward. Full evidence and remaining signing/identity gates are in `docs/verification/F6A2-WINDOWS-RELEASE-ENGINEERING-2026-08-26.md`.
+
 ## Store identity blockers
 
 The following values cannot be invented in source control and must be supplied by the owner/store accounts:

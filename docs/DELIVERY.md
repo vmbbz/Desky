@@ -494,7 +494,9 @@ Exit gate per adapter:
 
 F6a.1 engineering foundation is complete. The mutable development distribution switch is gone: Webpack embeds one exact schema-v1 manifest, main validates it before use, and the build selects separate development-direct, release-direct, or Store-free runtime graphs. Windows Store-free packages OpenClaw only; Windows direct packages OpenClaw, Codex and Hermes; Claude remains development/admission-only. Both real ASAR artifacts pass reciprocal policy checks, and every currently admitted release profile has commerce disabled. `windows-store-third-party-commerce` remains deliberately unknown until it has a separately reviewed implementation and Store submission. Evidence: `docs/verification/F6A1-IMMUTABLE-RELEASE-PROFILES-2026-08-26.md`.
 
-The 2026-08-26 five-gate closure is recorded in `docs/verification/FIVE-GATE-CLOSURE-2026-08-26.md`: checkout authorization UX, Windows companion quality, animation-profile admission, remote adapter transport security, and immutable release profiles are committed and verified together. The full root suite passes 491 tests, hosted commerce passes 29, production audits are zero, and the known 31-item Forge/build-tool audit remains a release gate.
+F6a.2 Windows release engineering is complete at the development/reference-device level. Store-free now produces an independently verified MSIX with exact fail-closed Partner Center identity inputs; direct produces a separately named Squirrel installer and full update payload with fail-closed external Authenticode inputs. Official Windows logo assets, artifact byte budgets, CycloneDX 1.6 SBOM, generated notices, production audit, SHA-256 digest set and explicit non-SLSA build evidence are automatic. The reference device passed MSIX `0.1.0.0 -> 0.1.1.0` install/update/launch/uninstall and direct install/launch/uninstall without retained package, process or development trust. A production-signed direct update advance, owner identities/certificates and clean-machine production-signature evidence remain open. Evidence: `docs/verification/F6A2-WINDOWS-RELEASE-ENGINEERING-2026-08-26.md`.
+
+The 2026-08-26 five-gate closure is recorded in `docs/verification/FIVE-GATE-CLOSURE-2026-08-26.md`: checkout authorization UX, Windows companion quality, animation-profile admission, remote adapter transport security, and immutable release profiles are committed and verified together. The recorded root suite passed 491 tests and hosted commerce passed 29. Production audits remain zero; after admitting the experimental MSIX maker, the known Forge/build-tool audit is 32 and remains a release gate.
 
 Deliverables:
 
@@ -529,10 +531,10 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Add SBOM/notices generation, release digests and provenance around the completed immutable profiles; signing identities, legal URLs and Store accounts remain owner gates.
-2. Deploy a trusted operator-owned OpenClaw/Hermes ingress and run the full authenticated lifecycle through it. The locally executable TLS/certificate contract is complete; macOS remains external evidence. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
-3. Complete clean OpenClaw pairing/rotation and Windows reference-device lifecycle evidence through the final release profile.
+1. Supply the Microsoft Partner Center identity, legal publisher name, Windows code-signing certificate, privacy/support/security URLs and source licence; then run the same makers in production mode on a protected clean signing worker.
+2. Prove a signed direct `0.1.0 -> 0.1.1` update through the hosted HTTPS feed and repeat install/update/uninstall on a clean Windows account/device; run final Partner Center/WACK preflight with the reserved Store identity.
+3. Deploy a trusted operator-owned OpenClaw/Hermes ingress and run the full authenticated lifecycle through it. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
 4. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, virtual-desktop, final CC0 VRM 1.0, and macOS evidence.
-5. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet remains disabled. Rerun live Wave when provider capacity is available. Owner-deferred lanes remain macOS/Keychain and Claude's authenticated matrix.
+5. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet and Store commerce remain disabled. Owner-deferred lanes remain macOS/Keychain and Claude's authenticated matrix.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

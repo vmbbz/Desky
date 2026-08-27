@@ -184,6 +184,7 @@ Implementation status — 2026-08-24:
 - **F5c.1 Claude foundation complete:** the exact supported Agent SDK is integrated behind the same contract but remains unregistered pending an authorized API-key source/package matrix and its lifecycle/security gates. Neither Hermes nor Claude may scrape terminal presentation text.
 - **F5c.2 offline custody/policy gate complete:** the Claude candidate now admits only the exact bundled CLI, requested workspace and permission policy, API-key auth source, and an empty strict MCP topology. Provider-specific OS-encrypted credential reuse and post-success enrollment/rotation/removal are transactional. No authorized Anthropic API key is present locally, so authenticated source/package promotion remains an explicit external credential gate rather than simulated evidence.
 - **F6a.1 immutable release profiles complete:** a schema-v1 manifest is embedded at build time and validated at startup. Windows Store-free and direct package commands reject unknown/platform-mismatched profiles and post-package ASAR policy proves Store-free excludes local adapter execution and all current commerce signatures, while direct retains admitted Codex/Hermes and excludes unadmitted Claude. All admitted release profiles keep commerce disabled; a future Store third-party-commerce profile requires new reviewed source and certification.
+- **F6a.2 Windows release-engineering gate complete:** profile-aware MSIX and Squirrel makers, exact identity/signing admission, official platform assets, independent manifest/ASAR/signature verification, committed byte budgets, CycloneDX 1.6 SBOM, notices, production audit, hashes and non-SLSA build evidence are executable. The reference machine passes real MSIX install/update/launch/uninstall and direct install/launch/uninstall. Production Store identity/signing, production direct signing and a hosted signed direct update remain owner/external gates.
 
 ## Store and owner gates
 
@@ -194,9 +195,9 @@ Store submission remains downstream of engineering and owner-controlled inputs:
 - choose avatar offers/prices, tax/merchant/refund/account policy, hosted-relay policy, NFT-origin source-catalog policy, and supported OS versions;
 - choose merchant wallet custody, production facilitator, selling regions, and whether Mac App Store is free-only or StoreKit-enabled;
 - provide privacy, support, and security-contact URLs;
-- create signing/notarization and MSIX/Mac App Store pipelines;
+- provide production identities/credentials and promote the verified Windows makers into protected signing jobs; create the Mac signing/notarization and App Store pipelines;
 - resolve the Electron Forge development-tool advisory chain without applying npm's incompatible forced downgrade;
-- complete third-party notices, SBOM, store metadata, screenshots, review notes, and clean install/update/uninstall evidence.
+- complete legal review of generated notices, store metadata, screenshots, review notes, and clean-machine production-signed install/update/uninstall evidence.
 
 ## Definition of done for the current sequence
 

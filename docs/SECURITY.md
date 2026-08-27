@@ -153,10 +153,12 @@ Local VRM Animation preview is an explicit control-center action. Main owns the 
 - CSP and renderer sandbox tested in packaged output.
 - Secret scan and generated artifact audit.
 - Threat-model review for every new adapter or IPC command.
+- Production Windows evidence fails on a dirty tree, nonzero production dependency audit, artifact-policy mismatch, wrong identity/signature state, or a committed byte-budget breach. Generated CycloneDX SBOM, notices, artifact verification, metadata and SHA-256 digest sets stay outside source control and are regenerated per candidate.
+- Development MSIX trust is never a release mechanism. The lifecycle/certification harness accepts only `CN=Desky Development`, temporarily admits that exact public certificate in `LocalMachine\\TrustedPeople`, and removes both machine trust and the maker-created private certificate afterward. Production Store signing belongs to Partner Center; production direct signing consumes an external certificate path and secret.
 
 ## Current dependency advisory status
 
-As re-verified on 2026-08-22, `npm audit --omit=dev` reports zero production vulnerabilities. The full audit reports 31 findings in Electron Forge's archive extraction, rebuild, prompt, and development-server dependency tree: 1 critical, 24 high, 3 moderate, and 3 low. npm's automatic forced fix would downgrade Forge packages to incompatible historical versions, so it is not applied.
+As re-verified on 2026-08-26, `npm audit --omit=dev` reports zero production vulnerabilities. The full audit reports 32 findings in Electron Forge's archive extraction, rebuild, prompt, development-server and experimental MSIX-maker dependency tree: 1 critical, 25 high, 3 moderate, and 3 low. The one-item increase is attributable to admitting `@electron-forge/maker-msix` as development-only release tooling. npm's advertised forced fixes are incompatible historical major-version downgrades (including nonsensical pre-release maker versions), so they are not applied.
 
 Until upstream packages resolve the tree:
 
