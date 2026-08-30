@@ -261,7 +261,7 @@ export class AvatarMotionController {
       return { accepted: false, reason: 'Animation preview is paused by the system reduced-motion setting.' };
     }
     if (this.plan.mode === 'approval') {
-      return { accepted: false, reason: `Animation preview is blocked while Desky is ${this.plan.mode}.` };
+      return { accepted: false, reason: `Animation preview is blocked while Deskiii is ${this.plan.mode}.` };
     }
     if (!Number.isFinite(clip.duration) || clip.duration <= 0 || clip.tracks.length === 0) {
       return { accepted: false, reason: 'The VRM Animation has no playable tracks.' };

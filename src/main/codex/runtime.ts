@@ -611,7 +611,7 @@ export class CodexRuntime implements AgentAdapterRuntime {
       await client.request('account/read', { refreshToken: false }),
     );
     if (account.requiresOpenaiAuth && !account.authenticated) {
-      throw new Error('Sign in with the Codex CLI before connecting Desky.');
+      throw new Error('Sign in with the Codex CLI before connecting Deskiii.');
     }
     const sessions = readCodexSessions(await client.request('thread/list', {
       limit: 100,
