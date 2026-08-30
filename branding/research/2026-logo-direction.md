@@ -1,8 +1,8 @@
-# Desky logo direction — August 2026
+# Deskiii logo direction — August 2026
 
 ## Outcome
 
-Retire the abstract `D` portal. Make Milk the permanent Desky brand character and build a responsive logo family around Milk's carton silhouette and face.
+Retire the abstract `D` portal. Make Milk the permanent Deskiii brand character and build a responsive logo family around Milk's carton silhouette and face.
 
 There is no universal or credible “highest-rated logos of 2026” table. The useful evidence is the overlap between current platform rules, juried 2026 identity work and expert trend reporting.
 
@@ -48,4 +48,3 @@ There is no universal or credible “highest-rated logos of 2026” table. The u
 3. `desky-tray-glyph.svg` — monochrome system surface.
 4. `desky-companion-mark.svg` — expressive large-format mark.
 5. `platform/apple/*.svg` — separately composable Liquid Glass layers.
-

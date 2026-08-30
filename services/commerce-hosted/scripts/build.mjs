@@ -65,6 +65,10 @@ const icon = await copyBrandedAsset(
 );
 const postersRoot = resolve(root, '..', '..', 'branding', 'poster');
 const heroPoster = await copyBrandedAsset(
+  resolve(postersRoot, 'desky-school-desk-x.png'),
+  'desky-hero-school-desk',
+);
+const screenPoster = await copyBrandedAsset(
   resolve(postersRoot, 'desky-through-the-screen-x.png'),
   'desky-through-the-screen',
 );
@@ -101,6 +105,7 @@ const marketingDocument = marketingTemplate
   .replaceAll('__DESKY_TOUCH_ICON__', touchIcon)
   .replaceAll('__DESKY_ICON__', icon)
   .replaceAll('__DESKY_HERO_POSTER__', heroPoster)
+  .replaceAll('__DESKY_SCREEN_POSTER__', screenPoster)
   .replaceAll('__DESKY_SCHOOL_POSTER__', schoolPoster)
   .replaceAll('__DESKY_SIGNAL_POSTER__', signalPoster);
 if (marketingDocument.includes('__DESKY_')) throw new Error('Marketing template is incomplete.');

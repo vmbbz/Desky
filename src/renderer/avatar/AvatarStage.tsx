@@ -769,7 +769,7 @@ export function AvatarStage({
   return (
     <section
       className="avatar-stage"
-      aria-label="Desky avatar"
+      aria-label="Deskiii avatar"
       data-avatar-state={loadState.kind}
       data-avatar-texture-count={loadState.kind === 'ready' ? loadState.textureCount : undefined}
     >

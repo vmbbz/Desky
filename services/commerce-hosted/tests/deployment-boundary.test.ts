@@ -28,7 +28,7 @@ describe('hosted checkout deployment boundary', () => {
     expect(document).not.toMatch(/<script(?:\s[^>]*)?>\s*[^<]/);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.js$/.test(name))).toBe(true);
     expect(assets.some((name) => /^browser-[A-Z0-9]+\.css$/.test(name))).toBe(true);
-    expect(document).toMatch(/<img class="brand-lockup" src="\/assets\/desky-lockup-on-dark-[A-F0-9]+\.svg" alt="Desky">/);
+    expect(document).toMatch(/<img class="brand-lockup" src="\/assets\/desky-lockup-on-dark-[A-F0-9]+\.svg" alt="Deskiii">/);
     expect(document).toMatch(/<link rel="icon" type="image\/svg\+xml" href="\/assets\/desky-favicon-[A-F0-9]+\.svg">/);
     expect(document).toMatch(/<link rel="alternate icon" type="image\/png" sizes="32x32" href="\/assets\/desky-favicon-32-[A-F0-9]+\.png">/);
     expect(document).toMatch(/<link rel="apple-touch-icon" sizes="256x256" href="\/assets\/desky-touch-icon-[A-F0-9]+\.png">/);
@@ -38,10 +38,11 @@ describe('hosted checkout deployment boundary', () => {
     expect(document).toContain('Connect MetaMask');
     expect(document).toContain('Connecting a wallet does not approve or send payment.');
     expect(document).not.toContain('Connect wallet and pay');
-    expect(marketing).toContain('<title>Desky — Give your agent somewhere to be.</title>');
+    expect(marketing).toContain('<title>Deskiii — Give your agent somewhere to be.</title>');
     expect(marketing).toContain('Your agent has a <em>place</em> to be.');
     expect(marketing).toContain('href="/assets/marketing-');
     expect(marketing).toContain('/assets/desky-lockup-on-light-');
+    expect(marketing).toContain('desky-hero-school-desk-');
     expect(marketing).toContain('desky-through-the-screen-');
     expect(marketing).toContain('OpenClaw');
     expect(marketing).toContain('XEON Protocol (Pty) Ltd.');

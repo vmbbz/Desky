@@ -4,7 +4,7 @@
 
 The hosted Netlify project now serves two deliberately separate surfaces:
 
-- `/` is the public Desky marketing site. It explains the desktop companion,
+- `/` is the public Deskiii marketing site. It explains the desktop companion,
   gateway-neutral architecture, companion gallery and trust model.
 - `/checkout/*` is the noindex, same-origin hosted wallet checkout. Netlify
   rewrites it to `checkout.html`; its browser client and security policy remain
@@ -18,7 +18,7 @@ separately redrawn logo.
 
 ## Content contract
 
-The current page describes the product as a client for the agents users
+The current page describes Deskiii as a client for the agents users
 already run. It may mention OpenClaw, Codex, Hermes and Claude as supported or
 planned connection surfaces, but must not imply that Desky hosts those models,
 executes tools independently, or has a production x402/mainnet sale.
@@ -45,7 +45,7 @@ The footer must identify the exact registered publisher name, for example
 the global headers continue to disallow framing, third-party scripts,
 insecure connections and unnecessary browser capabilities.
 
-The product name and domain remain provisional until trademark clearance and
-domain ownership are complete. A future rename must update the marketing
+The product name is now Deskiii; the final domain remains subject to trademark
+clearance and ownership. Any future rename must update the marketing
 templates, generated metadata, checkout lockup, package metadata and legal
 copy together, while preserving internal entitlement and checkout IDs.

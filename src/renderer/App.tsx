@@ -725,14 +725,14 @@ export function App() {
   ) : null;
 
   if (!runtimeInfo) {
-    return <main className="surface-loading" aria-label="Starting Desky" />;
+    return <main className="surface-loading" aria-label="Starting Deskiii" />;
   }
 
   if (runtimeInfo.surface === 'ambient') {
     return (
       <main
         className={`ambient-companion companion--${state.mode}`}
-        aria-label="Desky desktop companion"
+        aria-label="Deskiii desktop companion"
         data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
         data-avatar-yaw-degrees={avatarYawDegrees}
         data-bubble-visible={showAmbientBubble}
@@ -743,12 +743,12 @@ export function App() {
       >
         {composerExpanded ? (
           <>
-            <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Desky" aria-label="Drag Desky">•••</div>
+            <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Deskiii" aria-label="Drag Deskiii">•••</div>
             <div className="ambient-actions" data-desky-interactive="true">
               <button type="button" aria-label="Wave hello" title="Wave hello" onClick={() => requestAvatarMotion('wave')}>✦</button>
-              <button type="button" aria-label="Open Desky control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
+              <button type="button" aria-label="Open Deskiii control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>
               <button type="button" aria-label="Enable full click-through" title={`Click through everything; recover with the tray or ${recoveryShortcutLabel}`} onClick={() => window.desky.performWindowAction('toggle-full-click-through')}>⇥</button>
-              <button type="button" aria-label="Hide Desky companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
+              <button type="button" aria-label="Hide Deskiii companion" onClick={() => window.desky.performWindowAction('hide-ambient')}>×</button>
             </div>
 
             <button
@@ -803,7 +803,7 @@ export function App() {
               type="button"
               className="ambient-avatar-hitbox"
               data-desky-interactive="true"
-              aria-label="Move or rotate the Desky companion"
+              aria-label="Move or rotate the Deskiii companion"
               title="Drag the character to rotate · drag its transparent gaps or the grip to move · double-click to jump"
               style={{
                 left: avatarBounds.x,
@@ -855,7 +855,7 @@ export function App() {
             }}
           >
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
-            <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Desky anything…" />
+            <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Deskiii anything…" />
             {activeRun ? (
               <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
@@ -868,7 +868,7 @@ export function App() {
               <button className="ambient-stop" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
               <button type="button" onClick={openComposer}>
-                {connected ? (hasSession ? 'Ask Desky…' : 'Choose a session') : 'Connect an agent'}
+                {connected ? (hasSession ? 'Ask Deskiii…' : 'Choose a session') : 'Connect an agent'}
               </button>
             )}
           </div>
@@ -893,7 +893,7 @@ export function App() {
         <header className="control-center__header">
           <div className="brand">
             <DeskyBrandMark />
-            <div><strong>Companions</strong><span>Desky Marketplace foundation</span></div>
+            <div><strong>Companions</strong><span>Deskiii Marketplace foundation</span></div>
           </div>
           <div className="control-center__actions">
             <button type="button" onClick={() => setControlView('home')}>Back to control center</button>
@@ -1092,8 +1092,8 @@ export function App() {
           </div>
           <ol>
             <li><strong>Discover</strong><span>Choose here, or ask an agent to search and prepare an offer.</span></li>
-            <li><strong>Verify</strong><span>Desky independently loads the exact product, USDC amount, network, merchant, and expiry.</span></li>
-            <li><strong>Approve</strong><span>You confirm in Desky and sign in your wallet. Agents never receive wallet authority.</span></li>
+            <li><strong>Verify</strong><span>Deskiii independently loads the exact product, USDC amount, network, merchant, and expiry.</span></li>
+            <li><strong>Approve</strong><span>You confirm in Deskiii and sign in your wallet. Agents never receive wallet authority.</span></li>
           </ol>
         </section>
       </main>
@@ -1112,7 +1112,7 @@ export function App() {
       <header className="control-center__header">
         <div className="brand">
           <DeskyBrandMark />
-          <div><strong>Desky</strong><span>Control Center</span></div>
+            <div><strong>Deskiii</strong><span>Control Center</span></div>
         </div>
         <div className="control-center__actions">
           <button type="button" onClick={() => setControlView('companions')}>Companions</button>
@@ -1144,7 +1144,7 @@ export function App() {
         <div>
           <strong>Desktop presence</strong>
           <span>
-            Drag the character itself to rotate it. Drag transparent space inside its bounds or the grip to move Desky; Shift/Alt, scroll, and arrow keys also rotate. Outer transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
+            Drag the character itself to rotate it. Drag transparent space inside its bounds or the grip to move Deskiii; Shift/Alt, scroll, and arrow keys also rotate. Outer transparent areas pass clicks. Full click-through is session-only and can always be reversed with {recoveryShortcutLabel} or the tray.
           </span>
         </div>
         <div className="desktop-presence-card__actions">
@@ -1243,7 +1243,7 @@ export function App() {
             <strong>Local animation preview</strong>
             <span>Session only</span>
           </div>
-          <p>Test a rights-cleared <code>.vrma</code> on the current avatar. The file stays in memory and is never added to Desky’s distributable assets.</p>
+              <p>Test a rights-cleared <code>.vrma</code> on the current avatar. The file stays in memory and is never added to Deskiii’s distributable assets.</p>
           <div className="motion-preference" role="group" aria-label="Avatar motion preference">
             <span>Motion</span>
             {(['system', 'full', 'reduced'] as const).map((preference) => (
@@ -1316,8 +1316,8 @@ export function App() {
                 || visualTestExercise === 'hermes-ui-saved'
                 || visualTestExercise === 'claude-ui'
                 || visualTestExercise === 'claude-ui-saved'
-                ? `Desky conformance packaged ${new Date().toISOString()}`
-                : 'Desky';
+                ? `Deskiii conformance packaged ${new Date().toISOString()}`
+                : 'Deskiii';
               setGateway(await window.desky.adapters.createSession({ label }));
             })}
           >New</button>
@@ -1327,7 +1327,7 @@ export function App() {
 
       <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
         <label className="sr-only" htmlFor="control-prompt">Message</label>
-        <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Desky anything…" />
+        <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Deskiii anything…" />
         {adapterMode === 'runtime' && gateway.activeTurnId ? (
           <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
         ) : (
@@ -1338,7 +1338,7 @@ export function App() {
       {showConnection ? (
         <section className="connection-sheet connection-sheet--inline" aria-label="Agent connection">
           <div className="connection-sheet__header">
-            <div><strong>Agent connection</strong><span>Credentials stay in Desky’s main process.</span></div>
+            <div><strong>Agent connection</strong><span>Credentials stay in Deskiii’s main process.</span></div>
             <button type="button" aria-label="Close connection settings" onClick={() => setShowConnection(false)}>×</button>
           </div>
           <div className="mode-switch" role="group" aria-label="Adapter mode">
@@ -1415,7 +1415,7 @@ export function App() {
                   {codexWorkspace ? 'Change' : 'Choose folder'}
                 </button>
               </div>
-              <p className="connection-note">Folder access is session-only. The renderer sends only an opaque approval; Desky’s main process resolves the canonical folder for Codex.</p>
+              <p className="connection-note">Folder access is session-only. The renderer sends only an opaque approval; Deskiii’s main process resolves the canonical folder for Codex.</p>
               <fieldset className="sandbox-options">
                 <legend>Codex permissions</legend>
                 {(['read-only', 'workspace-write'] as const).map((mode) => {
@@ -1431,7 +1431,7 @@ export function App() {
                   );
                 })}
               </fieldset>
-              <p className="connection-warning">Approval policy remains On request. Desky never offers unrestricted filesystem access.</p>
+              <p className="connection-warning">Approval policy remains On request. Deskiii never offers unrestricted filesystem access.</p>
               <p className="adapter-capability adapter-capability--unsupported">Avatar actions are unavailable because Codex client tools are currently experimental.</p>
               {uiError ? <p className="connection-error">{uiError}</p> : null}
               <div className="connection-actions">
@@ -1468,7 +1468,7 @@ export function App() {
                   {claudeWorkspace ? 'Change' : 'Choose folder'}
                 </button>
               </div>
-              <p className="connection-note">Folder access is session-only. Claude receives the canonical path only from Desky’s main-process grant broker.</p>
+              <p className="connection-note">Folder access is session-only. Claude receives the canonical path only from Deskiii’s main-process grant broker.</p>
               <fieldset className="sandbox-options">
                 <legend>Claude permissions</legend>
                 <label className={claudePermissionMode === 'plan' ? 'active' : ''}>
