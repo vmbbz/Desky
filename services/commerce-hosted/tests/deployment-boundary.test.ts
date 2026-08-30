@@ -20,7 +20,8 @@ describe('hosted checkout deployment boundary', () => {
   });
 
   it('emits hashed local assets and no inline executable content', async () => {
-    const document = await readFile(resolve(hostedRoot, 'dist/site/index.html'), 'utf8');
+    const document = await readFile(resolve(hostedRoot, 'dist/site/checkout.html'), 'utf8');
+    const marketing = await readFile(resolve(hostedRoot, 'dist/site/index.html'), 'utf8');
     const assets = await readdir(resolve(hostedRoot, 'dist/site/assets'));
     expect(document).toMatch(/<script type="module" src="\/assets\/browser-[A-Z0-9]+\.js"><\/script>/);
     expect(document).toMatch(/<link rel="stylesheet" href="\/assets\/browser-[A-Z0-9]+\.css">/);
@@ -37,6 +38,14 @@ describe('hosted checkout deployment boundary', () => {
     expect(document).toContain('Connect MetaMask');
     expect(document).toContain('Connecting a wallet does not approve or send payment.');
     expect(document).not.toContain('Connect wallet and pay');
+    expect(marketing).toContain('<title>Desky — Give your agent somewhere to be.</title>');
+    expect(marketing).toContain('Your agent has a <em>place</em> to be.');
+    expect(marketing).toContain('href="/assets/marketing-');
+    expect(marketing).toContain('/assets/desky-lockup-on-light-');
+    expect(marketing).toContain('desky-through-the-screen-');
+    expect(marketing).toContain('OpenClaw');
+    expect(marketing).toContain('XEON Protocol (Pty) Ltd.');
+    expect(marketing).not.toMatch(/<script(?:\s[^>]*)?>\s*[^<]/);
   });
 
   it('never provisions raw wallet or browser-secret columns', async () => {

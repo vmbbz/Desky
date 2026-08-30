@@ -9,7 +9,7 @@
 
 [[redirects]]
   from = "/checkout/*"
-  to = "/index.html"
+  to = "/checkout.html"
   status = 200
 
 [[headers]]

@@ -43,6 +43,10 @@ const brandLockup = await copyBrandedAsset(
   resolve(brandingRoot, 'desky-lockup-on-dark.svg'),
   'desky-lockup-on-dark',
 );
+const marketingLockup = await copyBrandedAsset(
+  resolve(brandingRoot, 'desky-lockup-on-light.svg'),
+  'desky-lockup-on-light',
+);
 const faviconSvg = await copyBrandedAsset(
   resolve(brandingRoot, 'desky-app-icon.svg'),
   'desky-favicon',
@@ -55,13 +59,49 @@ const touchIcon = await copyBrandedAsset(
   resolve(brandingRoot, 'raster', 'desky-app-icon-256.png'),
   'desky-touch-icon',
 );
-const template = await readFile(resolve(root, 'src', 'index.html'), 'utf8');
-const document = template
+const icon = await copyBrandedAsset(
+  resolve(brandingRoot, 'desky-app-icon-512.png'),
+  'desky-app-icon',
+);
+const postersRoot = resolve(root, '..', '..', 'branding', 'poster');
+const heroPoster = await copyBrandedAsset(
+  resolve(postersRoot, 'desky-through-the-screen-x.png'),
+  'desky-through-the-screen',
+);
+const schoolPoster = await copyBrandedAsset(
+  resolve(postersRoot, 'desky-school-desk-x.png'),
+  'desky-school-desk',
+);
+const signalPoster = await copyBrandedAsset(
+  resolve(postersRoot, 'desky-first-signal-x.png'),
+  'desky-first-signal',
+);
+const marketingStyles = await copyBrandedAsset(
+  resolve(root, 'src', 'marketing.css'),
+  'marketing',
+);
+const checkoutTemplate = await readFile(resolve(root, 'src', 'checkout.html'), 'utf8');
+const checkoutDocument = checkoutTemplate
   .replace('__DESKY_CHECKOUT_SCRIPT__', relativeAsset(script))
   .replace('__DESKY_CHECKOUT_STYLES__', relativeAsset(stylesheet))
   .replace('__DESKY_BRAND_LOCKUP__', brandLockup)
   .replace('__DESKY_FAVICON_SVG__', faviconSvg)
   .replace('__DESKY_FAVICON_PNG__', faviconPng)
   .replace('__DESKY_TOUCH_ICON__', touchIcon);
-if (document.includes('__DESKY_CHECKOUT_')) throw new Error('Hosted checkout template is incomplete.');
-await writeFile(resolve(output, 'index.html'), document, 'utf8');
+if (checkoutDocument.includes('__DESKY_CHECKOUT_')) throw new Error('Hosted checkout template is incomplete.');
+await writeFile(resolve(output, 'checkout.html'), checkoutDocument, 'utf8');
+
+const marketingTemplate = await readFile(resolve(root, 'src', 'marketing.html'), 'utf8');
+const marketingDocument = marketingTemplate
+  .replaceAll('__DESKY_MARKETING_STYLES__', marketingStyles)
+  .replaceAll('__DESKY_MARKETING_LOCKUP__', marketingLockup)
+  .replaceAll('__DESKY_BRAND_LOCKUP__', brandLockup)
+  .replaceAll('__DESKY_FAVICON_SVG__', faviconSvg)
+  .replaceAll('__DESKY_FAVICON_PNG__', faviconPng)
+  .replaceAll('__DESKY_TOUCH_ICON__', touchIcon)
+  .replaceAll('__DESKY_ICON__', icon)
+  .replaceAll('__DESKY_HERO_POSTER__', heroPoster)
+  .replaceAll('__DESKY_SCHOOL_POSTER__', schoolPoster)
+  .replaceAll('__DESKY_SIGNAL_POSTER__', signalPoster);
+if (marketingDocument.includes('__DESKY_')) throw new Error('Marketing template is incomplete.');
+await writeFile(resolve(output, 'index.html'), marketingDocument, 'utf8');

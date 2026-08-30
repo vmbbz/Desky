@@ -1,0 +1,51 @@
+# Public marketing site
+
+## Purpose
+
+The hosted Netlify project now serves two deliberately separate surfaces:
+
+- `/` is the public Desky marketing site. It explains the desktop companion,
+  gateway-neutral architecture, companion gallery and trust model.
+- `/checkout/*` is the noindex, same-origin hosted wallet checkout. Netlify
+  rewrites it to `checkout.html`; its browser client and security policy remain
+  separate from the marketing surface.
+
+The public page is intentionally static. It has no analytics, third-party
+scripts, external fonts or browser credentials. Brand masters and campaign
+posters are copied into content-hashed local assets during the hosted build.
+This keeps the site reproducible and prevents the checkout from drifting to a
+separately redrawn logo.
+
+## Content contract
+
+The current page describes the product as a client for the agents users
+already run. It may mention OpenClaw, Codex, Hermes and Claude as supported or
+planned connection surfaces, but must not imply that Desky hosts those models,
+executes tools independently, or has a production x402/mainnet sale.
+
+The current primary call to action points to the public GitHub repository until
+the legal publisher identity, production download URL and support/privacy
+pages are ready. Before public launch, add these owned routes under the final
+product domain:
+
+- `/download`
+- `/support`
+- `/privacy`
+- `/terms`
+- `/security`
+- `/company`
+
+The footer must identify the exact registered publisher name, for example
+`XEON Protocol (Pty) Ltd`, using the spelling on the company documents.
+
+## Deployment
+
+`netlify.toml` keeps the marketing document at the site root and rewrites only
+`/checkout/*` to the checkout document. Both surfaces use local hashed assets;
+the global headers continue to disallow framing, third-party scripts,
+insecure connections and unnecessary browser capabilities.
+
+The product name and domain remain provisional until trademark clearance and
+domain ownership are complete. A future rename must update the marketing
+templates, generated metadata, checkout lockup, package metadata and legal
+copy together, while preserving internal entitlement and checkout IDs.
