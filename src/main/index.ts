@@ -27,55 +27,72 @@ app.setName('Deskiii');
 if (process.env.DESKY_VISUAL_TEST_USER_DATA) {
   app.setPath('userData', resolve(process.env.DESKY_VISUAL_TEST_USER_DATA));
 }
-registerApplicationScheme();
 
-void app.whenReady().then(() => {
-  handleApplicationScheme();
-  const connectionsVault = new SecureVault(
-    join(app.getPath('userData'), 'secure-connections.json'),
-    safeStorage,
-  );
-  const openClaw = new OpenClawAdapterHost(
-    connectionsVault,
-    app.getVersion(),
-    process.platform,
-  );
-  const distributionProfile = getDistributionProfile();
-  const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
-    protectedWritableRoots: [app.getPath('home')],
-  });
-  const runtimes = createProfileRuntimes({
-    appVersion: app.getVersion(),
-    openClaw,
-    vault: connectionsVault,
-    workspaceGrants: codexWorkspaceGrants,
-    packaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-    visualTestExercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
-  });
-  const adapters = new AgentAdapterRegistry(
-    runtimes,
-    'openclaw',
-    distributionProfile,
-  );
-  const windowManager = new DeskyWindowManager(
-    new DesktopStateStore(join(app.getPath('userData'), 'desktop-state.json')),
-  );
-  windows = windowManager;
-  registerIpc(adapters, windowManager, codexWorkspaceGrants);
-  windowManager.createInitialWindows();
+// A single browser process owns the desktop surface and its gateway sessions.
+// Electron normally permits a second launch, which would otherwise create a
+// second ambient window and duplicate subscriptions/tool events.  The second
+// launch is treated as a request to reveal the existing control center.
+const ownsUserSession = app.requestSingleInstanceLock();
 
-  installBoundedApplicationShutdown(app, async () => {
-    windows?.dispose();
-    codexWorkspaceGrants.clear();
-    await adapters.dispose();
+if (!ownsUserSession) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    windows?.openControlCenter();
   });
 
-  app.on('activate', () => {
-    windowManager.openAmbient();
-  });
-});
+  registerApplicationScheme();
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin' && !windows?.hasRecoverySurface()) app.quit();
-});
+  void app.whenReady().then(() => {
+    handleApplicationScheme();
+    const connectionsVault = new SecureVault(
+      join(app.getPath('userData'), 'secure-connections.json'),
+      safeStorage,
+    );
+    const openClaw = new OpenClawAdapterHost(
+      connectionsVault,
+      app.getVersion(),
+      process.platform,
+    );
+    const distributionProfile = getDistributionProfile();
+    const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({
+      protectedWritableRoots: [app.getPath('home')],
+    });
+    const runtimes = createProfileRuntimes({
+      appVersion: app.getVersion(),
+      openClaw,
+      vault: connectionsVault,
+      workspaceGrants: codexWorkspaceGrants,
+      packaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      visualTestExercise: process.env.DESKY_VISUAL_TEST_EXERCISE,
+    });
+    const adapters = new AgentAdapterRegistry(
+      runtimes,
+      'openclaw',
+      distributionProfile,
+    );
+    const windowManager = new DeskyWindowManager(
+      new DesktopStateStore(join(app.getPath('userData'), 'desktop-state.json')),
+    );
+    windows = windowManager;
+    registerIpc(adapters, windowManager, codexWorkspaceGrants);
+    windowManager.createInitialWindows();
+
+    installBoundedApplicationShutdown(app, async () => {
+      windows?.dispose();
+      codexWorkspaceGrants.clear();
+      await adapters.dispose();
+    });
+
+    app.on('activate', () => {
+      windowManager.openAmbient();
+    });
+  });
+}
+
+if (ownsUserSession) {
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin' && !windows?.hasRecoverySurface()) app.quit();
+  });
+}

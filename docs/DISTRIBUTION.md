@@ -2,7 +2,7 @@
 
 ## Release channels
 
-Desky will ship from one source tree through distinct capability profiles.
+Deskiii will ship from one source tree through distinct capability profiles.
 
 | Channel | Package | Updates | Local agent processes | Status |
 | --- | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Desky will ship from one source tree through distinct capability profiles.
 
 ## Windows launch decision — 2026-08-25
 
-Desky launches through two complementary Windows channels from one source tree:
+Deskiii launches through two complementary Windows channels from one source tree:
 
 1. **Microsoft Store:** an MSIX, free-only release with x402 adapters, payment commands, checkout UI, merchant configuration, and external purchase calls to action absent from the artifact.
 2. **Desky website:** a separately signed direct installer with its own signed update channel. The website presents both **Get from Microsoft** and **Download for Windows**, with the capability difference stated before installation. A versioned GitHub Release may mirror the direct artifact and checksums; `winget` can be added later for discovery.
@@ -24,6 +24,16 @@ Microsoft documents both Store and direct website distribution. MSIX Store submi
 “Disabled” means build-time unreachable, not a hidden renderer button or remote feature flag. The x402 source remains in the repository and direct profile, but the initial Store bundle must not contain its adapter, SDK, routes, merchant configuration, or payment UI. After the company identity, legal/compliance, declarations, controls, and certification evidence exist, a new explicit `windows-store-third-party-commerce` artifact may be submitted as an update. That package and its updated metadata go through certification and an MSIX package flight/gradual rollout before public enablement; Microsoft documents that approved MSIX updates replace the prior package and reach existing users automatically. See [Store update management](https://learn.microsoft.com/en-us/windows/apps/publish/faq/manage-and-update-your-app).
 
 No server-side switch may activate materially undisclosed commerce in an already certified free-only package. If the later Store submission is rejected or delayed, the Store release stays free-only and the direct channel remains independently supported.
+
+## Desktop process ownership
+
+Only one Deskiii desktop process may own the user's ambient companion and
+gateway sessions at a time. Electron helper processes (GPU, renderer and
+utility processes) are expected children of that owner; a second top-level
+launch is not. The second launch acquires no gateway session and instead
+reveals the existing Control Center. This prevents duplicate companion windows,
+duplicate event subscriptions and competing Stop/approval actions. A crashed
+owner may be started again normally after its bounded shutdown has completed.
 
 ## Why two capability profiles exist
 

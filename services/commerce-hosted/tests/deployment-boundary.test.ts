@@ -46,6 +46,10 @@ describe('hosted checkout deployment boundary', () => {
     expect(marketing).toContain('desky-through-the-screen-');
     expect(marketing).toContain('OpenClaw');
     expect(marketing).toContain('XEON Protocol (Pty) Ltd.');
+    expect(marketing).toContain('Microsoft Store');
+    expect(marketing).toContain('Free edition');
+    expect(marketing).toContain('Direct edition');
+    expect(marketing).toContain('Store commerce, if admitted later, ships as a new certified update');
     expect(marketing).not.toMatch(/<script(?:\s[^>]*)?>\s*[^<]/);
   });
 

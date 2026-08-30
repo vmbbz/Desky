@@ -35,6 +35,14 @@ product domain:
 - `/security`
 - `/company`
 
+The launch page must keep the two Windows paths explicit even while both are
+pre-release: **Microsoft Store — free edition** and **Download for Windows —
+direct edition**. The Store artifact is free-only and excludes x402; the signed
+direct artifact is the first place where the separately reviewed x402 pilot may
+appear. Until the corresponding listing and signed installer exist, these
+buttons remain visibly marked as coming soon rather than pointing to a fake
+checkout or an unverified binary.
+
 The footer must identify the exact registered publisher name, for example
 `XEON Protocol (Pty) Ltd`, using the spelling on the company documents.
 
