@@ -17,7 +17,7 @@ Deskiii will ship from one source tree through distinct capability profiles.
 Deskiii launches through two complementary Windows channels from one source tree:
 
 1. **Microsoft Store:** an MSIX, free-only release with x402 adapters, payment commands, checkout UI, merchant configuration, and external purchase calls to action absent from the artifact.
-2. **Desky website:** a separately signed direct installer with its own signed update channel. The website presents both **Get from Microsoft** and **Download for Windows**, with the capability difference stated before installation. A versioned GitHub Release may mirror the direct artifact and checksums; `winget` can be added later for discovery.
+2. **Deskiii website:** a separately signed direct installer with its own signed update channel. The website presents both **Get from Microsoft** and **Download for Windows**, with the capability difference stated before installation. A versioned GitHub Release may mirror the direct artifact and checksums; `winget` can be added later for discovery.
 
 Microsoft documents both Store and direct website distribution. MSIX Store submissions receive Store-managed updates; direct distribution requires trusted code signing, hosting, and an update mechanism. See [Microsoft's distribution-path guidance](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/choose-distribution-path).
 
@@ -53,7 +53,7 @@ The Store build remains useful and complete through authenticated remote gateway
 - Review account or fully featured simulation/remote demo path.
 - Content, privacy, encryption/export, and NFT disclosures completed.
 - Universal arm64/x64 build unless product data justifies separate architectures.
-- Use StoreKit for digital avatar unlocks if premium content ships in this profile. x402 and external purchase calls to action are disabled unless Desky later qualifies for, implements, and re-verifies a storefront-specific Apple entitlement.
+- Use StoreKit for digital avatar unlocks if premium content ships in this profile. x402 and external purchase calls to action are disabled unless Deskiii later qualifies for, implements, and re-verifies a storefront-specific Apple entitlement.
 
 ### Direct macOS
 

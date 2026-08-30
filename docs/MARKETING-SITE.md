@@ -20,7 +20,7 @@ separately redrawn logo.
 
 The current page describes Deskiii as a client for the agents users
 already run. It may mention OpenClaw, Codex, Hermes and Claude as supported or
-planned connection surfaces, but must not imply that Desky hosts those models,
+planned connection surfaces, but must not imply that Deskiii hosts those models,
 executes tools independently, or has a production x402/mainnet sale.
 
 The current primary call to action points to the public GitHub repository until
