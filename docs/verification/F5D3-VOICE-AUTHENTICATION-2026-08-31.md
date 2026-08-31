@@ -23,8 +23,8 @@ brain=agent-consult
 
 ## Authentication and runtime
 
-- Refreshed `openai:runnercourage@gmail.com` using the official `openclaw models auth login --provider openai` flow.
-- Kept the Runner Courage profile first in the agent-specific auth order.
+- Refreshed `openai:cosychiruka@gmail.com` using the official `openclaw models auth login --provider openai` flow after the operator reported the previous Runner Courage account had exhausted its available usage.
+- Put the Cosy Chiruka profile first in the agent-specific auth order while retaining Runner Courage only as the explicit second profile.
 - Installed official `openclaw@2026.8.1` without changing the historical upstream contribution checkout.
 - Installed and pinned official `@openclaw/codex@2026.8.1` after reviewing its declared boundary. Optional computer use, native plugin access, raw transcripts, supervision, and write controls remain off.
 - Persisted the previously approved 64-character local Gateway token into the dev profile without printing it.
@@ -58,6 +58,8 @@ brain=agent-consult
 input=pcm16/24000/mono
 output=pcm16/24000/mono
 ```
+
+The same bounded admission probe passed again after the 2026-08-31 switch to `openai:cosychiruka@gmail.com`. The OAuth expiry changed during the official browser callback, the persisted order was read back as Cosy first, Gateway health remained clean after restart, and no credential value was printed.
 
 The CLI connection closed immediately after the bounded probe, so the Gateway released its connection-owned session. No audio frames were sent and no persistent provider session was left behind.
 

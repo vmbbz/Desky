@@ -65,7 +65,7 @@ transport=gateway-relay
 brain=agent-consult
 ```
 
-The intended `openai:runnercourage@gmail.com` profile is first in the persisted agent-specific order. The profile was refreshed through the official `openclaw models auth login --provider openai` flow and now expires on 2026-09-10. Official read-only profile inspection reports OAuth and a present account id. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii.
+The intended reference profile is now `openai:cosychiruka@gmail.com`, first in the persisted agent-specific order after the operator reported that Runner Courage had exhausted its available usage. Cosy Chiruka was refreshed through the official `openclaw models auth login --provider openai` browser flow and currently expires on 2026-09-10. Runner Courage remains explicitly second rather than being silently selected. Official read-only profile inspection reports OAuth metadata only. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii.
 
 The current Gateway catalog reports GPT-Live ready, its model-specific voice set, Gateway relay, agent consultation, PCM16 24 kHz and G.711 mu-law 8 kHz input/output, and barge-in. A real `talk.session.create` now succeeds with `gpt-live-1-codex`, `spruce`, and negotiated PCM16 24 kHz. The previous 403 is therefore resolved as a stale voice-contract mismatch, not a proven account-entitlement failure. The CLI probe disconnected immediately after admission, so the Gateway correctly released the connection-owned session; no microphone audio was sent and no assistant-audio or interruption claim is made yet.
 
