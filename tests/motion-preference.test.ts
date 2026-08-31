@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { motionPreferences, resolveReducedMotion } from '../src/shared/runtime';
 
 describe('avatar motion preference', () => {
-  it('follows the system by default and permits explicit full/reduced session overrides', () => {
+  it('resolves explicit full, system-following, and reduced accessibility envelopes', () => {
     expect(motionPreferences).toEqual(['system', 'full', 'reduced']);
     expect(resolveReducedMotion('system', true)).toBe(true);
     expect(resolveReducedMotion('system', false)).toBe(false);

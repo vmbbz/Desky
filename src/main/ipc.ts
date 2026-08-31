@@ -388,7 +388,6 @@ export function registerIpc(
       }),
     };
   };
-  let motionPreference: MotionPreference = 'system';
   const broadcastAnimationState = () => {
     const state = animation.getState();
     for (const window of BrowserWindow.getAllWindows()) {
@@ -507,7 +506,7 @@ export function registerIpc(
     if (!avatar) throw new Error('Marketplace avatar source is unavailable.');
     await shell.openExternal(avatar.sourceUrl);
   });
-  ipcMain.handle(motionPreferenceChannels.get, () => motionPreference);
+  ipcMain.handle(motionPreferenceChannels.get, () => windows.getMotionPreference());
   ipcMain.handle(motionPreferenceChannels.set, (event, value: unknown) => {
     const visualTestOverride = process.env.DESKY_VISUAL_TEST_PATH !== undefined
       && process.env.DESKY_VISUAL_TEST_MOTION_PREFERENCE !== undefined;
@@ -520,7 +519,7 @@ export function registerIpc(
     if (typeof value !== 'string' || !motionPreferences.includes(value as MotionPreference)) {
       throw new Error('Invalid motion preference.');
     }
-    motionPreference = value as MotionPreference;
+    const motionPreference = windows.setMotionPreference(value as MotionPreference);
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(motionPreferenceChannels.state, motionPreference);
     }

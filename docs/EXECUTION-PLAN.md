@@ -118,7 +118,7 @@ Status: in progress. System reduced-motion detection exists. F4.4 proves restora
 
 F3d.2 implements immutable per-avatar motion-profile admission. The three free revisions and paid-pilot revision carry the profile identity into the renderer; a clean packaged six-switch Windows run committed every free-avatar activation with verified model/cache state and no exercise error. Profile drift, required-bone failure, unknown identity, unreviewed policy and root-motion violations are bounded failures. Evidence: `docs/verification/F3D2-ANIMATION-PROFILE-ADMISSION-2026-08-26.md`.
 
-- Retain the implemented Paused/System/Full/Reduced policy through accessibility and lifecycle validation.
+- Retain the implemented two-axis policy through accessibility and lifecycle validation: Still/Quiet/Balanced/Lively/Custom Energy plus Full/Follow Windows/Reduced Movement. Both are main-owned and persisted; Full is the product default and Follow Windows remains an explicit accessible choice.
 - Suspend rendering when hidden or Chromium-reported occluded; add explicit full-screen suppression policy.
 - Recover from WebGL loss and avatar replacement without leaking GPU resources. Restoration and terminal retry pass; one longer reference-device plateau is recorded, while broader hardware and visible-idle optimization remain.
 - Complete keyboard, screen-reader, contrast, scaling, idle CPU, active CPU, and memory evidence.

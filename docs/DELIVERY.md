@@ -179,7 +179,7 @@ Implemented and test-verified:
 - Added an exact-version-pinned VRM Animation parser and a control-center-only `.vrma` selection/replay/clear workflow.
 - Added main-process binary glTF/VRMA validation, structural and byte limits, external-resource rejection, exact SHA-256 identity, session-memory-only retention, and typed playback/status IPC without exposing the source path.
 - Routed imported one-shots through the existing per-avatar mixer. Additive expressions pause during playback, the authored baseline is restored, and newly entered approval/cancellation/disconnection/error states interrupt playback. Pending approval and reduced motion block a new preview, while a deliberate later offline preview does not require an agent connection.
-- Added System/Full/Reduced motion controls scoped to the current app session. System remains the default, so explicit Full playback does not silently override an OS accessibility preference.
+- Consolidated animation settings into one persisted Companion animation card. Energy controls cadence/variety; Movement controls the independent Full/Follow Windows/Reduced accessibility envelope. Full motion is the product default, and overriding an active Windows reduced-motion preference is stated explicitly in the UI.
 - Audited Toothpaste and the live Open Source Avatars gallery. Toothpaste contains no embedded animation; the gallery currently retargets eleven separate Mixamo-style FBX files. All eleven pass Desky's non-writing technical inspection, but none is admitted because the public repository/deployed responses do not provide per-file redistribution provenance.
 
 Evidence is recorded in `docs/verification/F3B4-LOCAL-VRMA-PREVIEW-2026-08-23.md` and `docs/research/OSA-ANIMATION-AUDIT-2026-08-23.md`.

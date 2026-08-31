@@ -183,7 +183,7 @@ Users should choose a temperament, not configure 85 animation filenames.
 | `Lively` | Shorter quiet intervals and richer reactions/play, still bounded and interruptible. |
 | `Custom` | User-selected category intensity and frequency within safety limits. |
 
-System reduced-motion remains authoritative when the mode is `System`. An explicit in-app Reduced preference may be stricter. No preset can weaken cancellation, approval readability, or GPU suspension policy.
+Energy and movement are independent axes in one Companion animation card. `Balanced` controls the default cadence and variety; the separately persisted Movement policy defaults to `Full motion`. `Follow Windows` makes system reduced-motion authoritative, while explicit `Reduced motion` is always stricter. `Still` stops autonomous and conversational body motion without silently changing the Movement choice. No combination can weaken cancellation, approval readability, clip admission, or GPU suspension policy.
 
 ### Human categories
 

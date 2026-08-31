@@ -216,7 +216,7 @@ export function App() {
   const [animationState, setAnimationState] = useState<LocalAnimationPreviewState>(
     initialLocalAnimationPreviewState,
   );
-  const [motionPreference, setMotionPreference] = useState<MotionPreference>('system');
+  const [motionPreference, setMotionPreference] = useState<MotionPreference>('full');
   const [motionPersonality, setMotionPersonality] = useState<MotionPersonalityPolicy>(
     defaultMotionPersonality,
   );
@@ -1064,33 +1064,45 @@ export function App() {
             viewYawDegrees={avatarYawDegrees}
           />
           {avatarBounds ? (
-            <button
-              type="button"
-              className="ambient-avatar-hitbox"
-              data-desky-interactive="true"
-              aria-label="Move or rotate the Deskiii companion"
-              title="Drag the character to rotate · drag its transparent gaps or the grip to move · double-click to jump"
-              style={{
-                left: avatarBounds.x,
-                top: avatarBounds.y,
-                width: avatarBounds.width,
-                height: avatarBounds.height,
-              }}
-              onPointerDown={beginAvatarManipulation}
-              onPointerMove={continueAvatarManipulation}
-              onPointerUp={endAvatarManipulation}
-              onPointerCancel={endAvatarManipulation}
-              onWheel={rotateAvatarFromWheel}
-              onKeyDown={rotateAvatarFromKeyboard}
-              onClick={() => {
-                if (performance.now() < suppressAvatarClickUntilRef.current) return;
-                openComposer();
-              }}
-              onDoubleClick={() => {
-                if (performance.now() < suppressAvatarClickUntilRef.current) return;
-                requestAvatarMotion('jump');
-              }}
-            />
+            <>
+              <button
+                type="button"
+                className="ambient-avatar-hitbox"
+                data-desky-interactive="true"
+                aria-label="Move or rotate the Deskiii companion"
+                aria-describedby="ambient-avatar-controls-tip"
+                style={{
+                  left: avatarBounds.x,
+                  top: avatarBounds.y,
+                  width: avatarBounds.width,
+                  height: avatarBounds.height,
+                }}
+                onPointerDown={beginAvatarManipulation}
+                onPointerMove={continueAvatarManipulation}
+                onPointerUp={endAvatarManipulation}
+                onPointerCancel={endAvatarManipulation}
+                onWheel={rotateAvatarFromWheel}
+                onKeyDown={rotateAvatarFromKeyboard}
+                onClick={() => {
+                  if (performance.now() < suppressAvatarClickUntilRef.current) return;
+                  openComposer();
+                }}
+                onDoubleClick={() => {
+                  if (performance.now() < suppressAvatarClickUntilRef.current) return;
+                  requestAvatarMotion('jump');
+                }}
+              />
+              <div
+                id="ambient-avatar-controls-tip"
+                className="ambient-avatar-tooltip"
+                role="tooltip"
+              >
+                <strong>Character controls</strong>
+                <span><kbd>Drag</kbd> Rotate</span>
+                <span><kbd>Drag gaps</kbd> Move</span>
+                <span><kbd>Double-click</kbd> Jump</span>
+              </div>
+            </>
           ) : null}
         </div>
 
@@ -1447,38 +1459,45 @@ export function App() {
       <section className="motion-personality-card" aria-labelledby="motion-personality-title">
         <div className="motion-personality-card__header">
           <div>
-            <strong id="motion-personality-title">Companion energy</strong>
-            <span>Choose a temperament. Agent state and reduced-motion safety always take priority.</span>
+            <strong id="motion-personality-title">Companion animation</strong>
+            <span>Choose how energetic Deskiii feels and how much body movement is allowed.</span>
           </div>
           <span className="motion-personality-card__saved">Saved</span>
         </div>
-        <div className="motion-personality-presets" role="group" aria-label="Companion energy preset">
-          {motionPersonalityPresets.map((preset) => (
-            <button
-              key={preset}
-              type="button"
-              aria-pressed={motionPersonality.preset === preset}
-              disabled={animationBusy}
-              onClick={() => void withAnimationBusy(async () => {
-                const next = preset === 'custom'
-                  ? { ...motionPersonality, preset: 'custom' as const }
-                  : motionPersonalityForPreset(preset);
-                setMotionPersonality(await window.desky.setMotionPersonality(next));
-              })}
-            >{preset[0].toUpperCase()}{preset.slice(1)}</button>
-          ))}
+        <div className="motion-setting-block">
+          <div className="motion-setting-block__copy">
+            <strong>Energy</strong>
+            <span>Controls animation variety and how often optional reactions appear.</span>
+          </div>
+          <div className="motion-personality-presets" role="group" aria-label="Companion energy preset">
+            {motionPersonalityPresets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                data-motion-personality-preset={preset}
+                aria-pressed={motionPersonality.preset === preset}
+                disabled={animationBusy}
+                onClick={() => void withAnimationBusy(async () => {
+                  const next = preset === 'custom'
+                    ? { ...motionPersonality, preset: 'custom' as const }
+                    : motionPersonalityForPreset(preset);
+                  setMotionPersonality(await window.desky.setMotionPersonality(next));
+                })}
+              >{preset === 'paused' ? 'Still' : `${preset[0].toUpperCase()}${preset.slice(1)}`}</button>
+            ))}
+          </div>
+          <p className="motion-personality-description">
+            {motionPersonality.preset === 'paused'
+              ? 'Still keeps every state readable while pausing autonomous and conversational body motion.'
+              : motionPersonality.preset === 'quiet'
+                ? 'Calm presence with longer quiet intervals and no playful or roaming breaks.'
+                : motionPersonality.preset === 'balanced'
+                  ? 'Living idle, clear work states, occasional reactions, and rare playful moments.'
+                  : motionPersonality.preset === 'lively'
+                    ? 'More frequent admitted reactions and variety without changing safety priority.'
+                    : 'Fine-tune semantic categories; individual animation files remain admission-controlled.'}
+          </p>
         </div>
-        <p className="motion-personality-description">
-          {motionPersonality.preset === 'paused'
-            ? 'Static readable states; autonomous and conversational body motion are paused.'
-            : motionPersonality.preset === 'quiet'
-              ? 'Calm presence with longer quiet intervals and no playful or roaming breaks.'
-              : motionPersonality.preset === 'balanced'
-                ? 'Living idle, clear work states, occasional reactions, and rare playful moments.'
-                : motionPersonality.preset === 'lively'
-                  ? 'More frequent admitted reactions and variety without changing safety priority.'
-                  : 'Fine-tune semantic categories; individual animation files remain admission-controlled.'}
-        </p>
         {motionPersonality.preset === 'custom' ? (
           <div className="motion-category-grid">
             {motionCategories.map((category) => (
@@ -1506,6 +1525,37 @@ export function App() {
             ))}
           </div>
         ) : null}
+        <div className="motion-setting-block motion-setting-block--movement">
+          <div className="motion-setting-block__copy">
+            <strong>Movement</strong>
+            <span>Sets the accessibility envelope. It never changes what the agent is doing.</span>
+          </div>
+          <div className="motion-preference" role="group" aria-label="Companion movement preference">
+            {(['full', 'system', 'reduced'] as const).map((preference) => (
+              <button
+                key={preference}
+                type="button"
+                data-motion-preference={preference}
+                aria-pressed={motionPreference === preference}
+                disabled={animationBusy}
+                onClick={() => void withAnimationBusy(async () => {
+                  setMotionPreference(await window.desky.setMotionPreference(preference));
+                })}
+              >{preference === 'full' ? 'Full motion' : preference === 'system' ? 'Follow Windows' : 'Reduced motion'}</button>
+            ))}
+          </div>
+          <p className={`motion-preference-description${motionPreference === 'full' && systemReducedMotion ? ' motion-preference-description--notice' : ''}`}>
+            {motionPreference === 'full'
+              ? systemReducedMotion
+                ? 'Full body animation is on. This overrides the Windows reduced-motion setting on this device.'
+                : 'Full body animation is on, including admitted idle loops, gestures, and requested actions.'
+              : motionPreference === 'system'
+                ? systemReducedMotion
+                  ? 'Following Windows. Windows currently requests reduced motion, so full-body animation is limited.'
+                  : 'Following Windows. Windows currently allows full body animation.'
+                : 'Reduced motion is always on: travel and full-body loops are replaced with subtle readable cues.'}
+          </p>
+        </div>
       </section>
 
       <section className="animation-preview-card" aria-label="Local animation preview">
@@ -1514,21 +1564,7 @@ export function App() {
             <strong>Local animation preview</strong>
             <span>Session only</span>
           </div>
-              <p>Test a rights-cleared <code>.vrma</code> on the current avatar. The file stays in memory and is never added to Deskiii’s distributable assets.</p>
-          <div className="motion-preference" role="group" aria-label="Avatar motion preference">
-            <span>Motion</span>
-            {(['system', 'full', 'reduced'] as const).map((preference) => (
-              <button
-                key={preference}
-                type="button"
-                aria-pressed={motionPreference === preference}
-                disabled={animationBusy}
-                onClick={() => void withAnimationBusy(async () => {
-                  setMotionPreference(await window.desky.setMotionPreference(preference));
-                })}
-              >{preference === 'system' ? 'System' : preference === 'full' ? 'Full' : 'Reduced'}</button>
-            ))}
-          </div>
+          <p>Test a rights-cleared <code>.vrma</code> on the current avatar. The file stays in memory and uses the saved animation settings above.</p>
           <span className={`animation-preview-card__status animation-preview-card__status--${animationState.status}`} role="status">
             {animationState.selection ? `${animationState.selection.fileName} · ` : ''}{animationState.message}
           </span>

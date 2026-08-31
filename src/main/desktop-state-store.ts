@@ -7,6 +7,10 @@ import {
   type MotionPersonalityPolicy,
 } from '../shared/motion-personality';
 import { defaultAvatarRevisionId } from '../shared/avatar-assets';
+import {
+  motionPreferences,
+  type MotionPreference,
+} from '../shared/runtime';
 
 export interface StoredAmbientPlacement {
   updatedAt: string;
@@ -19,6 +23,7 @@ export interface DesktopState {
   alwaysOnTop: boolean;
   avatarYawDegrees: number;
   fallbackAvatarRevisionId: string;
+  motionPreference: MotionPreference;
   motionPersonality: MotionPersonalityPolicy;
   placements: Record<string, StoredAmbientPlacement>;
   version: 1;
@@ -31,6 +36,7 @@ export const defaultDesktopState: DesktopState = {
   alwaysOnTop: true,
   avatarYawDegrees: 0,
   fallbackAvatarRevisionId: defaultAvatarRevisionId,
+  motionPreference: 'full',
   motionPersonality: structuredClone(defaultMotionPersonality),
   placements: {},
   version: 1,
@@ -90,6 +96,10 @@ export function parseDesktopState(value: unknown): DesktopState {
       : defaultDesktopState.alwaysOnTop,
     avatarYawDegrees: normalizeAvatarYaw(source.avatarYawDegrees),
     fallbackAvatarRevisionId: normalizeAvatarRevisionId(source.fallbackAvatarRevisionId),
+    motionPreference: typeof source.motionPreference === 'string'
+      && motionPreferences.includes(source.motionPreference as MotionPreference)
+      ? source.motionPreference as MotionPreference
+      : defaultDesktopState.motionPreference,
     motionPersonality: normalizeMotionPersonalityPolicy(source.motionPersonality),
     placements,
   };

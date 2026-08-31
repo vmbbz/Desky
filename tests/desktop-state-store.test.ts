@@ -39,6 +39,7 @@ describe('desktop state store', () => {
       alwaysOnTop: false,
       avatarYawDegrees: 0,
       fallbackAvatarRevisionId: 'milk-99e32f15-v1',
+      motionPreference: 'full',
       motionPersonality: motionPersonalityForPreset('balanced'),
       placements: {
         valid: { x: 10, y: -21, updatedAt: '2026-08-22T12:00:00.000Z' },
@@ -90,6 +91,22 @@ describe('desktop state store', () => {
       ...defaultDesktopState,
       motionPersonality: { preset: 'chaos' },
     }).motionPersonality).toEqual(defaultDesktopState.motionPersonality);
+  });
+
+  it('defaults movement to full and persists a valid accessibility envelope', () => {
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      motionPreference: 'system',
+    }).motionPreference).toBe('system');
+    expect(parseDesktopState({
+      ...defaultDesktopState,
+      motionPreference: 'unbounded',
+    }).motionPreference).toBe('full');
+    expect(parseDesktopState({
+      version: 1,
+      alwaysOnTop: true,
+      placements: {},
+    }).motionPreference).toBe('full');
   });
 
   it('retains only the sixteen most recently updated display arrangements', () => {

@@ -17,6 +17,7 @@ import type {
   AmbientPointerRegion,
   AmbientSurfaceState,
   DesktopRectangle,
+  MotionPreference,
   SurfaceKind,
   WindowAction,
 } from '../shared/runtime';
@@ -733,12 +734,12 @@ async function captureVisualTest(
           .find((button) => button.textContent?.trim() === label);
 
         const full = await waitFor(
-          () => findButton('Full'),
+          () => document.querySelector('[data-motion-preference="full"]'),
           'Full motion control did not become available',
         );
         full.click();
         await waitFor(
-          () => findButton('Full')?.getAttribute('aria-pressed') === 'true',
+          () => document.querySelector('[data-motion-preference="full"]')?.getAttribute('aria-pressed') === 'true',
           'Full motion preference was not applied',
         );
 
@@ -757,7 +758,7 @@ async function captureVisualTest(
         root.dataset.vrmaInterruptionStatus = playing.textContent?.trim() ?? '';
 
         const reduced = await waitFor(
-          () => findButton('Reduced'),
+          () => document.querySelector('[data-motion-preference="reduced"]'),
           'Reduced motion control did not become available',
         );
         reduced.click();
@@ -833,6 +834,57 @@ async function captureVisualTest(
         stage.dataset.vrm1FixtureVerified = 'true';
         stage.dataset.vrm1StateCycleVerified = 'true';
         stage.dataset.vrm1ObservedModes = JSON.stringify(Object.fromEntries(observed));
+      })()`);
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'ambient'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'avatar-tooltip') {
+    try {
+      const avatarPoint = await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+          const avatar = document.querySelector('.ambient-avatar-hitbox');
+          const stage = document.querySelector('.avatar-stage');
+          if (avatar instanceof HTMLButtonElement
+            && stage instanceof HTMLElement
+            && stage.dataset.avatarState === 'ready') {
+            const bounds = avatar.getBoundingClientRect();
+            return {
+              x: Math.round(bounds.left + bounds.width / 2),
+              y: Math.round(bounds.top + bounds.height / 2),
+            };
+          }
+          await wait(50);
+        }
+        throw new Error('Avatar control tooltip target did not become ready');
+      })()`) as { x: number; y: number };
+      window.webContents.sendInputEvent({ type: 'mouseMove', ...avatarPoint });
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    } catch (error) {
+      visualExerciseError = String(error);
+    }
+  }
+  if (surface === 'control-center'
+    && process.env.DESKY_VISUAL_TEST_EXERCISE === 'motion-settings-persistence') {
+    try {
+      await window.webContents.executeJavaScript(`(async () => {
+        const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+        const deadline = Date.now() + 10000;
+        while (Date.now() < deadline) {
+          const reduced = document.querySelector('[data-motion-preference="reduced"]');
+          if (reduced instanceof HTMLButtonElement) {
+            reduced.click();
+            while (Date.now() < deadline) {
+              if (reduced.getAttribute('aria-pressed') === 'true') return;
+              await wait(25);
+            }
+          }
+          await wait(50);
+        }
+        throw new Error('Persisted Movement control did not become available');
       })()`);
     } catch (error) {
       visualExerciseError = String(error);
@@ -1380,10 +1432,25 @@ async function captureVisualTest(
     voiceSessionPhase: document.querySelector('.voice-session-dock')?.getAttribute('data-phase') ?? null,
     ambientPromptVisible: Boolean(document.querySelector('.ambient-prompt')),
     controlPromptVisible: Boolean(document.querySelector('#control-prompt')),
+    motionPersonalitySelected: document.querySelector('[data-motion-personality-preset][aria-pressed="true"]')?.getAttribute('data-motion-personality-preset') ?? null,
+    motionPreferenceSelected: document.querySelector('[data-motion-preference][aria-pressed="true"]')?.getAttribute('data-motion-preference') ?? null,
+    motionControlsUnified: Boolean(document.querySelector('.motion-personality-card [data-motion-preference]')),
+    localPreviewHasMotionPreference: Boolean(document.querySelector('.animation-preview-card [data-motion-preference]')),
     draftValue: document.querySelector('#ambient-prompt')?.value ?? null,
     launcherLabel: document.querySelector('.ambient-launcher button')?.textContent?.trim() ?? null,
     avatarState: document.querySelector('.avatar-stage')?.dataset.avatarState ?? null,
     avatarStatusText: document.querySelector('.avatar-stage .asset-status')?.textContent?.trim() ?? null,
+    avatarStatusDisplay: (() => {
+      const status = document.querySelector('.avatar-stage .asset-status');
+      return status instanceof HTMLElement ? getComputedStyle(status).display : null;
+    })(),
+    avatarTooltipText: document.querySelector('.ambient-avatar-tooltip')?.textContent?.trim() ?? null,
+    avatarTooltipVisible: (() => {
+      const tooltip = document.querySelector('.ambient-avatar-tooltip');
+      if (!(tooltip instanceof HTMLElement)) return false;
+      const style = getComputedStyle(tooltip);
+      return style.visibility !== 'hidden' && Number.parseFloat(style.opacity) > 0.9;
+    })(),
     avatarTextureCount: document.querySelector('.avatar-stage')?.dataset.avatarTextureCount ?? null,
     vrm1FixtureVerified: document.querySelector('.avatar-stage')?.dataset.vrm1FixtureVerified ?? null,
     vrm1ReducedMotionVerified: document.querySelector('.avatar-stage')?.dataset.vrm1ReducedMotionVerified ?? null,
@@ -1695,6 +1762,16 @@ export class DeskyWindowManager {
 
   getMotionPersonality(): MotionPersonalityPolicy {
     return structuredClone(this.desktopState.motionPersonality);
+  }
+
+  getMotionPreference(): MotionPreference {
+    return this.desktopState.motionPreference;
+  }
+
+  setMotionPreference(motionPreference: MotionPreference): MotionPreference {
+    this.desktopState = { ...this.desktopState, motionPreference };
+    this.stateStore.save(this.desktopState);
+    return motionPreference;
   }
 
   setMotionPersonality(value: unknown): MotionPersonalityPolicy {
