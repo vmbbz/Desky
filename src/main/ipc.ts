@@ -20,6 +20,7 @@ import type {
   AdapterConnectCommand,
   AdapterResolveApprovalInput,
 } from '../shared/agent-adapter';
+import { normalizeSafeExternalUrl } from '../shared/external-link';
 import {
   localAnimationPreviewStatuses,
   type LocalAnimationPreviewCommand,
@@ -50,6 +51,7 @@ import type { AgentAdapterRegistry } from './adapters/registry';
 import type { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { readScopedCodexVisualTestWorkspace } from './codex/visual-test-workspace';
 import { shouldDisableAvatarNetwork } from './visual-test-policy';
+import { ConversationLauncher } from './conversation-launcher';
 import {
   admitVrm1CompatibilityFixture,
   readScopedVrm1CompatibilityFile,
@@ -57,6 +59,8 @@ import {
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
+const conversationOpenChannel = 'desky:conversation:open';
+const externalLinkOpenChannel = 'desky:external-link:open';
 const avatarChannels = {
   state: 'desky:avatar:selection-state',
   getState: 'desky:avatar:get-selection-state',
@@ -222,6 +226,12 @@ export function registerIpc(
 ): void {
   const companion = new CompanionStateHost();
   const animation = new LocalAnimationPreviewHost();
+  const conversationLauncher = new ConversationLauncher({
+    getAdapterState: () => adapters.getState(),
+    getProtocolHandlerName: (url) => app.getApplicationNameForProtocol(url),
+    openExternal: (url) => shell.openExternal(url),
+    openDeskiii: () => windows.openControlCenter(),
+  });
   const avatarFetcher = shouldDisableAvatarNetwork(
     process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK,
     process.env.DESKY_VISUAL_TEST_EXERCISE,
@@ -475,6 +485,10 @@ export function registerIpc(
     if (!isWindowAction(action)) return;
 
     windows.performAction(event.sender, action);
+  });
+  ipcMain.handle(conversationOpenChannel, () => conversationLauncher.open());
+  ipcMain.handle(externalLinkOpenChannel, async (_event, value: unknown) => {
+    await shell.openExternal(normalizeSafeExternalUrl(value));
   });
 
   ipcMain.handle(ambientStateChannel, () => windows.getAmbientState());

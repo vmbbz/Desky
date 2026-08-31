@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
+import packageMetadata from '../package.json' with { type: 'json' };
 
 const require = createRequire(import.meta.url);
 
@@ -26,11 +27,11 @@ const packaged = spawnSync(process.execPath, [forgeCli, 'package'], {
 if (packaged.status !== 0) process.exit(packaged.status ?? 1);
 
 const platformDirectory = target === 'win32'
-  ? 'Desky-win32-x64'
-  : `Desky-darwin-${process.arch}`;
+  ? `${packageMetadata.productName}-win32-x64`
+  : `${packageMetadata.productName}-darwin-${process.arch}`;
 const archivePath = target === 'win32'
   ? resolve('out', platformDirectory, 'resources', 'app.asar')
-  : resolve('out', platformDirectory, 'Desky.app', 'Contents', 'Resources', 'app.asar');
+  : resolve('out', platformDirectory, `${packageMetadata.productName}.app`, 'Contents', 'Resources', 'app.asar');
 const verifier = resolve('scripts', 'verify-release-artifact.mjs');
 const verified = spawnSync(process.execPath, [verifier, profileId, archivePath], {
   cwd: process.cwd(),

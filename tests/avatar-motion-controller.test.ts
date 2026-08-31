@@ -118,6 +118,23 @@ describe('AvatarMotionController', () => {
     expect(fixture.root.position.y).toBeCloseTo(0, 8);
   });
 
+  it('keeps an admitted living idle clip active after a successful reply', async () => {
+    const fixture = createVrmFixture();
+    const idle = await admittedMotionFixture({
+      mode: 'idle',
+      canonical: headClip(),
+      crossFadeMs: 180,
+    });
+    const controller = new AvatarMotionController(fixture.vrm, fixture.root, [idle]);
+
+    controller.setMode('speaking');
+    controller.setMode('success');
+
+    expect(controller.currentPlan.mode).toBe('success');
+    expect(controller.currentPlan.clip?.canonical.clipId).toBe('head-focus-v1');
+    expect(controller.currentPlan.playback).toBe('loop');
+  });
+
   it('uses a stable low-motion pose when reduced motion is requested', async () => {
     const fixture = createVrmFixture();
     const registration = await admittedMotionFixture({

@@ -1,4 +1,5 @@
 import type { AdapterEvent, CompanionMode } from './adapter-events';
+import { markdownToPlainText } from './agent-text';
 
 export interface CompanionViewState {
   mode: CompanionMode;
@@ -45,11 +46,12 @@ const maxBubbleCharacters = 220;
 const maxResponseCharacters = 100_000;
 
 function createBubblePreview(response: string, responseTruncated: boolean) {
-  const overflow = responseTruncated || response.length > maxBubbleCharacters;
+  const readableResponse = markdownToPlainText(response);
+  const overflow = responseTruncated || readableResponse.length > maxBubbleCharacters;
   return {
     bubbleText: overflow
-      ? `${response.slice(0, maxBubbleCharacters).trimEnd()}…`
-      : response,
+      ? `${readableResponse.slice(0, maxBubbleCharacters).trimEnd()}…`
+      : readableResponse,
     bubbleOverflow: overflow,
   };
 }

@@ -244,6 +244,17 @@ Implemented and package-verified on Windows:
 
 Evidence is recorded in `docs/verification/F3C3-FOCUSED-COMPANION-2026-08-22.md`.
 
+### F3c.5 response continuity and provider-client handoff — 2026-08-31
+
+Implemented and unit/type verified; packaged interaction evidence remains open:
+
+- Prevented terminal success/error from exposing the imported static posture by inheriting and crossfading into the admitted Looking Around idle loop when no exact terminal clip exists.
+- Added syntax-free bounded ambient previews and length-aware 8–18 second successful-response dismissal without removing the main-owned full response.
+- Added safe GitHub-flavored Markdown rendering for full responses. Raw HTML is disabled and clickable links cross an HTTP/HTTPS-only main-process validator.
+- Replaced the hard-coded control-center action with an argument-free main-owned conversation router. Installed OpenClaw Companion is preferred through its documented fixed `openclaw://chat` link; unsupported, absent, and failed clients fall back to Deskiii.
+- Kept Claude, Hermes, and Codex on the safe fallback because their current Deskiii session identities have no proved stable desktop-app conversation route.
+- Repaired release/reference tooling after the Deskiii product-name migration so artifact verification resolves the current product directory instead of silently inspecting a stale `Desky-*` package.
+
 ### F3c.4 autonomous companion and direct manipulation status — 2026-08-23
 
 Implemented and package-verified on Windows:

@@ -91,6 +91,7 @@ The renderer measures the character's visible bounds rather than treating the fu
 3. Shift inward when close to a left or right edge.
 4. Constrain width before moving the character.
 5. If the content exceeds the companion limit, show a concise preview and an **Open conversation** action.
+6. Keep a completed response visible for a length-aware 8–18 second reading interval, then dismiss only the ambient bubble; approvals and errors remain until resolved.
 
 Target values are design tokens, not scattered component constants:
 
@@ -140,7 +141,7 @@ Animation is composed from explicit layers:
 - A user-requested action is never interrupted by a random idle gesture.
 - A new tool event can replace a thinking loop only after the state reducer accepts it for the active turn.
 - Terminal and cancelled turns ignore late nonterminal events, matching the adapter lifecycle contract.
-- Missing clips fall back to a neutral pose and readable status; they never block the turn.
+- Missing purpose-authored success/error/disconnected clips inherit the admitted living idle loop while retaining their semantic status. If no admitted idle exists, the procedural readable fallback remains; a missing clip never blocks the turn.
 - Cross-fades use animation metadata and do not assume all avatars share the same proportions or rest pose.
 
 ### Motion restraint
@@ -270,6 +271,8 @@ The Windows ambient surface is also non-minimizable, non-maximizable, and non-fu
 F3c.3 makes the resting ambient surface avatar-first. Status, drag, settings, click-through, and hide chrome appear only during explicit focused interaction; otherwise a small launcher is the only permanent control. Meaningful states reveal a compact light speech bubble, long text gains **Open conversation**, and Stop remains visible even while the composer is collapsed. The main process owns one revisioned companion snapshot and session-only draft for all windows. This lets a late-opening control center recover the current streamed response or approval and lets `Escape` collapse/re-open preserve a draft without storing conversation text on disk. The packaged Windows fixture confirms the idle, focused-draft, and completed-response compositions without stealing document focus.
 
 F3c.4 makes the avatar directly manipulable without exposing Electron primitives to the renderer. A validated typed IPC command moves only the ambient surface, the main process owns starting bounds and work-area clamping, and position persistence still uses the display-arrangement store. View rotation stays a renderer motion transform but its bounded angle is persisted by main. The renderer mirrors the audited OSA viewer interaction: a Three.js raycast distinguishes direct mesh contact from transparent space. Mesh drags rotate without a modifier; transparent-space drags move the native surface. Pointer capture and click suppression separate manipulation from composer focus, while the focused grip, Shift/Alt, wheel, and keyboard affordances provide deterministic alternatives. Decorative autonomous motion remains lower priority than every meaningful companion state.
+
+F3c.5 closes the response-presentation handoff. Completing a turn no longer stops the mixer: semantic success crossfades into the admitted Looking Around body loop, and error/disconnected states use the same living fallback when no exact clip is admitted. The small ambient bubble strips Markdown structure before bounded previewing and auto-dismisses successful replies after an 8–18 second reading interval. The control center retains the complete bounded response and renders headings, emphasis, lists, tables, code, quotes, and credential-free web links without executing raw HTML. **Open conversation** first asks a main-owned, argument-free provider router; an installed OpenClaw Windows Companion receives its documented `openclaw://chat` route, while unsupported, absent, or failed clients fall back to the synchronized Deskiii transcript.
 
 Manual pointer pass-through at every required display scale, equivalent macOS behavior, external full-screen observation, assistive-technology validation, and physical display/virtual-desktop evidence remain F3/F3d gates. Real sleep/wake and native-window visibility recovery are package-proved on Windows.
 

@@ -16,7 +16,8 @@ foreach ($count in @($VisibleSamples, $HiddenSamples, $RecoveredSamples)) {
   }
 }
 
-$packageExecutable = Join-Path $RepositoryRoot 'out\Desky-win32-x64\Desky.exe'
+$packageMetadata = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'package.json') -Raw | ConvertFrom-Json
+$packageExecutable = Join-Path $RepositoryRoot "out\$($packageMetadata.productName)-win32-x64\Desky.exe"
 $seedCache = Join-Path $SeedProfile 'avatar-cache'
 $seedDesktopState = Join-Path $SeedProfile 'desktop-state.json'
 if (-not (Test-Path -LiteralPath $packageExecutable -PathType Leaf)) {

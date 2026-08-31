@@ -63,6 +63,18 @@ describe('motion arbiter', () => {
     expect(plan.playback).toBe('loop');
   });
 
+  it('crossfades completed and failed turns into the admitted living idle body', async () => {
+    const idle = await admittedMotionFixture({ mode: 'idle', clipId: 'looking-around-idle' });
+
+    for (const mode of ['success', 'error'] as const) {
+      const plan = resolveMotionPlan(mode, [idle]);
+      expect(plan.mode).toBe(mode);
+      expect(plan.clip?.canonical.clipId).toBe('looking-around-idle');
+      expect(plan.playback).toBe('loop');
+      expect(plan.crossFadeMs).toBeGreaterThan(0);
+    }
+  });
+
   it('suppresses full animation clips under reduced-motion preference', async () => {
     const plan = resolveMotionPlan(
       'working',

@@ -151,6 +151,17 @@ Every adapter must first pass the executable descriptor/state/event invariants a
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
 
+## Provider conversation handoff
+
+Opening a provider UI is deliberately separate from the adapter wire contract. The renderer sends one argument-free `desky:conversation:open` intent. Main reads the active adapter, selects only a fixed reviewed route, confirms an OS protocol handler, and either opens that provider client or opens Deskiii's synchronized control center. Provider output, session labels/ids, endpoints, credentials, and prompt text can never choose an executable or URI.
+
+- **OpenClaw:** admitted on Windows through the official `openclaw://chat` deep link. The OpenClaw client owns its chat/session navigation.
+- **Claude:** Claude Desktop officially supports `claude://` chat and Code links, but Deskiii's Claude Agent SDK session id is not a Claude.ai conversation id. No mapping is guessed, so Claude falls back to Deskiii.
+- **Hermes:** Hermes Desktop officially shares backend sessions and exposes session search, but no stable public conversation-opening URI is documented. Its MCP-install deep link is unrelated and is not reused. Hermes falls back to Deskiii.
+- **Codex:** no stable documented desktop conversation deep link is admitted. Codex falls back to Deskiii.
+
+Adding a route requires primary upstream documentation, an exact-session compatibility decision, installed-handler and failure-path tests, no secrets in the link, and review in every release profile. Detecting an executable alone is insufficient.
+
 ## Adapter-platform extraction timing
 
 OpenClaw is the first production conformance runtime behind the generic platform, not the application-level bridge. `OpenClawRuntime` validates its exact token/password payload, maps native gateway/session/run names into the shared state, preserves redaction, and delegates transport behavior to the already-proven `OpenClawAdapterHost`. The renderer and preload expose only `desky.adapters` over `desky:adapter:*` channels. Codex is the second substantially different production adapter and both now pass executable Contract v1 invariants.

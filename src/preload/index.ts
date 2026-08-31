@@ -47,6 +47,7 @@ import type {
   CodexWorkspaceBridge,
   CodexWorkspaceSelectionResult,
 } from '../shared/codex-workspace';
+import type { ConversationOpenResult } from '../shared/conversation';
 
 const channels = {
   state: 'desky:adapter:state',
@@ -210,6 +211,12 @@ const api = Object.freeze({
   performWindowAction: (action: WindowAction): void => {
     ipcRenderer.send('desky:window-action', action);
   },
+  conversation: Object.freeze({
+    open: () => ipcRenderer.invoke('desky:conversation:open') as Promise<ConversationOpenResult>,
+  }),
+  openExternalLink: (url: string): Promise<void> => (
+    ipcRenderer.invoke('desky:external-link:open', url) as Promise<void>
+  ),
   setAmbientPointerRegion: (region: AmbientPointerRegion): void => {
     ipcRenderer.send('desky:ambient-pointer-region', region);
   },

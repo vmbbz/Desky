@@ -16,6 +16,7 @@ import {
   type CompanionDraftSnapshot,
   type CompanionSnapshot,
 } from '../shared/companion-state';
+import { responseBubbleLifetimeMs } from '../shared/agent-text';
 import type {
   MarketplaceCacheInventory,
   MarketplaceCatalog,
@@ -61,6 +62,7 @@ import type {
 import { SimulationAdapter } from './adapters/simulation-adapter';
 import { AvatarStage, type AvatarHitTest } from './avatar/AvatarStage';
 import { MarketplaceAvatarPreview } from './avatar/MarketplaceAvatarPreview';
+import { FormattedText } from './FormattedText';
 import { resolveAvatarDragMode } from './avatar/avatar-manipulation';
 import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
 
@@ -167,6 +169,7 @@ export function App() {
   const [codexSandbox, setCodexSandbox] = useState<CodexSandboxMode>('read-only');
   const [busy, setBusy] = useState(false);
   const [uiError, setUiError] = useState('');
+  const [dismissedBubbleRevision, setDismissedBubbleRevision] = useState<number>();
   const [animationBusy, setAnimationBusy] = useState(false);
   const [animationState, setAnimationState] = useState<LocalAnimationPreviewState>(
     initialLocalAnimationPreviewState,
@@ -585,7 +588,17 @@ export function App() {
   const meaningfulModes = ['listening', 'thinking', 'working', 'approval', 'speaking', 'success', 'cancelled', 'error'];
   const bubbleMessage = uiError || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
   const showAmbientBubble = Boolean(bubbleMessage)
-    && (Boolean(uiError) || meaningfulModes.includes(state.mode));
+    && (Boolean(uiError) || meaningfulModes.includes(state.mode))
+    && dismissedBubbleRevision !== state.revision;
+
+  useEffect(() => {
+    if (state.mode !== 'success' || !state.bubbleText) return undefined;
+    const timeout = window.setTimeout(
+      () => setDismissedBubbleRevision(state.revision),
+      responseBubbleLifetimeMs(state.bubbleText),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [state.bubbleText, state.mode, state.revision]);
 
   const openComposer = () => {
     if (!connected || !hasSession) {
@@ -777,7 +790,14 @@ export function App() {
                 <button type="button" className="quiet" onClick={() => window.desky.performWindowAction('open-control-center')}>Details</button>
               </div>
             ) : state.bubbleOverflow || uiError ? (
-              <button type="button" className="ambient-open-conversation" onClick={() => window.desky.performWindowAction('open-control-center')}>
+              <button
+                type="button"
+                className="ambient-open-conversation"
+                onClick={() => {
+                  setDismissedBubbleRevision(state.revision);
+                  void window.desky.conversation.open();
+                }}
+              >
                 Open conversation
               </button>
             ) : null}
@@ -1135,7 +1155,9 @@ export function App() {
 
       <section className="speech-bubble control-center__bubble" aria-live="polite">
         {state.responseTruncated ? <span className="response-truncation">Earlier response content was omitted from this live view.</span> : null}
-        <p>{uiError || state.responseText || state.bubbleText || 'Your agent’s current response will appear here.'}</p>
+        <FormattedText className="formatted-response">
+          {uiError || state.responseText || state.bubbleText || 'Your agent’s current response will appear here.'}
+        </FormattedText>
       </section>
 
       {approvalCard}

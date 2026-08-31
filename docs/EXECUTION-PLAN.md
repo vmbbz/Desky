@@ -81,6 +81,17 @@ Status: implemented and package-verified on Windows; the multi-scale/multi-monit
 
 The packaged surface supports direct manipulation after a five-pixel threshold and persists clamped position and yaw. A direct Three.js mesh hit rotates the avatar with ordinary horizontal pointer movement; a miss inside the measured bounds moves the native surface, and the grip is the guaranteed move target. Shift/Alt, wheel, Left/Right arrows, and Home remain rotation alternatives. The exact 11.4-second Looking Around clip is now the sole resting body owner in idle and disconnected modes; folded arms and the prior procedural overlay are catalog/removed respectively. The controlled autonomous bag contains Phone Check, Formal Walk, and rare Dance Break; it is not random selection over all 85 files. The former short head-motion/thumbs-up cadence, Search/Interact, and a proportion-breaking crouch are catalog/state-only. Authored programs retain their full canonical step lengths, blend between steps and back to the accepted state, and use perspective-frustum fitting with motion-safe margins instead of oversized fixed world targets. A packaged isolated-state harness drives both raycast-selected manipulation routes and captures each admitted ambient program on the real avatar; the same package previously completed an exact-response live turn through the authenticated OpenClaw profile.
 
+### F3c.5 — response continuity and client handoff
+
+Status: implemented and unit/type verified; packaged Windows interaction evidence remains to be captured.
+
+- Crossfade terminal success/error into the admitted living idle body when no exact state clip exists.
+- Render the full response as safe GitHub-flavored Markdown while keeping the ambient preview compact and syntax-free.
+- Auto-dismiss successful ambient responses after a bounded length-aware reading interval without deleting the transcript.
+- Prefer only installed, documented provider-client routes; fall back to Deskiii for unadmitted, absent, or failed routes.
+
+OpenClaw's fixed `openclaw://chat` route is the first admitted client handoff. Claude Agent SDK sessions, Hermes API-server sessions, and Codex app-server threads are not relabeled as another product's desktop conversation ids. The main process owns route selection and passes no provider text, endpoint, credential, or renderer-supplied URI to the OS.
+
 ### Next animation round — expressive motion layers
 
 Status: procedural motion, additive expression, the first semantic agent-action route, and the first rights-approved canonical candidate library are implemented. F4.6 package-proves live skinned-motion framing for Milk and Astronaut VRM 0.x. F4.8 adds the real, provenance-reviewed Seed-san VRM 1.0 compatibility fixture and package-proves its normalized idle/listening/thinking/working/speaking/success cycle, explicit Jump, framing, reduced motion, WebGL recovery, cache repair, and offline restart. F3d.2 now binds every avatar revision to a reviewed file-defined animation profile; exact state/program ownership, required bones, intensity and root-motion policy fail closed before playback, and catalog-only programs are no longer registered into the controller. The final product-suitable CC0 VRM 1.0 marketplace revision and its every-enabled-program visual matrix remain open.

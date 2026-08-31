@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { extractFile } from '@electron/asar';
 
 const profileId = process.argv[2];
-const archivePath = resolve(process.argv[3] ?? 'out/Desky-win32-x64/resources/app.asar');
+const archivePath = resolve(process.argv[3] ?? 'out/Deskiii-win32-x64/resources/app.asar');
 const policies = {
   'windows-store-free': { distribution: 'store', platform: 'win32' },
   'windows-direct': { distribution: 'direct', platform: 'win32' },

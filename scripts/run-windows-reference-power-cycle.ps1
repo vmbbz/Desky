@@ -10,7 +10,8 @@ if ($WakeAfterMinutes -lt 1 -or $WakeAfterMinutes -gt 10) {
   throw 'WakeAfterMinutes must be between 1 and 10.'
 }
 
-$packageExecutable = Join-Path $RepositoryRoot 'out\Desky-win32-x64\Desky.exe'
+$packageMetadata = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'package.json') -Raw | ConvertFrom-Json
+$packageExecutable = Join-Path $RepositoryRoot "out\$($packageMetadata.productName)-win32-x64\Desky.exe"
 if (-not (Test-Path -LiteralPath $packageExecutable -PathType Leaf)) {
   throw "Packaged Desky executable is missing: $packageExecutable"
 }
