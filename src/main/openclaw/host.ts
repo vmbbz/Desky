@@ -53,6 +53,7 @@ const voiceInputMethods = [
   'talk.session.appendAudio',
   'talk.session.close',
 ] as const;
+const maximumReconnectAttempt = 100;
 
 function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
   return {
@@ -494,6 +495,11 @@ export class OpenClawAdapterHost {
       insecureLoopback: endpoint.insecureLoopback,
       message: reconnecting ? `Reconnect attempt ${this.state.reconnectAttempt}` : 'Authenticating with OpenClaw',
       pairingRequestId: undefined,
+      // An explicit Connect starts a fresh retry budget. Background retries remain
+      // contract-bounded so a long outage can never poison the renderer state.
+      reconnectAttempt: reconnecting
+        ? Math.min(this.state.reconnectAttempt, maximumReconnectAttempt)
+        : 0,
     });
     const client = this.createClient({
       url: endpoint.url,
@@ -627,7 +633,7 @@ export class OpenClawAdapterHost {
 
   private scheduleReconnect(generation: number): void {
     this.clearReconnectTimer();
-    const attempt = this.state.reconnectAttempt + 1;
+    const attempt = Math.min(this.state.reconnectAttempt + 1, maximumReconnectAttempt);
     const delay = Math.min(30_000, 1_000 * (2 ** Math.min(attempt - 1, 5)));
     this.patchState({ status: 'reconnecting', reconnectAttempt: attempt, message: `Reconnecting in ${Math.ceil(delay / 1000)}s` });
     this.reconnectTimer = setTimeout(() => {

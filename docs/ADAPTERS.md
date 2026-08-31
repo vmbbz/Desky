@@ -26,6 +26,8 @@ interface AgentAdapterRuntime {
 
 An adapter instance owns one connection. It may expose multiple remote sessions, but concurrent turn semantics must be explicit in its descriptor. The renderer bridge uses a generic `{ adapterId, configuration }` connection envelope; the selected main-process runtime alone validates the opaque provider configuration. This keeps credentials and future authentication shapes out of a misleading lowest-common-denominator contract.
 
+Connection retry counters are normalized state, not provider diagnostics. They remain inside Adapter Contract v1's `0..100` bound even during an indefinite outage; reaching 100 saturates the displayed counter but does not weaken the backoff or silently stop recovery. An explicit Connect starts a fresh retry budget before notifying renderer listeners, so a stale background count cannot make an otherwise valid connection fail contract admission.
+
 `AgentAdapterRegistry` is the single provider-aware dependency of IPC. It enumerates cloned safe descriptors, including explicit direct/Store release-profile availability, session-selection semantics, and turn concurrency, selects one active runtime, disconnects before switching, routes the full command surface, and forwards state/events/actions only from the active runtime. Provider-native frames and native state names never cross preload. The current renderer-local Simulation harness remains deliberately outside this production registry.
 
 ## Event envelope

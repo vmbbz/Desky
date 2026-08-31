@@ -44,7 +44,7 @@ Executed in `C:\dev-shared\desky` on 2026-08-31:
 | --- | --- |
 | TypeScript | passed, `tsc --noEmit` |
 | ESLint | passed |
-| Full Vitest suite | 96 files passed, 7 skipped; 519 tests passed, 12 skipped |
+| Full Vitest suite | 96 files passed, 7 skipped; 520 tests passed, 12 skipped |
 | Production dependency audit | zero reported vulnerabilities with `npm audit --omit=dev` |
 | Windows direct package | passed |
 | ASAR release-profile verifier | `windows-direct`, verified; four commerce signatures absent |
@@ -75,5 +75,7 @@ The packaged direct build was exercised against OpenClaw `2026.8.1` from the abs
 - Session creation then failed with `No realtime transcription provider registered`. The local OpenClaw account has an OAuth profile but no API-key profile. OpenClaw's current OpenAI transcription-only provider requires an OpenAI Platform API key; its conversational realtime OAuth path is a different mode and would not preserve Deskiii's edit-before-Send guarantee.
 - Deskiii now treats this class of error as configuration evidence: it downgrades voice to `setup-required`, disables repeated capture, and instructs the user to configure the Gateway provider and reconnect. The UI no longer labels method discovery as provider-ready.
 - The rebuilt Windows-direct package passed the ASAR profile verifier, reconnected to the absolute-checkout Gateway, reproduced the provider error, disabled the microphone control, and displayed the bounded setup guidance above.
+- Restoring the intended runner-first `.openclaw-dev` state exposed a pre-existing OpenClaw v17 additive-schema drift. A native SQLite snapshot was integrity-checked before repair; the exact canonical `context_eligible` and `route_context_json` columns plus invalidation trigger were restored transactionally, after which official `openclaw doctor --repair --yes --non-interactive` completed the supported v17 -> v19 migration. Gateway health then passed with `runnercourage@gmail.com` first in the OpenAI profile order.
+- The extended outage also exposed a Deskiii invariant mismatch: background reconnect attempts could exceed Adapter Contract v1's maximum of 100, causing an explicit Connect to be rejected before socket creation. The host now saturates the normalized counter at 100, continues its bounded-delay recovery loop, and resets the counter before emitting a user-initiated `connecting` state. A 105-attempt regression proves both the saturation and successful explicit recovery.
 
 Therefore the packaged permission-allow/provider-boundary path passes, but live partial/final transcript, explicit finish, cancellation, disconnect during capture, and edit-before-Send remain blocked on an admitted transcription credential. No message or agent turn was sent during this attempt.

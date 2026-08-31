@@ -10,6 +10,8 @@ import {
   type GatewayClientFactory,
   type GatewayClientPort,
 } from '../src/main/openclaw/host';
+import { mapOpenClawState } from '../src/main/adapters/openclaw-runtime';
+import { assertAdapterConnectionState } from '../src/main/adapters/contract';
 import { SecureVault, type EncryptionProvider } from '../src/main/openclaw/secure-vault';
 import type { GatewayConnectOptions } from '../src/main/openclaw/gateway-client';
 import { SecureTransportError } from '../src/main/secure-transport';
@@ -108,6 +110,12 @@ class FixtureClient implements GatewayClientPort {
 class RejectingClient extends FixtureClient {
   override connect(): Promise<never> {
     return Promise.reject(new Error('unauthorized token=bootstrap-token raw bootstrap-token'));
+  }
+}
+
+class OfflineClient extends FixtureClient {
+  override connect(): Promise<never> {
+    return Promise.reject(new Error('network unavailable'));
   }
 }
 
@@ -331,6 +339,56 @@ describe('OpenClawAdapterHost contract fixture', () => {
     await vi.advanceTimersByTimeAsync(1_000);
     expect(clients).toHaveLength(2);
     expect(host.getState().status).toBe('connected');
+  });
+
+  it('bounds prolonged reconnect attempts and resets the budget on explicit Connect', async () => {
+    vi.useFakeTimers();
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const clients: FixtureClient[] = [];
+    let recover = false;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        const client = clients.length === 0 || recover
+          ? new FixtureClient(options)
+          : new OfflineClient(options);
+        clients.push(client);
+        return client;
+      },
+    );
+
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    clients[0].options.onClose('network unavailable', false);
+    for (let attempt = 0; attempt < 105; attempt += 1) {
+      await vi.runOnlyPendingTimersAsync();
+    }
+
+    expect(host.getState()).toMatchObject({
+      status: 'reconnecting',
+      reconnectAttempt: 100,
+    });
+    const states: number[] = [];
+    host.onState((state) => {
+      assertAdapterConnectionState(mapOpenClawState(state));
+      states.push(state.reconnectAttempt);
+    });
+    recover = true;
+
+    await expect(host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    })).resolves.toMatchObject({ status: 'connected', reconnectAttempt: 0 });
+    expect(states).toEqual(expect.arrayContaining([0]));
   });
 
   it('admits bounded transcription streaming and isolates events to the active voice session', async () => {

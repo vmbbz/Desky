@@ -143,6 +143,7 @@ Structured action tool -> provider validation/session filter -> registry -> ephe
 - `protocol.ts` owns the pinned v4 constants, Ed25519 device proof, URL policy, native frame guards, and redacted event mapping.
 - `secure-vault.ts` stores encrypted opaque values only; it has no plaintext fallback.
 - `host.ts` owns profiles, sessions, terminal-event deduplication, approval routing, cancellation, reconciliation, and bounded reconnect.
+- OpenClaw's exponential retry loop may continue through a long outage, but its normalized `reconnectAttempt` saturates at Adapter Contract v1's maximum of 100. A user-initiated Connect resets that counter before the first `connecting` snapshot, preventing accumulated background retries from poisoning IPC admission.
 - `openclaw-runtime.ts` owns exact provider configuration validation, safe state normalization, and provider error redaction.
 - `registry.ts` owns active-runtime selection, command routing, inactive-runtime event isolation, and bounded disposal.
 - Preload exposes generic semantic commands, safe descriptors, read-only normalized runtime state/events, and revisioned companion snapshot/draft methods. It never exposes sockets, native frames, credentials, native provider state, or `ipcRenderer`.
