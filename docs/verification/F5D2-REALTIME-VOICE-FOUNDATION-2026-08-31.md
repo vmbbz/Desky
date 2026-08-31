@@ -4,7 +4,7 @@
 
 The provider-neutral full-duplex voice foundation, OpenClaw Gateway-relay mapping, bounded renderer audio pipeline, exclusive voice-mode UI, and provider-rejection recovery are implemented for Windows direct builds.
 
-This is not a successful GPT-Live audio claim. The local authenticated Gateway reaches the OpenAI provider bridge and is rejected with 403. The remaining live audio/barge-in matrix is an external account-access gate.
+This remains a foundation claim rather than a successful assistant-audio claim. A later authentication refresh now proves GPT-Live session admission; microphone, audible output, and barge-in evidence remain in F5d.3.
 
 ## Implemented boundary
 
@@ -22,7 +22,7 @@ This is not a successful GPT-Live audio claim. The local authenticated Gateway r
 
 ## Primary-source audit
 
-The implementation was checked against official OpenClaw commit `8ac6379011c20702875e5219268b40969c5b90b2`. Source paths, native-client behavior, adopted contracts, intentional bounded-queue divergence, and remaining gates are recorded in `docs/research/OPENCLAW-REALTIME-VOICE-AUDIT-2026-08-31.md`.
+The implementation was checked against official OpenClaw commit `8ac6379011c20702875e5219268b40969c5b90b2`; provider admission was refreshed against `origin/main` at `da96a6870f73ec40d8e0fbcc3bfd6b88b7996897` and the official `2026.8.1` packages. Source paths, native-client behavior, adopted contracts, intentional bounded-queue divergence, and remaining gates are recorded in `docs/research/OPENCLAW-REALTIME-VOICE-AUDIT-2026-08-31.md`.
 
 ## Live Gateway evidence
 
@@ -32,16 +32,16 @@ The reference Gateway on loopback reports:
 - OpenAI realtime provider configured and ready in `talk.catalog`;
 - `gateway-relay`, `agent-consult`, and barge-in;
 - PCM16 24 kHz and G.711 mu-law 8 kHz input/output;
-- model `gpt-live-1-codex` and voice `cedar`.
+- model `gpt-live-1-codex` and the model-specific GPT-Live voice `spruce`.
 
 The agent-specific official auth commands report this effective order:
 
 1. `openai:runnercourage@gmail.com`;
 2. `openai:cosychiruka@gmail.com`.
 
-Read-only metadata inspection reports that the runner OAuth record contains access/refresh credentials and a 36-character account id. Secret values and the account id were not printed. The expired standalone relay probe was already absent (`Unknown Talk session`), so it retained no active audio authority.
+The runner profile was refreshed through the official OpenClaw OAuth command. Read-only metadata inspection reports that the record contains the required OAuth/account metadata. Secret values and the account id were not printed.
 
-An actual packaged Start creates the relay boundary and then receives OpenClaw's bounded `GPT-Live rejected the session (403)` event. Model and voice are in the official allowlists; selected-profile order and account-id presence are verified. The observed blocker is therefore GPT-Live account/provider access. Deskiii reports it and disables further starts on that connection.
+After updating the stale GA `cedar` selection to the current GPT-Live Codex V3 `spruce` voice, an authenticated `talk.session.create` succeeds and returns PCM16 24 kHz input/output. The CLI connection then ends and the Gateway releases its connection-owned probe session. No audio was sent. This supersedes the earlier account-entitlement diagnosis: the 403 was consistent with the overloaded invalid-voice response.
 
 The pre-change OpenClaw configuration is recoverable at:
 
@@ -62,7 +62,7 @@ Skipped tests are pre-existing environment/credential/platform lanes; none is co
 
 ## Remaining F5d.3 gate
 
-On an OAuth account with GPT-Live access, prove from a clean package:
+From the clean package and now-admitted OAuth/model/voice session, prove:
 
 1. microphone allow and deny;
 2. real user and assistant transcript ordering;

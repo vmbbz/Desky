@@ -4,7 +4,7 @@
 
 Deskiii may consume OpenClaw's authenticated Gateway-relay Talk surface as its first full-duplex voice adapter. It must remain a provider-neutral optional capability, separate from dictation, and must not copy native-client implementation details that weaken desktop queue or lifecycle bounds.
 
-This audit is pinned to the official local OpenClaw checkout:
+The implementation audit began against the official local OpenClaw checkout:
 
 - repository: `C:\dev-shared\openclaw-projects\openclaw_browser_talk_fixed`;
 - commit: `8ac6379011c20702875e5219268b40969c5b90b2`;
@@ -13,6 +13,11 @@ This audit is pinned to the official local OpenClaw checkout:
 - OpenAI OAuth/session path: `extensions/openai/realtime-quicksilver-session.ts` and `realtime-quicksilver-wire.ts`;
 - Android lifecycle reference: `apps/android/app/src/main/java/ai/openclaw/app/voice/TalkModeManager.kt`;
 - Apple capture/playback references: `apps/macos/Sources/OpenClaw/VoiceWakeRuntime.swift` and the iOS Talk relay sources.
+
+Provider admission was refreshed against `origin/main` at
+`da96a6870f73ec40d8e0fbcc3bfd6b88b7996897` and the official npm packages
+`openclaw@2026.8.1` / `@openclaw/codex@2026.8.1`. The historical contribution
+checkout remains unchanged and is not the running Gateway.
 
 The public primary reference is <https://docs.openclaw.ai/nodes/talk>.
 
@@ -31,7 +36,7 @@ talk.event
 
 The admitted topology is `mode=realtime`, `transport=gateway-relay`, and `brain=agent-consult`. The Gateway owns provider credentials and the OpenClaw agent/tool policy. A relay client exchanges bounded audio and normalized events; it does not receive a provider token or direct tool authority.
 
-The OpenAI GPT-Live relay prefers an OpenClaw ChatGPT OAuth profile and extracts its `chatgpt-account-id`. Platform `/v1/live` access remains separately gated. OpenClaw documents and implements an overloaded 403: it can mean invalid voice/model or unavailable account access. The accepted local configuration uses `gpt-live-1-codex` and `cedar`, both in the official allowlists.
+The OpenAI GPT-Live relay prefers an OpenClaw ChatGPT OAuth profile and extracts its `chatgpt-account-id`. Platform `/v1/live` access remains separately gated. OpenClaw documents an overloaded 403: it can mean an invalid account, model, or voice. Current GPT-Live uses the separate Codex V3 voice contract (`arbor`, `breeze`, `cove`, `ember`, `juniper`, `maple`, `sol`, `spruce`, and `vale`); GA Realtime voices such as `cedar` are not interchangeable. The admitted reference configuration therefore uses `gpt-live-1-codex` with the currently roundtrip-verified `spruce` voice.
 
 OpenClaw enforces session limits and a 30-minute relay TTL. The relay supports input audio, assistant audio, transcript, clear, playback mark, tool progress, error, and close events. Turn-scoped output cancellation is a first-class request, not a text command.
 
@@ -54,19 +59,19 @@ The development Gateway at `ws://127.0.0.1:18789` advertises OpenAI realtime Gat
 ```text
 provider=openai
 model=gpt-live-1-codex
-speakerVoice=cedar
+speakerVoice=spruce
 mode=realtime
 transport=gateway-relay
 brain=agent-consult
 ```
 
-The intended `openai:runnercourage@gmail.com` profile is first in the persisted agent-specific order. Official read-only profile inspection reports OAuth, an unexpired-at-test credential, and a present 36-character account id. No token or account-id value was printed or copied into Deskiii.
+The intended `openai:runnercourage@gmail.com` profile is first in the persisted agent-specific order. The profile was refreshed through the official `openclaw models auth login --provider openai` flow and now expires on 2026-09-10. Official read-only profile inspection reports OAuth and a present account id. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii.
 
-Session creation reaches the GPT-Live provider bridge, which then returns 403. Because model, voice, OAuth order, and account-id presence are verified, this is an external GPT-Live account-entitlement/provider gate. Deskiii now preserves the bounded diagnostic, marks realtime voice `setup-required`, and prevents repeated capture attempts until reconnect. A successful assistant audio stream or barge-in claim has not been made.
+The current Gateway catalog reports GPT-Live ready, its model-specific voice set, Gateway relay, agent consultation, PCM16 24 kHz and G.711 mu-law 8 kHz input/output, and barge-in. A real `talk.session.create` now succeeds with `gpt-live-1-codex`, `spruce`, and negotiated PCM16 24 kHz. The previous 403 is therefore resolved as a stale voice-contract mismatch, not a proven account-entitlement failure. The CLI probe disconnected immediately after admission, so the Gateway correctly released the connection-owned session; no microphone audio was sent and no assistant-audio or interruption claim is made yet.
 
 ## Remaining admission matrix
 
-After GPT-Live access is available:
+With GPT-Live authentication and session admission now proven:
 
 1. microphone allow and deny from a clean direct-package profile;
 2. user partial/final transcript ordering and assistant transcript correlation;

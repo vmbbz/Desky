@@ -31,7 +31,7 @@ The runtime precedence remains:
 
 ## Voice diagnosis
 
-The live OpenClaw catalog reported its realtime provider ready, with `gpt-live-1-codex`, `cedar`, gateway relay, mono PCM16/G.711, and barge-in all admitted. The observed HTTP 403 occurs after session creation reaches GPT-Live. It is an account/provider-access rejection for the selected OAuth profile, not a Deskiii model-selector or microphone failure.
+The live OpenClaw catalog reported its realtime provider ready, with `gpt-live-1-codex`, gateway relay, mono PCM16/G.711, and barge-in admitted. Subsequent current-upstream review showed that the selected GA voice `cedar` did not belong to the separate GPT-Live Codex V3 voice contract. After selecting `spruce`, session admission passed. The historical 403 therefore did not establish an account-access failure and was unrelated to this motion-control refactor.
 
 ## Verification
 
