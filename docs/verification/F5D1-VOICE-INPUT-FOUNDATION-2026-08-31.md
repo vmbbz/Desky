@@ -26,6 +26,7 @@ The implementation was checked against the current local OpenClaw client source 
 6. Partial and final text update the shared in-memory draft. The user can edit it and must press Send normally.
 7. Stop, Escape, permission failure, provider error, backlog, disconnect, surface destruction, or component teardown stops local tracks and closes or discards the remote session.
 8. Electron admits microphone access only for the known Deskiii main-frame renderer URL on the ambient or Control Center surface. Video, display capture, subframes, and foreign origins remain denied.
+9. Gateway method discovery is provisional with respect to provider credentials. A missing/unconfigured provider on session creation downgrades the connection to `setup-required` and disables capture until reconnect.
 
 ## Release-profile policy
 
@@ -43,7 +44,7 @@ Executed in `C:\dev-shared\desky` on 2026-08-31:
 | --- | --- |
 | TypeScript | passed, `tsc --noEmit` |
 | ESLint | passed |
-| Full Vitest suite | 96 files passed, 7 skipped; 518 tests passed, 12 skipped |
+| Full Vitest suite | 96 files passed, 7 skipped; 519 tests passed, 12 skipped |
 | Production dependency audit | zero reported vulnerabilities with `npm audit --omit=dev` |
 | Windows direct package | passed |
 | ASAR release-profile verifier | `windows-direct`, verified; four commerce signatures absent |
@@ -62,3 +63,17 @@ Before F5d.1 can be called operationally complete, run the freshly packaged dire
 - a second/fresh Windows account or clean-device permission lifecycle.
 
 F5d.2 is separate: provider audio output, bounded playback, assistant-turn correlation, barge-in, device selection, truthful speaking/viseme state, and privacy controls. Wake words and background listening are not admitted.
+
+## Reference-device live attempt
+
+The packaged direct build was exercised against OpenClaw `2026.8.1` from the absolute `openclaw_browser_talk_fixed` checkout on the Windows reference device.
+
+- Gateway health passed on `127.0.0.1:18789`; `talk-voice` and `openai` loaded without plugin errors.
+- Deskiii authenticated from saved access, negotiated the four Talk methods/events, and enabled its microphone control.
+- The first capture exposed a packaged custom-origin normalization defect: Electron supplied `desky://app/` while the predicate admitted only `desky://app`. Windows global and non-packaged microphone policy were both `Allow`. The predicate now compares the parsed `desky:` scheme and exact `app` host while retaining its no-credentials, no-port, audio-only, main-frame and known-surface constraints.
+- After that correction, microphone capture passed Electron/Windows admission and reached `talk.session.create`.
+- Session creation then failed with `No realtime transcription provider registered`. The local OpenClaw account has an OAuth profile but no API-key profile. OpenClaw's current OpenAI transcription-only provider requires an OpenAI Platform API key; its conversational realtime OAuth path is a different mode and would not preserve Deskiii's edit-before-Send guarantee.
+- Deskiii now treats this class of error as configuration evidence: it downgrades voice to `setup-required`, disables repeated capture, and instructs the user to configure the Gateway provider and reconnect. The UI no longer labels method discovery as provider-ready.
+- The rebuilt Windows-direct package passed the ASAR profile verifier, reconnected to the absolute-checkout Gateway, reproduced the provider error, disabled the microphone control, and displayed the bounded setup guidance above.
+
+Therefore the packaged permission-allow/provider-boundary path passes, but live partial/final transcript, explicit finish, cancellation, disconnect during capture, and edit-before-Send remain blocked on an admitted transcription credential. No message or agent turn was sent during this attempt.

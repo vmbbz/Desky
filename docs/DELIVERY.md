@@ -542,7 +542,7 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Complete F5d.1 packaged Windows direct voice-input evidence against a configured OpenClaw transcription provider: permission allow/deny, partial/final dictation, backlog/error, disconnect, surface close, edit-before-send, and a fresh install. The implemented foundation and package evidence are recorded in `docs/verification/F5D1-VOICE-INPUT-FOUNDATION-2026-08-31.md`. Then decide whether F5d.2 is Gateway-relay full duplex or provider-neutral output/TTS.
+1. Complete F5d.1 packaged Windows direct voice-input evidence against a configured OpenClaw transcription provider: permission deny, partial/final dictation, backlog/error, disconnect, surface close, edit-before-send, and a fresh install. The reference-device permission-allow path now reaches OpenClaw, then truthfully stops at its missing transcription API-key profile; implementation, package and live-attempt evidence are recorded in `docs/verification/F5D1-VOICE-INPUT-FOUNDATION-2026-08-31.md`. Then decide whether F5d.2 is Gateway-relay full duplex or provider-neutral output/TTS.
 2. Add the reviewed microphone declaration and privacy copy only when promoting voice into the Microsoft Store profile; until then Store capability and controls remain disabled.
 3. Supply the Microsoft Partner Center identity, legal publisher name, Windows code-signing certificate, privacy/support/security URLs and source licence; then run the same makers in production mode on a protected clean signing worker.
 4. Prove a signed direct `0.1.0 -> 0.1.1` update through the hosted HTTPS feed and repeat install/update/uninstall on a clean Windows account/device; run final Partner Center/WACK preflight with the reserved Store identity.

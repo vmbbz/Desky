@@ -24,6 +24,23 @@ function isTrustedRendererUrl(raw: string, packaged: boolean): boolean {
   }
 }
 
+function isMatchingSecurityOrigin(raw: string, requestingUrl: string, packaged: boolean): boolean {
+  try {
+    const origin = new URL(raw);
+    const request = new URL(requestingUrl);
+    if (packaged) {
+      return origin.protocol === 'desky:'
+        && origin.hostname === 'app'
+        && origin.username === ''
+        && origin.password === ''
+        && origin.port === '';
+    }
+    return origin.origin === request.origin;
+  } catch {
+    return false;
+  }
+}
+
 export function isAdmittedMicrophonePermission(
   context: MicrophonePermissionContext,
 ): boolean {
@@ -33,6 +50,9 @@ export function isAdmittedMicrophonePermission(
     && context.mediaTypes.every((type) => type === 'audio')
     && isTrustedRendererUrl(context.requestingUrl, context.packaged)
     && (!context.securityOrigin
-      || context.securityOrigin === new URL(context.requestingUrl).origin
-      || (context.packaged && context.securityOrigin === 'desky://app'));
+      || isMatchingSecurityOrigin(
+        context.securityOrigin,
+        context.requestingUrl,
+        context.packaged,
+      ));
 }

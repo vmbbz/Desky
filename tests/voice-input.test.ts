@@ -37,8 +37,16 @@ describe('voice input boundaries', () => {
       packaged: true,
     };
     expect(isAdmittedMicrophonePermission(admitted)).toBe(true);
+    expect(isAdmittedMicrophonePermission({
+      ...admitted,
+      securityOrigin: 'desky://app/',
+    })).toBe(true);
     expect(isAdmittedMicrophonePermission({ ...admitted, mediaTypes: ['video'] })).toBe(false);
     expect(isAdmittedMicrophonePermission({ ...admitted, isMainFrame: false })).toBe(false);
+    expect(isAdmittedMicrophonePermission({
+      ...admitted,
+      securityOrigin: 'desky://attacker/',
+    })).toBe(false);
     expect(isAdmittedMicrophonePermission({
       ...admitted,
       requestingUrl: 'https://attacker.example/',

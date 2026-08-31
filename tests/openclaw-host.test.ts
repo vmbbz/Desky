@@ -129,6 +129,15 @@ class RejectingActionDiscoveryClient extends FixtureClient {
   }
 }
 
+class MissingTranscriptionProviderClient extends FixtureClient {
+  override request<T>(method: string, params: unknown = {}): Promise<T> {
+    if (method === 'talk.session.create') {
+      return Promise.reject(new Error('No realtime transcription provider registered'));
+    }
+    return super.request<T>(method, params);
+  }
+}
+
 afterEach(() => {
   vi.useRealTimers();
   for (const directory of temporaryDirectories.splice(0)) rmSync(directory, { recursive: true, force: true });
@@ -375,6 +384,32 @@ describe('OpenClawAdapterHost contract fixture', () => {
       { type: 'transcript', sessionId: session.sessionId, text: 'Hello Deskiii', final: true },
       { type: 'closed', sessionId: session.sessionId, reason: 'complete' },
     ]);
+  });
+
+  it('downgrades advertised voice input when OpenClaw has no configured transcription provider', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new MissingTranscriptionProviderClient(options),
+    );
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+
+    await expect(host.startVoiceInput()).rejects.toThrow(
+      'Configure an OpenClaw realtime transcription provider',
+    );
+    expect(host.getState().capabilities.voiceInput).toEqual({
+      availability: 'setup-required',
+      transport: 'none',
+      setupHint: 'Configure an OpenClaw realtime transcription provider and credentials, then reconnect.',
+    });
   });
 
   it('stops reconnecting after a terminal remote certificate failure', async () => {

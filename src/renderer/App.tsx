@@ -1490,7 +1490,7 @@ export function App() {
                   </p>
                   <p className={`adapter-capability adapter-capability--${gateway.capabilities.voiceInput.availability}`}>
                     Voice dictation: {gateway.capabilities.voiceInput.availability === 'available'
-                      ? 'streaming transcription ready'
+                      ? 'streaming transcription available'
                       : gateway.capabilities.voiceInput.setupHint ?? 'not offered by this Gateway'}
                   </p>
                 </>

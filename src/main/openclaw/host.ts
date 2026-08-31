@@ -105,6 +105,17 @@ export function redactOpenClawError(error: unknown, secrets: Array<string | unde
     .slice(0, 240);
 }
 
+function voiceInputSetupHint(error: unknown): string | undefined {
+  const message = redactOpenClawError(error);
+  if (/openai.*realtime transcription.*api key/i.test(message)) {
+    return 'OpenClaw transcription needs an OpenAI Platform API key. Configure it, then reconnect.';
+  }
+  if (/no realtime transcription provider registered|realtime transcription provider .*not configured|credentials missing for realtime stt/i.test(message)) {
+    return 'Configure an OpenClaw realtime transcription provider and credentials, then reconnect.';
+  }
+  return undefined;
+}
+
 function sessionSummary(value: unknown): OpenClawSessionSummary | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const row = value as Record<string, unknown>;
@@ -397,11 +408,31 @@ export class OpenClawAdapterHost {
       || !voiceInputMethods.every((method) => client.features?.methods.includes(method))) {
       throw new Error('This OpenClaw Gateway does not offer admitted streaming transcription.');
     }
-    const value = await client.request<unknown>('talk.session.create', {
-      mode: 'transcription',
-      transport: 'gateway-relay',
-      brain: 'none',
-    });
+    let value: unknown;
+    try {
+      value = await client.request<unknown>('talk.session.create', {
+        mode: 'transcription',
+        transport: 'gateway-relay',
+        brain: 'none',
+      });
+    } catch (error) {
+      const setupHint = voiceInputSetupHint(error);
+      if (setupHint) {
+        this.patchState({
+          message: setupHint,
+          capabilities: {
+            ...this.state.capabilities,
+            voiceInput: {
+              availability: 'setup-required',
+              transport: 'none',
+              setupHint,
+            },
+          },
+        });
+        throw new Error(setupHint);
+      }
+      throw error;
+    }
     if (!value || typeof value !== 'object') {
       throw new Error('OpenClaw returned an invalid voice-input session.');
     }
