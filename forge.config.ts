@@ -42,6 +42,9 @@ const config: ForgeConfig = {
     appCategoryType: 'public.app-category.productivity',
     asar: true,
     executableName: 'Desky',
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'Deskiii uses the microphone only while you explicitly dictate a message.',
+    },
     extraResource: claudeAdmissionResources,
     icon: process.platform === 'win32'
       ? resolve('branding', 'logo', 'platform', 'windows', 'desky.ico')

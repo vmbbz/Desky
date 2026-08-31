@@ -110,6 +110,7 @@ function cloneState(state: AdapterConnectionState): AdapterConnectionState {
     sessions: state.sessions.map((session) => ({ ...session })),
     capabilities: {
       ...state.capabilities,
+      voiceInput: { ...state.capabilities.voiceInput },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],

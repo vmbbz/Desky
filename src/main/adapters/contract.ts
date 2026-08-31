@@ -124,6 +124,11 @@ export function assertAdapterConnectionState(
     || typeof capabilities.approvals !== 'boolean'
     || typeof capabilities.cancellation !== 'boolean'
     || typeof capabilities.reconnect !== 'boolean'
+    || !isRecord(capabilities.voiceInput)
+    || !actionAvailability.has(String(capabilities.voiceInput.availability))
+    || !['streaming-transcription', 'none'].includes(String(capabilities.voiceInput.transport))
+    || (capabilities.voiceInput.setupHint !== undefined
+      && !isBoundedString(capabilities.voiceInput.setupHint, 240))
     || !isRecord(capabilities.agentActions)
     || !actionAvailability.has(String(capabilities.agentActions.availability))
     || !actionTransports.has(String(capabilities.agentActions.transport))
@@ -133,6 +138,17 @@ export function assertAdapterConnectionState(
     || (capabilities.agentActions.setupHint !== undefined
       && !isBoundedString(capabilities.agentActions.setupHint, 240))) {
     contractError('adapter capabilities');
+  }
+  if (capabilities.voiceInput.availability === 'available') {
+    if (capabilities.voiceInput.transport !== 'streaming-transcription'
+      || capabilities.voiceInput.inputEncoding !== 'g711_ulaw'
+      || capabilities.voiceInput.inputSampleRateHz !== 8000) {
+      contractError('available voice input without an admitted transport');
+    }
+  } else if (capabilities.voiceInput.transport !== 'none'
+    || capabilities.voiceInput.inputEncoding !== undefined
+    || capabilities.voiceInput.inputSampleRateHz !== undefined) {
+    contractError('unavailable voice input with an advertised transport');
   }
   if (capabilities.agentActions.availability === 'available'
     && (capabilities.agentActions.transport === 'none'

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { AdapterEvent } from '../../shared/adapter-events';
 import type { AgentActionCommand } from '../../shared/agent-actions';
 import { openClawCapabilities } from '../../shared/adapter-capabilities';
+import type { VoiceInputEvent, VoiceInputSession } from '../../shared/voice-input';
 import type {
   OpenClawConnectInput,
   OpenClawConnectionState,
@@ -47,6 +48,11 @@ interface AbortAcknowledgement {
 const profileIndexKey = 'openclaw:active-profile';
 const identityKey = 'openclaw:device-identity';
 const actionCapabilitiesMethod = 'desky.actions.capabilities';
+const voiceInputMethods = [
+  'talk.session.create',
+  'talk.session.appendAudio',
+  'talk.session.close',
+] as const;
 
 function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
   return {
@@ -54,6 +60,7 @@ function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
     sessions: state.sessions.map((session) => ({ ...session })),
     capabilities: {
       ...state.capabilities,
+      voiceInput: { ...state.capabilities.voiceInput },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],
@@ -175,6 +182,8 @@ export class OpenClawAdapterHost {
   private readonly stateListeners = new Set<(state: OpenClawConnectionState) => void>();
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
   private readonly actionListeners = new Set<(command: AgentActionCommand) => void>();
+  private readonly voiceInputListeners = new Set<(event: VoiceInputEvent) => void>();
+  private activeVoiceInputSession?: { sessionId: string; transcriptionSessionId: string };
   private readonly terminalRuns = new Set<string>();
   private readonly terminalApprovals = new Set<string>();
   private readonly handledActionCommands = new Set<string>();
@@ -211,6 +220,11 @@ export class OpenClawAdapterHost {
   onAction(listener: (command: AgentActionCommand) => void): () => void {
     this.actionListeners.add(listener);
     return () => this.actionListeners.delete(listener);
+  }
+
+  onVoiceInputEvent(listener: (event: VoiceInputEvent) => void): () => void {
+    this.voiceInputListeners.add(listener);
+    return () => this.voiceInputListeners.delete(listener);
   }
 
   getState(): OpenClawConnectionState {
@@ -255,6 +269,7 @@ export class OpenClawAdapterHost {
     this.clearReconnectTimer();
     const client = this.client;
     this.client = undefined;
+    this.closeVoiceInputLocally('disconnected');
     client?.close();
     this.patchState({
       status: 'disconnected',
@@ -372,6 +387,70 @@ export class OpenClawAdapterHost {
     this.emitApprovalResolved(input.requestId, result.status);
   }
 
+  async startVoiceInput(): Promise<VoiceInputSession> {
+    const client = this.requireClient();
+    if (this.activeVoiceInputSession) {
+      throw new Error('Finish the current voice input before starting another.');
+    }
+    if (!this.state.capabilities.voiceInput
+      || this.state.capabilities.voiceInput.availability !== 'available'
+      || !voiceInputMethods.every((method) => client.features?.methods.includes(method))) {
+      throw new Error('This OpenClaw Gateway does not offer admitted streaming transcription.');
+    }
+    const value = await client.request<unknown>('talk.session.create', {
+      mode: 'transcription',
+      transport: 'gateway-relay',
+      brain: 'none',
+    });
+    if (!value || typeof value !== 'object') {
+      throw new Error('OpenClaw returned an invalid voice-input session.');
+    }
+    const result = value as Record<string, unknown>;
+    const sessionId = typeof result.sessionId === 'string' ? result.sessionId : undefined;
+    const transcriptionSessionId = typeof result.transcriptionSessionId === 'string'
+      ? result.transcriptionSessionId
+      : sessionId;
+    const audio = result.audio && typeof result.audio === 'object'
+      ? result.audio as Record<string, unknown>
+      : undefined;
+    if (!sessionId || sessionId.length > 512
+      || !transcriptionSessionId || transcriptionSessionId.length > 512
+      || audio?.inputEncoding !== 'g711_ulaw'
+      || audio.inputSampleRateHz !== 8000) {
+      if (sessionId) {
+        await client.request('talk.session.close', { sessionId }).catch(() => undefined);
+      }
+      throw new Error('OpenClaw returned an unsupported voice-input audio format.');
+    }
+    this.activeVoiceInputSession = { sessionId, transcriptionSessionId };
+    return { sessionId, inputEncoding: 'g711_ulaw', inputSampleRateHz: 8000 };
+  }
+
+  async appendVoiceInput(sessionId: string, audioBase64: string): Promise<void> {
+    if (sessionId !== this.activeVoiceInputSession?.sessionId) {
+      throw new Error('Voice-input session is no longer active.');
+    }
+    await this.requireClient().request('talk.session.appendAudio', { sessionId, audioBase64 }, 10_000);
+  }
+
+  async stopVoiceInput(sessionId: string, discard: boolean): Promise<void> {
+    if (sessionId !== this.activeVoiceInputSession?.sessionId) return;
+    try {
+      await this.requireClient().request('talk.session.close', { sessionId }, 10_000);
+      if (sessionId === this.activeVoiceInputSession?.sessionId) {
+        this.emitVoiceInputEvent({
+          type: 'closed',
+          sessionId,
+          reason: discard ? 'cancelled' : 'complete',
+        });
+      }
+    } finally {
+      if (sessionId === this.activeVoiceInputSession?.sessionId) {
+        this.activeVoiceInputSession = undefined;
+      }
+    }
+  }
+
   private async connectCurrentProfile(reconnecting: boolean, generation: number): Promise<void> {
     const profile = this.profile;
     if (!profile) throw new Error('No OpenClaw profile is configured.');
@@ -406,6 +485,9 @@ export class OpenClawAdapterHost {
         client,
         hello.features.methods,
       );
+      const voiceInputAvailable = voiceInputMethods.every((method) => (
+        hello.features.methods.includes(method)
+      )) && hello.features.events.includes('talk.event');
       if (hello.auth.deviceToken) {
         profile.deviceToken = hello.auth.deviceToken;
         this.persistProfile(this.rememberCredential);
@@ -415,7 +497,7 @@ export class OpenClawAdapterHost {
         serverVersion: hello.server.version,
         message: 'Connected — choose a session',
         reconnectAttempt: 0,
-        capabilities: openClawCapabilities(actionCapabilitiesAvailable),
+        capabilities: openClawCapabilities(actionCapabilitiesAvailable, voiceInputAvailable),
       });
       this.emitEvent({
         protocolVersion: 1,
@@ -466,6 +548,7 @@ export class OpenClawAdapterHost {
     if (event === 'sessions.changed' || event === 'session.created' || event === 'session.updated') {
       void this.refreshSessions().catch(() => undefined);
     }
+    if (event === 'talk.event') this.handleVoiceInputEvent(payload);
     const action = normalizeOpenClawAgentAction(client.connectionId ?? 'openclaw', event, payload);
     if (action
       && action.sessionId === this.state.selectedSessionKey
@@ -497,6 +580,7 @@ export class OpenClawAdapterHost {
   private handleClose(generation: number, reason: string, expected: boolean): void {
     if (generation !== this.generation || expected) return;
     this.client = undefined;
+    this.closeVoiceInputLocally('disconnected');
     this.emitEvent({
       protocolVersion: 1,
       eventId: randomUUID(),
@@ -606,6 +690,75 @@ export class OpenClawAdapterHost {
 
   private emitAction(command: AgentActionCommand): void {
     for (const listener of this.actionListeners) listener(command);
+  }
+
+  private handleVoiceInputEvent(value: unknown): void {
+    if (!value || typeof value !== 'object' || !this.activeVoiceInputSession) return;
+    const payload = value as Record<string, unknown>;
+    const eventSessionId = typeof payload.transcriptionSessionId === 'string'
+      ? payload.transcriptionSessionId
+      : typeof payload.sessionId === 'string'
+        ? payload.sessionId
+        : undefined;
+    if (eventSessionId !== this.activeVoiceInputSession.transcriptionSessionId) return;
+    const { sessionId } = this.activeVoiceInputSession;
+    const talkEvent = payload.talkEvent && typeof payload.talkEvent === 'object'
+      ? payload.talkEvent as Record<string, unknown>
+      : payload;
+    const eventType = typeof payload.type === 'string'
+      ? payload.type
+      : typeof talkEvent.type === 'string'
+        ? talkEvent.type
+        : '';
+    const text = typeof payload.text === 'string'
+      ? payload.text.trim()
+      : typeof talkEvent.text === 'string'
+        ? talkEvent.text.trim()
+        : typeof talkEvent.transcript === 'string'
+          ? talkEvent.transcript.trim()
+          : '';
+    if (text && ['partial', 'transcript', 'transcript.delta', 'transcript.done'].includes(eventType)) {
+      this.emitVoiceInputEvent({
+        type: 'transcript',
+        sessionId,
+        text: text.slice(0, 100_000),
+        final: payload.final === true || talkEvent.final === true || eventType === 'transcript.done',
+      });
+      return;
+    }
+    if (eventType === 'error') {
+      const message = typeof payload.message === 'string'
+        ? payload.message
+        : typeof talkEvent.message === 'string'
+          ? talkEvent.message
+          : 'OpenClaw transcription failed.';
+      this.emitVoiceInputEvent({
+        type: 'error',
+        sessionId,
+        message: redactOpenClawError(message).slice(0, 240),
+      });
+      return;
+    }
+    if (eventType === 'close') {
+      this.activeVoiceInputSession = undefined;
+      this.emitVoiceInputEvent({
+        type: 'closed',
+        sessionId,
+        reason: payload.reason === 'error' ? 'error' : 'complete',
+      });
+    }
+  }
+
+  private closeVoiceInputLocally(
+    reason: 'complete' | 'cancelled' | 'error' | 'disconnected',
+  ): void {
+    const sessionId = this.activeVoiceInputSession?.sessionId;
+    this.activeVoiceInputSession = undefined;
+    if (sessionId) this.emitVoiceInputEvent({ type: 'closed', sessionId, reason });
+  }
+
+  private emitVoiceInputEvent(event: VoiceInputEvent): void {
+    for (const listener of this.voiceInputListeners) listener(event);
   }
 
   private emitApprovalResolved(

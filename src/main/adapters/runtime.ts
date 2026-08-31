@@ -6,6 +6,12 @@ import type {
   AdapterDescriptor,
   AdapterResolveApprovalInput,
 } from '../../shared/agent-adapter';
+import type {
+  VoiceInputAudioChunk,
+  VoiceInputEvent,
+  VoiceInputSession,
+  VoiceInputStopCommand,
+} from '../../shared/voice-input';
 
 export interface AgentAdapterRuntime {
   readonly descriptor: AdapterDescriptor;
@@ -21,5 +27,9 @@ export interface AgentAdapterRuntime {
   onState(listener: (state: AdapterConnectionState) => void): () => void;
   onEvent(listener: (event: AdapterEvent) => void): () => void;
   onAction(listener: (command: AgentActionCommand) => void): () => void;
+  startVoiceInput?(): Promise<VoiceInputSession>;
+  appendVoiceInput?(input: VoiceInputAudioChunk): Promise<void>;
+  stopVoiceInput?(input: VoiceInputStopCommand): Promise<void>;
+  onVoiceInputEvent?(listener: (event: VoiceInputEvent) => void): () => void;
   rendererSafeError(error: unknown, operationInput?: unknown): string;
 }

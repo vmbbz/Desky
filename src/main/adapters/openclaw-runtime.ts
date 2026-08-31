@@ -15,6 +15,12 @@ import {
   type OpenClawAdapterHost,
 } from '../openclaw/host';
 import type { AgentAdapterRuntime } from './runtime';
+import type {
+  VoiceInputAudioChunk,
+  VoiceInputEvent,
+  VoiceInputSession,
+  VoiceInputStopCommand,
+} from '../../shared/voice-input';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -62,6 +68,7 @@ export function mapOpenClawState(state: OpenClawConnectionState): AdapterConnect
     })),
     capabilities: {
       ...state.capabilities,
+      voiceInput: { ...state.capabilities.voiceInput },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],
@@ -128,6 +135,22 @@ export class OpenClawRuntime implements AgentAdapterRuntime {
 
   onAction(listener: (command: AgentActionCommand) => void): () => void {
     return this.host.onAction(listener);
+  }
+
+  startVoiceInput(): Promise<VoiceInputSession> {
+    return this.host.startVoiceInput();
+  }
+
+  appendVoiceInput(input: VoiceInputAudioChunk): Promise<void> {
+    return this.host.appendVoiceInput(input.sessionId, input.audioBase64);
+  }
+
+  stopVoiceInput(input: VoiceInputStopCommand): Promise<void> {
+    return this.host.stopVoiceInput(input.sessionId, input.discard);
+  }
+
+  onVoiceInputEvent(listener: (event: VoiceInputEvent) => void): () => void {
+    return this.host.onVoiceInputEvent(listener);
   }
 
   rendererSafeError(error: unknown, operationInput?: unknown): string {

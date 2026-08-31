@@ -9,6 +9,12 @@ import type {
   AdapterResolveApprovalInput,
 } from '../../shared/agent-adapter';
 import type { AgentAdapterRuntime } from './runtime';
+import type {
+  VoiceInputAudioChunk,
+  VoiceInputEvent,
+  VoiceInputSession,
+  VoiceInputStopCommand,
+} from '../../shared/voice-input';
 import {
   assertAdapterConnectionState,
   assertAdapterDescriptor,
@@ -18,6 +24,7 @@ import {
 type StateListener = (state: AdapterConnectionState) => void;
 type EventListener = (event: AdapterEvent) => void;
 type ActionListener = (command: AgentActionCommand) => void;
+type VoiceInputListener = (event: VoiceInputEvent) => void;
 
 function cloneDescriptor(descriptor: AdapterDescriptor): AdapterDescriptor {
   return {
@@ -27,13 +34,24 @@ function cloneDescriptor(descriptor: AdapterDescriptor): AdapterDescriptor {
   };
 }
 
-function cloneConnectionState(state: AdapterConnectionState): AdapterConnectionState {
+function cloneConnectionState(
+  state: AdapterConnectionState,
+  distributionProfile?: DistributionProfile,
+): AdapterConnectionState {
+  const voiceInput = distributionProfile === 'store'
+    ? {
+        availability: 'unsupported' as const,
+        transport: 'none' as const,
+        setupHint: 'Voice input is not included in the current Store package profile.',
+      }
+    : { ...state.capabilities.voiceInput };
   return {
     ...state,
     descriptor: cloneDescriptor(state.descriptor),
     sessions: state.sessions.map((session) => ({ ...session })),
     capabilities: {
       ...state.capabilities,
+      voiceInput,
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],
@@ -51,7 +69,13 @@ export class AgentAdapterRegistry {
   private readonly stateListeners = new Set<StateListener>();
   private readonly eventListeners = new Set<EventListener>();
   private readonly actionListeners = new Set<ActionListener>();
+  private readonly voiceInputListeners = new Set<VoiceInputListener>();
   private readonly unsubscribeRuntimeListeners: Array<() => void> = [];
+  private activeVoiceInput?: {
+    adapterId: string;
+    runtime: AgentAdapterRuntime;
+    sessionId: string;
+  };
   private activeAdapterId: string;
 
   constructor(
@@ -70,7 +94,9 @@ export class AgentAdapterRegistry {
         runtime.onState((state) => {
           if (id !== this.activeAdapterId) return;
           assertAdapterConnectionState(state, runtime.descriptor);
-          for (const listener of this.stateListeners) listener(cloneConnectionState(state));
+          for (const listener of this.stateListeners) {
+            listener(cloneConnectionState(state, this.distributionProfile));
+          }
         }),
         runtime.onEvent((event) => {
           if (id !== this.activeAdapterId) return;
@@ -81,6 +107,14 @@ export class AgentAdapterRegistry {
           if (id !== this.activeAdapterId) return;
           for (const listener of this.actionListeners) listener(command);
         }),
+        ...(runtime.onVoiceInputEvent
+          ? [runtime.onVoiceInputEvent((voiceEvent) => {
+              if (id !== this.activeVoiceInput?.adapterId
+                || voiceEvent.sessionId !== this.activeVoiceInput.sessionId) return;
+              for (const listener of this.voiceInputListeners) listener(voiceEvent);
+              if (voiceEvent.type === 'closed') this.activeVoiceInput = undefined;
+            })]
+          : []),
       );
     }
     if (!this.runtimes.has(defaultAdapterId)) {
@@ -102,39 +136,56 @@ export class AgentAdapterRegistry {
     const runtime = this.activeRuntime();
     const state = runtime.getState();
     assertAdapterConnectionState(state, runtime.descriptor);
-    return cloneConnectionState(state);
+    return cloneConnectionState(state, this.distributionProfile);
   }
 
   async connect(command: AdapterConnectCommand): Promise<AdapterConnectionState> {
     const next = this.runtime(command.adapterId);
     const current = this.activeRuntime();
-    if (next !== current && current.getState().status !== 'disconnected') {
-      await this.safeCall(current, () => current.disconnect());
+    if (next !== current) {
+      await this.discardActiveVoiceInput(current);
+      if (current.getState().status !== 'disconnected') {
+        await this.safeCall(current, () => current.disconnect());
+      }
     }
     this.activeAdapterId = next.descriptor.adapterId;
     return cloneConnectionState(
       await this.safeCall(next, () => next.connect(command.configuration), command.configuration),
+      this.distributionProfile,
     );
   }
 
   async disconnect(): Promise<AdapterConnectionState> {
     const runtime = this.activeRuntime();
-    return cloneConnectionState(await this.safeCall(runtime, () => runtime.disconnect()));
+    await this.discardActiveVoiceInput(runtime);
+    return cloneConnectionState(
+      await this.safeCall(runtime, () => runtime.disconnect()),
+      this.distributionProfile,
+    );
   }
 
   async refreshSessions(): Promise<AdapterConnectionState> {
     const runtime = this.activeRuntime();
-    return cloneConnectionState(await this.safeCall(runtime, () => runtime.refreshSessions()));
+    return cloneConnectionState(
+      await this.safeCall(runtime, () => runtime.refreshSessions()),
+      this.distributionProfile,
+    );
   }
 
   async createSession(input: AdapterCreateSessionInput): Promise<AdapterConnectionState> {
     const runtime = this.activeRuntime();
-    return cloneConnectionState(await this.safeCall(runtime, () => runtime.createSession(input)));
+    return cloneConnectionState(
+      await this.safeCall(runtime, () => runtime.createSession(input)),
+      this.distributionProfile,
+    );
   }
 
   async selectSession(sessionId: string): Promise<AdapterConnectionState> {
     const runtime = this.activeRuntime();
-    return cloneConnectionState(await this.safeCall(runtime, () => runtime.selectSession(sessionId)));
+    return cloneConnectionState(
+      await this.safeCall(runtime, () => runtime.selectSession(sessionId)),
+      this.distributionProfile,
+    );
   }
 
   send(message: string): Promise<void> {
@@ -152,6 +203,58 @@ export class AgentAdapterRegistry {
     return this.safeCall(runtime, () => runtime.resolveApproval(input));
   }
 
+  async startVoiceInput(): Promise<VoiceInputSession> {
+    const runtime = this.activeRuntime();
+    if (this.activeVoiceInput) {
+      throw new Error('Voice input is already active.');
+    }
+    if (cloneConnectionState(runtime.getState(), this.distributionProfile)
+      .capabilities.voiceInput.availability !== 'available'
+      || !runtime.startVoiceInput) {
+      throw new Error('Voice input is unavailable for the active agent.');
+    }
+    const session = await this.safeCall(
+      runtime,
+      () => runtime.startVoiceInput?.() as Promise<VoiceInputSession>,
+    );
+    if (!session.sessionId || session.sessionId.length > 512
+      || session.inputEncoding !== 'g711_ulaw'
+      || session.inputSampleRateHz !== 8000) {
+      await runtime.stopVoiceInput?.({ sessionId: session.sessionId, discard: true }).catch(() => undefined);
+      throw new Error('The active agent returned an invalid voice-input session.');
+    }
+    this.activeVoiceInput = {
+      adapterId: runtime.descriptor.adapterId,
+      runtime,
+      sessionId: session.sessionId,
+    };
+    return session;
+  }
+
+  appendVoiceInput(input: VoiceInputAudioChunk): Promise<void> {
+    const active = this.activeVoiceInput;
+    if (!active || active.sessionId !== input.sessionId || !active.runtime.appendVoiceInput) {
+      return Promise.reject(new Error('Voice input is unavailable for the active agent.'));
+    }
+    return this.safeCall(
+      active.runtime,
+      () => active.runtime.appendVoiceInput?.(input) as Promise<void>,
+    );
+  }
+
+  async stopVoiceInput(input: VoiceInputStopCommand): Promise<void> {
+    const active = this.activeVoiceInput;
+    if (!active || active.sessionId !== input.sessionId || !active.runtime.stopVoiceInput) return;
+    try {
+      await this.safeCall(
+        active.runtime,
+        () => active.runtime.stopVoiceInput?.(input) as Promise<void>,
+      );
+    } finally {
+      if (this.activeVoiceInput === active) this.activeVoiceInput = undefined;
+    }
+  }
+
   onState(listener: StateListener): () => void {
     this.stateListeners.add(listener);
     return () => this.stateListeners.delete(listener);
@@ -167,11 +270,18 @@ export class AgentAdapterRegistry {
     return () => this.actionListeners.delete(listener);
   }
 
+  onVoiceInputEvent(listener: VoiceInputListener): () => void {
+    this.voiceInputListeners.add(listener);
+    return () => this.voiceInputListeners.delete(listener);
+  }
+
   async dispose(): Promise<void> {
+    await this.discardActiveVoiceInput();
     for (const unsubscribe of this.unsubscribeRuntimeListeners.splice(0)) unsubscribe();
     this.stateListeners.clear();
     this.eventListeners.clear();
     this.actionListeners.clear();
+    this.voiceInputListeners.clear();
     await Promise.allSettled([...this.runtimes.values()].map((runtime) => runtime.disconnect()));
   }
 
@@ -190,6 +300,17 @@ export class AgentAdapterRegistry {
 
   private runtimeSupportsProfile(runtime: AgentAdapterRuntime): boolean {
     return runtime.descriptor.distributionProfiles.includes(this.distributionProfile);
+  }
+
+  private async discardActiveVoiceInput(runtime?: AgentAdapterRuntime): Promise<void> {
+    const active = this.activeVoiceInput;
+    if (!active || (runtime && active.runtime !== runtime)) return;
+    this.activeVoiceInput = undefined;
+    if (!active.runtime.stopVoiceInput) return;
+    await this.safeCall(active.runtime, () => active.runtime.stopVoiceInput?.({
+      sessionId: active.sessionId,
+      discard: true,
+    }) as Promise<void>);
   }
 
   private async safeCall<T>(

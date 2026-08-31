@@ -20,6 +20,7 @@ const requiredMethods = [
   'sessions.messages.unsubscribe', 'sessions.create', 'chat.send', 'chat.history',
   'sessions.abort', 'approval.resolve',
   'desky.actions.capabilities',
+  'talk.session.create', 'talk.session.appendAudio', 'talk.session.close',
 ];
 
 const encryption: EncryptionProvider = {
@@ -30,7 +31,7 @@ const encryption: EncryptionProvider = {
 
 class FixtureClient implements GatewayClientPort {
   readonly connectionId = 'fixture-connection';
-  readonly features = { methods: requiredMethods, events: ['chat', 'agent', 'session.approval'] };
+  readonly features = { methods: requiredMethods, events: ['chat', 'agent', 'session.approval', 'talk.event'] };
   readonly calls: Array<{ method: string; params: unknown }> = [];
   private approvalResolved = false;
 
@@ -77,6 +78,12 @@ class FixtureClient implements GatewayClientPort {
         toolName: 'desky_avatar_action',
         actions: ['wave', 'jump'],
         transport: 'session-tool-stream',
+      };
+    } else if (method === 'talk.session.create') {
+      value = {
+        sessionId: 'voice-session-1',
+        transcriptionSessionId: 'voice-transcription-1',
+        audio: { inputEncoding: 'g711_ulaw', inputSampleRateHz: 8000 },
       };
     }
     return Promise.resolve(value as T);
@@ -315,6 +322,59 @@ describe('OpenClawAdapterHost contract fixture', () => {
     await vi.advanceTimersByTimeAsync(1_000);
     expect(clients).toHaveLength(2);
     expect(host.getState().status).toBe('connected');
+  });
+
+  it('admits bounded transcription streaming and isolates events to the active voice session', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    let client: FixtureClient | undefined;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        client = new FixtureClient(options);
+        return client;
+      },
+    );
+    const events: unknown[] = [];
+    host.onVoiceInputEvent((event) => events.push(event));
+    const connected = await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    expect(connected.capabilities.voiceInput).toEqual({
+      availability: 'available',
+      transport: 'streaming-transcription',
+      inputEncoding: 'g711_ulaw',
+      inputSampleRateHz: 8000,
+    });
+
+    const session = await host.startVoiceInput();
+    await host.appendVoiceInput(session.sessionId, '////');
+    client?.options.onEvent('talk.event', {
+      transcriptionSessionId: 'other-session', type: 'transcript', text: 'private', final: true,
+    });
+    client?.options.onEvent('talk.event', {
+      transcriptionSessionId: 'voice-transcription-1', type: 'partial', text: 'Hello', final: false,
+    });
+    client?.options.onEvent('talk.event', {
+      transcriptionSessionId: 'voice-transcription-1', type: 'transcript', text: 'Hello Deskiii', final: true,
+    });
+    await host.stopVoiceInput(session.sessionId, false);
+
+    expect(client?.calls).toEqual(expect.arrayContaining([
+      { method: 'talk.session.create', params: { mode: 'transcription', transport: 'gateway-relay', brain: 'none' } },
+      { method: 'talk.session.appendAudio', params: { sessionId: session.sessionId, audioBase64: '////' } },
+      { method: 'talk.session.close', params: { sessionId: session.sessionId } },
+    ]));
+    expect(events).toEqual([
+      { type: 'transcript', sessionId: session.sessionId, text: 'Hello', final: false },
+      { type: 'transcript', sessionId: session.sessionId, text: 'Hello Deskiii', final: true },
+      { type: 'closed', sessionId: session.sessionId, reason: 'complete' },
+    ]);
   });
 
   it('stops reconnecting after a terminal remote certificate failure', async () => {

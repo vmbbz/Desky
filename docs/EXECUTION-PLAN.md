@@ -197,6 +197,15 @@ Implementation status — 2026-08-24:
 - **F6a.1 immutable release profiles complete:** a schema-v1 manifest is embedded at build time and validated at startup. Windows Store-free and direct package commands reject unknown/platform-mismatched profiles and post-package ASAR policy proves Store-free excludes local adapter execution and all current commerce signatures, while direct retains admitted Codex/Hermes and excludes unadmitted Claude. All admitted release profiles keep commerce disabled; a future Store third-party-commerce profile requires new reviewed source and certification.
 - **F6a.2 Windows release-engineering gate complete:** profile-aware MSIX and Squirrel makers, exact identity/signing admission, official platform assets, independent manifest/ASAR/signature verification, committed byte budgets, CycloneDX 1.6 SBOM, notices, production audit, hashes and non-SLSA build evidence are executable. The reference machine passes real MSIX install/update/launch/uninstall and direct install/launch/uninstall. Production Store identity/signing, production direct signing and a hosted signed direct update remain owner/external gates.
 
+### F5d voice interaction
+
+F5d is deliberately split so microphone input cannot silently become a broad always-on or provider-specific audio architecture.
+
+- **F5d.1 streaming dictation foundation implemented:** `AgentAdapterCapabilities` now admits a provider-neutral voice-input claim. OpenClaw enables it only after negotiating the three transcription Talk methods and event channel. A user-gesture renderer capture converts exact 8 kHz mono input to bounded G.711 mu-law chunks; main owns the remote session, owner identity, provider event filtering and cleanup. Partial/final text updates the shared draft but is never automatically sent. Electron permissions deny every non-audio, non-main-frame, or foreign-origin request. Direct packages may expose the control; the initial Store profile fails it closed pending an explicit microphone manifest and certification evidence.
+- **F5d.1 foundation evidence:** `docs/verification/F5D1-VOICE-INPUT-FOUNDATION-2026-08-31.md` records the source basis, capability and permission contracts, failure cleanup, full automated suite, production audit, and verified Windows-direct package.
+- **F5d.1 remaining evidence:** run the packaged direct build against a configured streaming transcription provider and record allow/deny, partial/final, cancellation, backlog/error, disconnect, surface destruction, edit-before-send and fresh-install behavior. Windows source/fixture/package checks do not substitute for this human microphone/provider matrix.
+- **F5d.2 future:** evaluate OpenClaw `realtime/gateway-relay` full duplex, output audio queue bounds, assistant transcript correlation, barge-in cancellation, device selection and avatar speaking/viseme truth. Do not add wake words/background listening or claim Hermes/Codex/Claude voice until their native transports or an independently reviewed local STT runtime exist.
+
 ## Store and owner gates
 
 Store submission remains downstream of engineering and owner-controlled inputs:

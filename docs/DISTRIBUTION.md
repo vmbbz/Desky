@@ -100,6 +100,8 @@ F6a replaces the mutable `DESKY_DISTRIBUTION` helper with a build-time embedded 
 
 The currently admitted immutable profiles are `windows-store-free`, `windows-direct`, `macos-store`, and `macos-direct`. Every one has `commerceMode: disabled`. A `windows-store-third-party-commerce` profile deliberately does not exist yet: adding it requires a reviewed manifest/code graph, declarations, legal and operations gates, and a new Store submission. The Store-free Webpack graph substitutes an OpenClaw-only runtime bootstrap, while release-direct substitutes OpenClaw, Codex and Hermes without the unadmitted Claude SDK. Post-package ASAR inspection proves local-process execution signatures are absent from Store-free, admitted direct signatures are present in direct, Claude SDK signatures are absent from both release candidates, and x402 routes/payment headers/test-USDC configuration are absent from every current desktop artifact.
 
+Voice input is currently enabled only by the direct profile after runtime capability negotiation. The existing generated MSIX does not declare the privacy-sensitive microphone device capability, so Store-profile state deliberately projects voice as unsupported even if its OpenClaw Gateway offers Talk. Enabling it in a Store release requires a reviewed custom manifest containing the microphone declaration, accurate privacy/Store disclosures, WACK and real packaged permission allow/deny evidence. Direct macOS packages embed `NSMicrophoneUsageDescription`; Mac App Store audio-input entitlement and hardware evidence remain open.
+
 ## F6a.2 Windows release engineering
 
 Windows now has two fail-closed maker commands rather than a generic Forge output:

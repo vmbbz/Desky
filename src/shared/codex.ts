@@ -38,6 +38,11 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
   approvals: true,
   cancellation: true,
   reconnect: true,
+  voiceInput: {
+    availability: 'unsupported',
+    transport: 'none',
+    setupHint: 'Codex app-server does not expose an admitted streaming transcription surface.',
+  },
   agentActions: {
     availability: codexTypedActionPolicy.availability,
     transport: 'none',

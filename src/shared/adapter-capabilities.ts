@@ -4,6 +4,7 @@ export const agentAdapterKinds = ['openclaw', 'codex', 'claude', 'hermes', 'simu
 export type AgentAdapterKind = (typeof agentAdapterKinds)[number];
 
 export type AgentActionAvailability = 'available' | 'setup-required' | 'unsupported';
+export type VoiceInputAvailability = 'available' | 'setup-required' | 'unsupported';
 
 /**
  * Provider-neutral capability contract consumed by Desky's UI and motion host.
@@ -19,6 +20,13 @@ export interface AgentAdapterCapabilities {
   approvals: boolean;
   cancellation: boolean;
   reconnect: boolean;
+  voiceInput: {
+    availability: VoiceInputAvailability;
+    transport: 'streaming-transcription' | 'none';
+    inputEncoding?: 'g711_ulaw';
+    inputSampleRateHz?: 8000;
+    setupHint?: string;
+  };
   agentActions: {
     availability: AgentActionAvailability;
     transport: 'typed-tool-event' | 'none';
@@ -29,6 +37,7 @@ export interface AgentAdapterCapabilities {
 
 export function openClawCapabilities(
   actionsAvailable: boolean,
+  voiceInputAvailable = false,
 ): AgentAdapterCapabilities {
   return {
     schemaVersion: 1,
@@ -39,6 +48,17 @@ export function openClawCapabilities(
     approvals: true,
     cancellation: true,
     reconnect: true,
+    voiceInput: voiceInputAvailable
+      ? {
+          availability: 'available',
+          transport: 'streaming-transcription',
+          inputEncoding: 'g711_ulaw',
+          inputSampleRateHz: 8000,
+        }
+      : {
+          availability: 'unsupported',
+          transport: 'none',
+        },
     agentActions: actionsAvailable
       ? {
           availability: 'available',
@@ -63,6 +83,10 @@ export const simulationCapabilities: AgentAdapterCapabilities = Object.freeze({
   approvals: false,
   cancellation: false,
   reconnect: false,
+  voiceInput: {
+    availability: 'unsupported',
+    transport: 'none',
+  },
   agentActions: {
     availability: 'unsupported',
     transport: 'none',

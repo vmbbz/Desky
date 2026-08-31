@@ -44,6 +44,7 @@ import {
   type AmbientVisibilityRecoveryReason,
 } from './ambient-visibility-policy';
 import { createWindowOptions } from './window-options';
+import { isAdmittedMicrophonePermission } from './microphone-permission';
 
 const applicationScheme = 'desky';
 const ambientSize = { width: 420, height: 580 };
@@ -1563,8 +1564,33 @@ export class DeskyWindowManager {
   }
 
   createInitialWindows(): void {
+    session.defaultSession.setPermissionCheckHandler(
+      (webContents, permission, _requestingOrigin, details) => (
+        permission === 'media'
+        && details.mediaType === 'audio'
+        && isAdmittedMicrophonePermission({
+          surface: webContents ? this.surfaces.get(webContents.id) : undefined,
+          requestingUrl: details.requestingUrl ?? webContents?.getURL() ?? '',
+          securityOrigin: details.securityOrigin,
+          isMainFrame: details.isMainFrame,
+          mediaTypes: ['audio'],
+          packaged: app.isPackaged,
+        })
+      ),
+    );
     session.defaultSession.setPermissionRequestHandler(
-      (_webContents, _permission, callback) => callback(false),
+      (webContents, permission, callback, details) => {
+        const mediaTypes = 'mediaTypes' in details ? details.mediaTypes ?? [] : [];
+        const securityOrigin = 'securityOrigin' in details ? details.securityOrigin : undefined;
+        callback(permission === 'media' && isAdmittedMicrophonePermission({
+          surface: this.surfaces.get(webContents.id),
+          requestingUrl: webContents.getURL(),
+          securityOrigin,
+          isMainFrame: details.isMainFrame,
+          mediaTypes,
+          packaged: app.isPackaged,
+        }));
+      },
     );
     this.desktopControls.start();
     this.activeDisplayArrangement = displayArrangementKey(this.displayGeometries());

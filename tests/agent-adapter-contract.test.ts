@@ -107,6 +107,22 @@ describe('agent adapter contract v1', () => {
         agentActions: { availability: 'unsupported', transport: 'none', actions: ['jump'] },
       },
     })).toThrow('contract v1');
+    expect(() => assertAdapterConnectionState({
+      schemaVersion: 1,
+      adapterId: 'openclaw',
+      descriptor: openClawAdapterDescriptor,
+      status: 'connected',
+      endpoint: '',
+      authenticationMethod: 'token',
+      insecureLocal: false,
+      message: '',
+      reconnectAttempt: 0,
+      sessions: [],
+      capabilities: {
+        ...openClawCapabilities(false),
+        voiceInput: { availability: 'available', transport: 'none' },
+      },
+    })).toThrow('contract v1');
   });
 
   it('admits bounded normalized events and rejects oversized payloads', () => {

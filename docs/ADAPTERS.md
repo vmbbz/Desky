@@ -148,6 +148,15 @@ Every adapter must first pass the executable descriptor/state/event invariants a
 9. exactly one terminal event;
 10. bounded queues and backpressure.
 11. typed agent-action admission, duplicate/wrong-session rejection, and no replay after reconnect.
+12. voice capability discovery, microphone/session ownership, bounded audio backpressure, partial/final transcript isolation, cancel/disconnect cleanup, and unsupported-provider behavior.
+
+## Voice input contract
+
+`AgentAdapterCapabilities.voiceInput` is the only renderer authority for showing an enabled microphone. `available` requires the exact `streaming-transcription` transport, `g711_ulaw` encoding, and 8000 Hz input. An unavailable adapter must advertise `transport: none` and no audio format. Provider runtimes may implement the optional main-process voice methods only when that capability is true; the registry rejects all other starts.
+
+OpenClaw maps the generic contract to its authenticated transcription-only Talk shape: `talk.session.create({ mode: "transcription", transport: "gateway-relay", brain: "none" })`, serialized `talk.session.appendAudio`, `talk.event`, then `talk.session.close`. The native remote session id used for append/close and the transcription event id are tracked separately. Only events matching the active transcription identity become provider-neutral transcript/error/closed events. The existing `operator.write` scope satisfies OpenClaw's Talk authorization; Deskiii does not request admin or Talk-secret scope.
+
+Codex, Hermes, Claude, and Simulation remain explicitly unsupported. This does not prevent their existing text adapters from working, and Deskiii does not locally transcribe audio and silently feed text into them as a misleading substitute. A future local/system STT provider may become a distinct reviewed adapter-independent transcription runtime, but it must have its own privacy, model-download, Store, and lifecycle policy.
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
 

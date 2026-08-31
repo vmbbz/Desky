@@ -24,6 +24,11 @@ export const hermesFoundationCapabilities: AgentAdapterCapabilities = Object.fre
   approvals: true,
   cancellation: true,
   reconnect: true,
+  voiceInput: {
+    availability: 'unsupported',
+    transport: 'none',
+    setupHint: 'Hermes voice input has not been admitted into the Deskiii adapter contract.',
+  },
   agentActions: {
     availability: 'unsupported',
     transport: 'none',

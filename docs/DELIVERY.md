@@ -542,10 +542,12 @@ These decisions are deliberately not guessed:
 
 ## Immediate next rounds
 
-1. Supply the Microsoft Partner Center identity, legal publisher name, Windows code-signing certificate, privacy/support/security URLs and source licence; then run the same makers in production mode on a protected clean signing worker.
-2. Prove a signed direct `0.1.0 -> 0.1.1` update through the hosted HTTPS feed and repeat install/update/uninstall on a clean Windows account/device; run final Partner Center/WACK preflight with the reserved Store identity.
-3. Deploy a trusted operator-owned OpenClaw/Hermes ingress and run the full authenticated lifecycle through it. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
-4. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, virtual-desktop, final CC0 VRM 1.0, and macOS evidence.
-5. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet and Store commerce remain disabled. Owner-deferred lanes remain macOS/Keychain and Claude's authenticated matrix.
+1. Complete F5d.1 packaged Windows direct voice-input evidence against a configured OpenClaw transcription provider: permission allow/deny, partial/final dictation, backlog/error, disconnect, surface close, edit-before-send, and a fresh install. The implemented foundation and package evidence are recorded in `docs/verification/F5D1-VOICE-INPUT-FOUNDATION-2026-08-31.md`. Then decide whether F5d.2 is Gateway-relay full duplex or provider-neutral output/TTS.
+2. Add the reviewed microphone declaration and privacy copy only when promoting voice into the Microsoft Store profile; until then Store capability and controls remain disabled.
+3. Supply the Microsoft Partner Center identity, legal publisher name, Windows code-signing certificate, privacy/support/security URLs and source licence; then run the same makers in production mode on a protected clean signing worker.
+4. Prove a signed direct `0.1.0 -> 0.1.1` update through the hosted HTTPS feed and repeat install/update/uninstall on a clean Windows account/device; run final Partner Center/WACK preflight with the reserved Store identity.
+5. Deploy a trusted operator-owned OpenClaw/Hermes ingress and run the full authenticated lifecycle through it. Keep typed actions unsupported and the MCP helper deferred under the one-app decision. Hermes remains excluded from Store builds.
+6. Complete the remaining `<3%` Windows idle margin plus external full-screen, manual accessibility, physical display reconnect, multi-monitor, virtual-desktop, final CC0 VRM 1.0, and macOS evidence.
+7. Keep the completed Base Sepolia pilot frozen except for optional manual rejection evidence and production operations hardening; mainnet and Store commerce remain disabled. Owner-deferred lanes remain macOS/Keychain and Claude's authenticated matrix.
 
 See `docs/EXECUTION-PLAN.md` for dependencies, parallel lanes, and owner/store gates.

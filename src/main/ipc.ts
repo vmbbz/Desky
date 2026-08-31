@@ -53,6 +53,12 @@ import { readScopedCodexVisualTestWorkspace } from './codex/visual-test-workspac
 import { shouldDisableAvatarNetwork } from './visual-test-policy';
 import { ConversationLauncher } from './conversation-launcher';
 import {
+  isBoundedVoiceAudioBase64,
+  type VoiceInputAudioChunk,
+  type VoiceInputSession,
+  type VoiceInputStopCommand,
+} from '../shared/voice-input';
+import {
   admitVrm1CompatibilityFixture,
   readScopedVrm1CompatibilityFile,
 } from './vrm1-compatibility-fixture';
@@ -87,6 +93,12 @@ const adapterChannels = {
   send: 'desky:adapter:send',
   cancel: 'desky:adapter:cancel',
   resolveApproval: 'desky:adapter:resolve-approval',
+} as const;
+const voiceInputChannels = {
+  event: 'desky:voice-input:event',
+  start: 'desky:voice-input:start',
+  append: 'desky:voice-input:append',
+  stop: 'desky:voice-input:stop',
 } as const;
 const codexWorkspaceChannels = {
   select: 'desky:codex-workspace:select',
@@ -178,6 +190,28 @@ function readApprovalInput(value: unknown): AdapterResolveApprovalInput {
   return { requestId: value.requestId, kind: value.kind, decision: value.decision };
 }
 
+function readVoiceAudioChunk(value: unknown): VoiceInputAudioChunk {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512
+    || !isBoundedVoiceAudioBase64(value.audioBase64)) {
+    throw new Error('Invalid voice-input audio chunk.');
+  }
+  return { sessionId: value.sessionId, audioBase64: value.audioBase64 };
+}
+
+function readVoiceStopCommand(value: unknown): VoiceInputStopCommand {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512
+    || typeof value.discard !== 'boolean') {
+    throw new Error('Invalid voice-input stop command.');
+  }
+  return { sessionId: value.sessionId, discard: value.discard };
+}
+
 function assertText(value: unknown, name: string, limit: number): string {
   if (typeof value !== 'string' || value.length > limit) throw new Error(`Invalid ${name}.`);
   return value;
@@ -232,6 +266,8 @@ export function registerIpc(
     openExternal: (url) => shell.openExternal(url),
     openDeskiii: () => windows.openControlCenter(),
   });
+  let voiceInputOwnerId: number | undefined;
+  let activeVoiceInputSessionId: string | undefined;
   const avatarFetcher = shouldDisableAvatarNetwork(
     process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK,
     process.env.DESKY_VISUAL_TEST_EXERCISE,
@@ -546,6 +582,45 @@ export function registerIpc(
     const approval = readApprovalInput(input);
     return adapters.resolveApproval(approval);
   });
+  ipcMain.handle(voiceInputChannels.start, async (event) => {
+    if (voiceInputOwnerId) {
+      throw new Error('Voice input is already active on another Deskiii surface.');
+    }
+    voiceInputOwnerId = event.sender.id;
+    let session: VoiceInputSession;
+    try {
+      session = await adapters.startVoiceInput();
+      activeVoiceInputSessionId = session.sessionId;
+    } catch (error) {
+      voiceInputOwnerId = undefined;
+      throw error;
+    }
+    const ownerId = event.sender.id;
+    event.sender.once('destroyed', () => {
+      if (voiceInputOwnerId !== ownerId || !activeVoiceInputSessionId) return;
+      const sessionId = activeVoiceInputSessionId;
+      voiceInputOwnerId = undefined;
+      activeVoiceInputSessionId = undefined;
+      void adapters.stopVoiceInput({ sessionId, discard: true }).catch(() => undefined);
+    });
+    return session;
+  });
+  ipcMain.handle(voiceInputChannels.append, (event, input: unknown) => {
+    const chunk = readVoiceAudioChunk(input);
+    if (voiceInputOwnerId !== event.sender.id || chunk.sessionId !== activeVoiceInputSessionId) {
+      throw new Error('Voice-input session is not owned by this surface.');
+    }
+    return adapters.appendVoiceInput(chunk);
+  });
+  ipcMain.handle(voiceInputChannels.stop, async (event, input: unknown) => {
+    const command = readVoiceStopCommand(input);
+    if (voiceInputOwnerId !== event.sender.id || command.sessionId !== activeVoiceInputSessionId) {
+      return;
+    }
+    voiceInputOwnerId = undefined;
+    activeVoiceInputSessionId = undefined;
+    await adapters.stopVoiceInput(command);
+  });
   ipcMain.handle(codexWorkspaceChannels.select, async (event, sandbox: unknown) => {
     if (getDistributionProfile() !== 'direct'
       || windows.surfaceFor(event.sender) !== 'control-center'
@@ -618,6 +693,17 @@ export function registerIpc(
 
   adapters.onState((state) => {
     for (const window of BrowserWindow.getAllWindows()) window.webContents.send(adapterChannels.state, state);
+  });
+  adapters.onVoiceInputEvent((voiceEvent) => {
+    if (voiceEvent.sessionId !== activeVoiceInputSessionId) return;
+    const owner = BrowserWindow.getAllWindows().find(
+      (window) => window.webContents.id === voiceInputOwnerId,
+    );
+    owner?.webContents.send(voiceInputChannels.event, voiceEvent);
+    if (voiceEvent.type === 'closed') {
+      voiceInputOwnerId = undefined;
+      activeVoiceInputSessionId = undefined;
+    }
   });
   adapters.onEvent((adapterEvent) => {
     const snapshot = companion.applyEvent(adapterEvent);

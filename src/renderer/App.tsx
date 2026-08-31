@@ -65,6 +65,11 @@ import { MarketplaceAvatarPreview } from './avatar/MarketplaceAvatarPreview';
 import { FormattedText } from './FormattedText';
 import { resolveAvatarDragMode } from './avatar/avatar-manipulation';
 import type { MotionCueKind, MotionCueSource } from './avatar/motion-cue-queue';
+import {
+  mergeVoiceTranscript,
+  VoiceInputController,
+  type VoiceInputPhase,
+} from './voice-input-controller';
 
 const initialGateway: AdapterConnectionState = {
   schemaVersion: 1,
@@ -126,6 +131,15 @@ function DeskyBrandMark() {
   );
 }
 
+function MicrophoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v4M9 21h6" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
@@ -182,7 +196,9 @@ export function App() {
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
   const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
+  const [voiceInputPhase, setVoiceInputPhase] = useState<VoiceInputPhase>('idle');
   const ambientPromptRef = useRef<HTMLInputElement>(null);
+  const voiceInputControllerRef = useRef<VoiceInputController | undefined>(undefined);
 
   const refreshMarketplaceCache = useCallback(() => window.desky.marketplace.getCacheInventory()
     .then(setMarketplaceCache)
@@ -551,6 +567,8 @@ export function App() {
   };
 
   const run = () => withBusy(async () => {
+    if (voiceInputControllerRef.current?.phase !== undefined
+      && voiceInputControllerRef.current.phase !== 'idle') return;
     const text = draft.text.trim();
     if (!text) return;
     if (adapterMode === 'simulation') {
@@ -585,6 +603,10 @@ export function App() {
     ? 'Cmd+Shift+D'
     : 'Ctrl+Shift+D';
   const activeRun = adapterMode === 'runtime' && Boolean(gateway.activeTurnId);
+  const voiceInputAvailable = adapterMode === 'runtime'
+    && gateway.status === 'connected'
+    && gateway.capabilities.voiceInput.availability === 'available';
+  const voiceInputActive = voiceInputPhase !== 'idle';
   const meaningfulModes = ['listening', 'thinking', 'working', 'approval', 'speaking', 'success', 'cancelled', 'error'];
   const bubbleMessage = uiError || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
   const showAmbientBubble = Boolean(bubbleMessage)
@@ -599,6 +621,51 @@ export function App() {
     );
     return () => window.clearTimeout(timeout);
   }, [state.bubbleText, state.mode, state.revision]);
+
+  useEffect(() => () => {
+    void voiceInputControllerRef.current?.cancel();
+    voiceInputControllerRef.current = undefined;
+  }, []);
+
+  useEffect(() => {
+    if (voiceInputAvailable) return;
+    void voiceInputControllerRef.current?.cancel();
+  }, [voiceInputAvailable]);
+
+  const toggleVoiceInput = async () => {
+    const active = voiceInputControllerRef.current;
+    if (active && active.phase !== 'idle') {
+      await active.finish();
+      return;
+    }
+    if (!voiceInputAvailable || busy || activeRun) return;
+    setUiError('');
+    const baseDraft = draft.text;
+    const controller = new VoiceInputController(window.desky.voiceInput, {
+      onPhase: setVoiceInputPhase,
+      onTranscript: (transcript) => updateDraft(mergeVoiceTranscript(baseDraft, transcript)),
+      onError: (message) => setUiError(errorMessage(new Error(message))),
+    });
+    voiceInputControllerRef.current = controller;
+    await controller.start();
+  };
+
+  const voiceInputButton = adapterMode === 'runtime' ? (
+    <button
+      className={`voice-input-button${voiceInputActive ? ' voice-input-button--active' : ''}`}
+      type="button"
+      aria-label={voiceInputActive ? 'Stop voice input' : 'Start voice input'}
+      aria-pressed={voiceInputActive}
+      disabled={!voiceInputAvailable || busy || activeRun}
+      title={voiceInputAvailable
+        ? voiceInputActive ? 'Stop dictation' : 'Dictate a message'
+        : gateway.capabilities.voiceInput.setupHint ?? 'Voice input is unavailable for this agent.'}
+      onClick={() => void toggleVoiceInput()}
+    >
+      <MicrophoneIcon />
+      {voiceInputPhase === 'requesting' ? <span className="voice-input-button__status">…</span> : null}
+    </button>
+  ) : null;
 
   const openComposer = () => {
     if (!connected || !hasSession) {
@@ -871,15 +938,17 @@ export function App() {
             onKeyDown={(event) => {
               if (event.key !== 'Escape') return;
               event.preventDefault();
+              void voiceInputControllerRef.current?.cancel();
               setComposerExpanded(false);
             }}
           >
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
             <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Deskiii anything…" />
+            {voiceInputButton}
             {activeRun ? (
               <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
-              <button type="submit" disabled={busy || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
+              <button type="submit" disabled={busy || voiceInputActive || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
             )}
           </form>
         ) : (
@@ -1350,10 +1419,11 @@ export function App() {
       <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
         <label className="sr-only" htmlFor="control-prompt">Message</label>
         <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Deskiii anything…" />
+        {voiceInputButton}
         {adapterMode === 'runtime' && gateway.activeTurnId ? (
           <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
         ) : (
-          <button type="submit" disabled={busy || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
+          <button type="submit" disabled={busy || voiceInputActive || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
         )}
       </form>
 
@@ -1412,11 +1482,18 @@ export function App() {
               <label className="remember-row"><input type="checkbox" checked={rememberCredential} onChange={(event) => setRememberCredential(event.target.checked)} /> Store with OS credential encryption</label>
               {gateway.insecureLocal ? <p className="connection-warning">Plain WebSocket is accepted only because this is a loopback address.</p> : null}
               {selectedAdapterConnected ? (
-                <p className={`adapter-capability adapter-capability--${gateway.capabilities.agentActions.availability}`}>
-                  Avatar actions: {gateway.capabilities.agentActions.availability === 'available'
-                    ? 'typed Jump and Wave ready'
-                    : 'Gateway plugin setup required'}
-                </p>
+                <>
+                  <p className={`adapter-capability adapter-capability--${gateway.capabilities.agentActions.availability}`}>
+                    Avatar actions: {gateway.capabilities.agentActions.availability === 'available'
+                      ? 'typed Jump and Wave ready'
+                      : 'Gateway plugin setup required'}
+                  </p>
+                  <p className={`adapter-capability adapter-capability--${gateway.capabilities.voiceInput.availability}`}>
+                    Voice dictation: {gateway.capabilities.voiceInput.availability === 'available'
+                      ? 'streaming transcription ready'
+                      : gateway.capabilities.voiceInput.setupHint ?? 'not offered by this Gateway'}
+                  </p>
+                </>
               ) : null}
               {selectedAdapterConnected && gateway.pairingRequestId ? <p className="pairing-id">Pairing request: <code>{gateway.pairingRequestId}</code></p> : null}
               {uiError ? <p className="connection-error">{uiError}</p> : null}

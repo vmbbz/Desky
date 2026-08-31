@@ -24,6 +24,11 @@ export const claudeFoundationCapabilities: AgentAdapterCapabilities = Object.fre
   approvals: true,
   cancellation: true,
   reconnect: false,
+  voiceInput: {
+    availability: 'unsupported',
+    transport: 'none',
+    setupHint: 'Claude Agent SDK has no admitted streaming transcription transport in Deskiii.',
+  },
   agentActions: {
     availability: 'unsupported',
     transport: 'none',

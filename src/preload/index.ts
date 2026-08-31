@@ -48,6 +48,12 @@ import type {
   CodexWorkspaceSelectionResult,
 } from '../shared/codex-workspace';
 import type { ConversationOpenResult } from '../shared/conversation';
+import type {
+  VoiceInputAudioChunk,
+  VoiceInputBridge,
+  VoiceInputEvent,
+  VoiceInputStopCommand,
+} from '../shared/voice-input';
 
 const channels = {
   state: 'desky:adapter:state',
@@ -84,6 +90,24 @@ const adapters: AgentAdapterBridge = Object.freeze({
     const handler = (_event: Electron.IpcRendererEvent, adapterEvent: AdapterEvent) => listener(adapterEvent);
     ipcRenderer.on(channels.event, handler);
     return () => ipcRenderer.removeListener(channels.event, handler);
+  },
+});
+
+const voiceInputChannels = {
+  event: 'desky:voice-input:event',
+  start: 'desky:voice-input:start',
+  append: 'desky:voice-input:append',
+  stop: 'desky:voice-input:stop',
+} as const;
+
+const voiceInput: VoiceInputBridge = Object.freeze({
+  start: () => ipcRenderer.invoke(voiceInputChannels.start),
+  append: (input: VoiceInputAudioChunk) => ipcRenderer.invoke(voiceInputChannels.append, input),
+  stop: (input: VoiceInputStopCommand) => ipcRenderer.invoke(voiceInputChannels.stop, input),
+  onEvent: (listener: (event: VoiceInputEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, voiceEvent: VoiceInputEvent) => listener(voiceEvent);
+    ipcRenderer.on(voiceInputChannels.event, handler);
+    return () => ipcRenderer.removeListener(voiceInputChannels.event, handler);
   },
 });
 
@@ -231,6 +255,7 @@ const api = Object.freeze({
   marketplace,
   animation,
   adapters,
+  voiceInput,
   codexWorkspace,
 });
 
