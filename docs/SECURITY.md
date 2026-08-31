@@ -80,14 +80,18 @@ The authenticated adapter exercise deliberately does not inherit `DESKY_VISUAL_T
 - Gateway tokens are scoped to the minimum supported permissions.
 - OpenClaw requests only `operator.read`, `operator.write`, and `operator.approvals`; device tokens are bound to the paired Ed25519 identity and exact saved endpoint profile.
 
-## Microphone and voice-input boundary
+## Microphone and voice boundary
 
 - Deskiii never opens the microphone on launch, connection, an agent event, or a model request. Capture starts only from an enabled user-gesture button and ends on Stop/cancel, failure, disconnect, surface destruction, or permission loss.
 - Electron's permission check and request handlers default-deny. They admit only `media`/`audio` from a known Deskiii ambient or control-center main frame at the exact development entry or packaged `desky://app/main_window/index.html`; camera, display capture, subframes, foreign origins, and unknown media types remain denied.
-- The renderer receives no Gateway credential or native Talk session authority. Main admits one renderer owner and one active provider session, bounds identifiers and canonical base64 chunks, and filters transcript events through the provider's separate transcription-session identity.
+- The renderer receives no Gateway credential, ChatGPT account id, or native Talk session authority. Main admits one renderer owner and one active dictation or realtime provider session, bounds identifiers and canonical base64 chunks, and filters native events through the exact active provider-session identity.
 - Audio is streamed and not persisted. The shared draft contains transcript text only in memory; it remains user-editable and requires the ordinary explicit Send action. Deskiii does not silently submit dictation.
 - The append queue is serialized and capped at roughly ten seconds. Falling behind fails closed and releases capture rather than growing an unbounded latency/memory queue or dropping speech invisibly.
-- The current Store profile reports voice input unsupported until its reviewed MSIX manifest declares `DeviceCapability Name="microphone"` and the packaged permission matrix passes. A macOS purpose string is embedded for direct packages; Mac App Store entitlement and hardware evidence remain required.
+- Full-duplex capture has a separate bounded append queue. Output decoding accepts only the negotiated mono PCM16/G.711 contract, schedules at most eight seconds, and interrupts/stops on malformed or excessive data. Provider marks are acknowledged only after the corresponding local playback boundary; remote clear/cancel invalidates scheduled sources and marks.
+- Barge-in is scoped to the active realtime session and, where supplied, its current turn. It cannot cancel an unrelated text run or another adapter. Adapter/session changes and renderer destruction close the creating runtime's session before ownership is released.
+- `talk.catalog` readiness is treated only as configuration evidence. A later provider rejection disables realtime starts until reconnect and preserves a redacted bounded diagnostic; Deskiii does not loop on a known 403 or imply the user's subscription grants GPT-Live access.
+- The active full-duplex UI replaces the text composer with explicit Listening/Thinking/Speaking state, Interrupt, and End. This prevents disabled text controls from misleading users about which path owns the microphone and turn.
+- The current Store profile reports voice unsupported until its reviewed MSIX manifest declares `DeviceCapability Name="microphone"` and the packaged permission matrix passes. A macOS purpose string is embedded for direct packages; Mac App Store entitlement and hardware evidence remain required.
 
 ## OpenClaw credential handling
 

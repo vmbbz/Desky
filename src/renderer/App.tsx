@@ -70,6 +70,10 @@ import {
   VoiceInputController,
   type VoiceInputPhase,
 } from './voice-input-controller';
+import {
+  VoiceConversationController,
+  type VoiceConversationPhase,
+} from './voice-conversation-controller';
 
 const initialGateway: AdapterConnectionState = {
   schemaVersion: 1,
@@ -140,6 +144,30 @@ function MicrophoneIcon() {
   );
 }
 
+function VoiceConversationIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 12a8 8 0 0 1 16 0M4 12v5a2 2 0 0 0 2 2h2v-7H4Zm16 0v5a2 2 0 0 1-2 2h-2v-7h4ZM16 19c0 1.1-.9 2-2 2h-2" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function EndVoiceIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="7" y="7" width="10" height="10" rx="2.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function InterruptVoiceIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 12h14M9 8l-4 4 4 4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9" />
+    </svg>
+  );
+}
+
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
@@ -195,10 +223,23 @@ export function App() {
   const [systemReducedMotion, setSystemReducedMotion] = useState(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
   );
-  const [composerExpanded, setComposerExpanded] = useState(visualTestState === 'composer');
+  const [composerExpanded, setComposerExpanded] = useState(
+    visualTestState === 'composer' || visualTestState === 'voice',
+  );
   const [voiceInputPhase, setVoiceInputPhase] = useState<VoiceInputPhase>('idle');
+  const [voiceConversationPhase, setVoiceConversationPhase] = useState<VoiceConversationPhase>(
+    visualTestState === 'voice' ? 'listening' : 'idle',
+  );
+  const [voiceConversationResponse, setVoiceConversationResponse] = useState<{
+    text: string;
+    revision: number;
+    final: boolean;
+  }>();
+  const [dismissedVoiceConversationRevision, setDismissedVoiceConversationRevision] = useState<number>();
   const ambientPromptRef = useRef<HTMLInputElement>(null);
   const voiceInputControllerRef = useRef<VoiceInputController | undefined>(undefined);
+  const voiceConversationControllerRef = useRef<VoiceConversationController | undefined>(undefined);
+  const voiceConversationRevisionRef = useRef(0);
 
   const refreshMarketplaceCache = useCallback(() => window.desky.marketplace.getCacheInventory()
     .then(setMarketplaceCache)
@@ -569,6 +610,8 @@ export function App() {
   const run = () => withBusy(async () => {
     if (voiceInputControllerRef.current?.phase !== undefined
       && voiceInputControllerRef.current.phase !== 'idle') return;
+    if (voiceConversationControllerRef.current?.phase !== undefined
+      && voiceConversationControllerRef.current.phase !== 'idle') return;
     const text = draft.text.trim();
     if (!text) return;
     if (adapterMode === 'simulation') {
@@ -607,11 +650,20 @@ export function App() {
     && gateway.status === 'connected'
     && gateway.capabilities.voiceInput.availability === 'available';
   const voiceInputActive = voiceInputPhase !== 'idle';
+  const voiceConversationAvailable = adapterMode === 'runtime'
+    && gateway.status === 'connected'
+    && Boolean(gateway.selectedSessionId)
+    && gateway.capabilities.voiceConversation.availability === 'available';
+  const voiceConversationActive = voiceConversationPhase !== 'idle';
   const meaningfulModes = ['listening', 'thinking', 'working', 'approval', 'speaking', 'success', 'cancelled', 'error'];
-  const bubbleMessage = uiError || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
+  const liveVoiceBubble = voiceConversationResponse
+    && dismissedVoiceConversationRevision !== voiceConversationResponse.revision
+    ? voiceConversationResponse.text
+    : '';
+  const bubbleMessage = uiError || liveVoiceBubble || state.bubbleText || (meaningfulModes.includes(state.mode) ? statusDetail : '');
   const showAmbientBubble = Boolean(bubbleMessage)
-    && (Boolean(uiError) || meaningfulModes.includes(state.mode))
-    && dismissedBubbleRevision !== state.revision;
+    && (Boolean(uiError) || Boolean(liveVoiceBubble) || meaningfulModes.includes(state.mode))
+    && (Boolean(liveVoiceBubble) || dismissedBubbleRevision !== state.revision);
 
   useEffect(() => {
     if (state.mode !== 'success' || !state.bubbleText) return undefined;
@@ -622,9 +674,20 @@ export function App() {
     return () => window.clearTimeout(timeout);
   }, [state.bubbleText, state.mode, state.revision]);
 
+  useEffect(() => {
+    if (!voiceConversationResponse?.final) return undefined;
+    const timeout = window.setTimeout(
+      () => setDismissedVoiceConversationRevision(voiceConversationResponse.revision),
+      responseBubbleLifetimeMs(voiceConversationResponse.text),
+    );
+    return () => window.clearTimeout(timeout);
+  }, [voiceConversationResponse]);
+
   useEffect(() => () => {
     void voiceInputControllerRef.current?.cancel();
     voiceInputControllerRef.current = undefined;
+    void voiceConversationControllerRef.current?.stop(false);
+    voiceConversationControllerRef.current = undefined;
   }, []);
 
   useEffect(() => {
@@ -632,13 +695,18 @@ export function App() {
     void voiceInputControllerRef.current?.cancel();
   }, [voiceInputAvailable]);
 
+  useEffect(() => {
+    if (voiceConversationAvailable) return;
+    void voiceConversationControllerRef.current?.stop(false);
+  }, [voiceConversationAvailable]);
+
   const toggleVoiceInput = async () => {
     const active = voiceInputControllerRef.current;
     if (active && active.phase !== 'idle') {
       await active.finish();
       return;
     }
-    if (!voiceInputAvailable || busy || activeRun) return;
+    if (!voiceInputAvailable || busy || activeRun || voiceConversationActive) return;
     setUiError('');
     const baseDraft = draft.text;
     const controller = new VoiceInputController(window.desky.voiceInput, {
@@ -656,7 +724,7 @@ export function App() {
       type="button"
       aria-label={voiceInputActive ? 'Stop voice input' : 'Start voice input'}
       aria-pressed={voiceInputActive}
-      disabled={!voiceInputAvailable || busy || activeRun}
+      disabled={!voiceInputAvailable || busy || activeRun || voiceConversationActive}
       title={voiceInputAvailable
         ? voiceInputActive ? 'Stop dictation' : 'Dictate a message'
         : gateway.capabilities.voiceInput.setupHint ?? 'Voice input is unavailable for this agent.'}
@@ -666,6 +734,112 @@ export function App() {
       {voiceInputPhase === 'requesting' ? <span className="voice-input-button__status">…</span> : null}
     </button>
   ) : null;
+
+  const toggleVoiceConversation = async () => {
+    const active = voiceConversationControllerRef.current;
+    if (active && active.phase !== 'idle') {
+      await active.stop();
+      setComposerExpanded(false);
+      return;
+    }
+    if (!voiceConversationAvailable || busy || activeRun || voiceInputActive) return;
+    setUiError('');
+    setVoiceConversationResponse(undefined);
+    const controller = new VoiceConversationController(window.desky.voiceConversation, {
+      onPhase: setVoiceConversationPhase,
+      onTranscript: (role, text, final) => {
+        if (role !== 'assistant') return;
+        voiceConversationRevisionRef.current += 1;
+        setVoiceConversationResponse({
+          text,
+          revision: voiceConversationRevisionRef.current,
+          final,
+        });
+      },
+      onError: (message) => setUiError(errorMessage(new Error(message))),
+    });
+    voiceConversationControllerRef.current = controller;
+    await controller.start();
+  };
+
+  const voiceConversationButton = adapterMode === 'runtime' ? (
+    <button
+      className={`voice-input-button voice-conversation-button${voiceConversationActive ? ' voice-input-button--active' : ''}`}
+      type="button"
+      aria-label={voiceConversationActive ? 'End voice conversation' : 'Start voice conversation'}
+      aria-pressed={voiceConversationActive}
+      disabled={!voiceConversationAvailable || busy || activeRun || voiceInputActive}
+      title={voiceConversationAvailable
+        ? voiceConversationActive ? 'End live voice conversation' : 'Talk with your agent'
+        : gateway.capabilities.voiceConversation.setupHint ?? 'Voice conversation is unavailable for this agent.'}
+      onClick={() => void toggleVoiceConversation()}
+    >
+      <VoiceConversationIcon />
+      {voiceConversationPhase === 'requesting' ? <span className="voice-input-button__status">…</span> : null}
+    </button>
+  ) : null;
+
+  const voiceConversationCanInterrupt = voiceConversationPhase === 'speaking'
+    || voiceConversationPhase === 'thinking';
+  const voiceConversationLabel = voiceConversationPhase === 'requesting'
+    ? 'Starting voice'
+    : voiceConversationPhase === 'thinking'
+      ? 'Thinking'
+      : voiceConversationPhase === 'speaking'
+        ? 'Speaking'
+        : voiceConversationPhase === 'stopping'
+          ? 'Ending voice'
+          : 'Listening';
+  const voiceConversationDock = (surface: 'ambient' | 'control') => (
+    <section
+      className={`voice-session-dock voice-session-dock--${surface}`}
+      data-phase={voiceConversationPhase}
+      data-desky-interactive="true"
+      aria-label={`Live voice conversation: ${voiceConversationLabel}`}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        void toggleVoiceConversation();
+      }}
+    >
+      <span className="voice-session-dock__activity" aria-hidden="true">
+        <i /><i /><i /><i /><i />
+      </span>
+      <span className="voice-session-dock__copy" aria-live="polite">
+        <strong>{voiceConversationLabel}</strong>
+        <small>{runtimeLabel} · live voice</small>
+      </span>
+      {voiceConversationCanInterrupt ? (
+        <button
+          className="voice-session-dock__interrupt"
+          type="button"
+          onClick={() => void voiceConversationControllerRef.current?.interrupt()}
+        >
+          <InterruptVoiceIcon />
+          <span>Interrupt</span>
+        </button>
+      ) : null}
+      <button
+        className="voice-session-dock__end"
+        type="button"
+        aria-label="End live voice conversation"
+        title="End live voice conversation"
+        onClick={() => void toggleVoiceConversation()}
+      >
+        <EndVoiceIcon />
+      </button>
+    </section>
+  );
+  const ambientCompanionMode = voiceConversationPhase === 'speaking'
+    ? 'speaking'
+    : voiceConversationPhase === 'thinking'
+      ? 'thinking'
+      : voiceConversationActive ? 'listening' : state.mode;
+  const ambientCompanionLabel = voiceConversationPhase === 'speaking'
+    ? 'Speaking'
+    : voiceConversationPhase === 'thinking'
+      ? 'Thinking'
+      : voiceConversationActive ? 'Listening' : state.label;
 
   const openComposer = () => {
     if (!connected || !hasSession) {
@@ -811,17 +985,18 @@ export function App() {
   if (runtimeInfo.surface === 'ambient') {
     return (
       <main
-        className={`ambient-companion companion--${state.mode}`}
+        className={`ambient-companion companion--${ambientCompanionMode}`}
         aria-label="Deskiii desktop companion"
         data-bubble-placement={ambientState?.bubblePlacement ?? 'above'}
         data-avatar-yaw-degrees={avatarYawDegrees}
         data-bubble-visible={showAmbientBubble}
-        data-composer-expanded={composerExpanded}
+        data-composer-expanded={composerExpanded && !voiceConversationActive}
+        data-voice-active={voiceConversationActive}
         data-horizontal-placement={ambientState?.horizontalPlacement ?? 'center'}
         data-recovery-available={ambientState?.recoveryAvailable ?? false}
         data-visibility-recovery-count={ambientState?.visibilityRecoveryCount ?? 0}
       >
-        {composerExpanded ? (
+        {composerExpanded || voiceConversationActive ? (
           <>
             <div className="ambient-drag-handle" data-desky-interactive="true" title="Drag Deskiii" aria-label="Drag Deskiii">•••</div>
             <div className="ambient-actions" data-desky-interactive="true">
@@ -846,7 +1021,7 @@ export function App() {
 
         {showAmbientBubble ? (
           <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
-            <strong>{uiError ? 'Needs attention' : state.label}</strong>
+            <strong>{uiError ? 'Needs attention' : ambientCompanionLabel}</strong>
             <p>{bubbleMessage}</p>
             {state.pendingApproval && adapterMode === 'runtime' ? (
               <div className="ambient-approval-actions" aria-label="Approval choices">
@@ -856,12 +1031,15 @@ export function App() {
                 <button type="button" className="danger" disabled={busy} onClick={() => void withBusy(() => resolveApproval('deny'))}>Deny</button>
                 <button type="button" className="quiet" onClick={() => window.desky.performWindowAction('open-control-center')}>Details</button>
               </div>
-            ) : state.bubbleOverflow || uiError ? (
+            ) : state.bubbleOverflow || uiError || liveVoiceBubble ? (
               <button
                 type="button"
                 className="ambient-open-conversation"
                 onClick={() => {
                   setDismissedBubbleRevision(state.revision);
+                  if (voiceConversationResponse) {
+                    setDismissedVoiceConversationRevision(voiceConversationResponse.revision);
+                  }
                   void window.desky.conversation.open();
                 }}
               >
@@ -874,7 +1052,7 @@ export function App() {
         <div className="ambient-avatar">
           <AvatarStage
             avatarRevisionId={avatarSelection.pendingRevisionId ?? avatarSelection.activeRevisionId}
-            mode={state.mode}
+            mode={ambientCompanionMode}
             motionPersonality={motionPersonality}
             motionPreference={motionPreference}
             motionCue={motionCue}
@@ -930,7 +1108,7 @@ export function App() {
           </button>
         ) : null}
 
-        {composerExpanded && connected && hasSession ? (
+        {voiceConversationActive ? voiceConversationDock('ambient') : composerExpanded && connected && hasSession ? (
           <form
             className="ambient-prompt ambient-prompt--expanded"
             data-desky-interactive="true"
@@ -939,16 +1117,18 @@ export function App() {
               if (event.key !== 'Escape') return;
               event.preventDefault();
               void voiceInputControllerRef.current?.cancel();
+              void voiceConversationControllerRef.current?.stop(false);
               setComposerExpanded(false);
             }}
           >
             <label className="sr-only" htmlFor="ambient-prompt">Message</label>
             <input ref={ambientPromptRef} id="ambient-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy} autoComplete="off" placeholder="Ask Deskiii anything…" />
             {voiceInputButton}
+            {voiceConversationButton}
             {activeRun ? (
               <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
             ) : (
-              <button type="submit" disabled={busy || voiceInputActive || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
+              <button type="submit" disabled={busy || voiceInputActive || voiceConversationActive || !draft.text.trim()}>{busy ? '…' : 'Send'}</button>
             )}
           </form>
         ) : (
@@ -1391,7 +1571,7 @@ export function App() {
           <select
             id="adapter-session"
             value={gateway.selectedSessionId ?? ''}
-            disabled={busy}
+            disabled={busy || voiceInputActive || voiceConversationActive}
             onChange={(event) => void withBusy(async () => { setGateway(await window.desky.adapters.selectSession(event.target.value)); })}
           >
             <option value="" disabled>Select a session</option>
@@ -1416,16 +1596,19 @@ export function App() {
         </div>
       ) : null}
 
-      <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
-        <label className="sr-only" htmlFor="control-prompt">Message</label>
-        <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Deskiii anything…" />
-        {voiceInputButton}
-        {adapterMode === 'runtime' && gateway.activeTurnId ? (
-          <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
-        ) : (
-          <button type="submit" disabled={busy || voiceInputActive || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
-        )}
-      </form>
+      {voiceConversationActive ? voiceConversationDock('control') : (
+        <form className="prompt-bar" onSubmit={(event) => { event.preventDefault(); void run(); }}>
+          <label className="sr-only" htmlFor="control-prompt">Message</label>
+          <input id="control-prompt" value={draft.text} onChange={(event) => updateDraft(event.target.value)} disabled={busy || !connected || !hasSession} autoComplete="off" placeholder="Ask Deskiii anything…" />
+          {voiceInputButton}
+          {voiceConversationButton}
+          {adapterMode === 'runtime' && gateway.activeTurnId ? (
+            <button className="cancel-button" type="button" disabled={busy} onClick={() => void withBusy(() => window.desky.adapters.cancel())}>Stop</button>
+          ) : (
+            <button type="submit" disabled={busy || voiceInputActive || !draft.text.trim() || !connected || !hasSession}>{busy ? 'Working' : 'Send'}</button>
+          )}
+        </form>
+      )}
 
       {showConnection ? (
         <section className="connection-sheet connection-sheet--inline" aria-label="Agent connection">
@@ -1492,6 +1675,11 @@ export function App() {
                     Voice dictation: {gateway.capabilities.voiceInput.availability === 'available'
                       ? 'streaming transcription available'
                       : gateway.capabilities.voiceInput.setupHint ?? 'not offered by this Gateway'}
+                  </p>
+                  <p className={`adapter-capability adapter-capability--${gateway.capabilities.voiceConversation.availability}`}>
+                    Live voice: {gateway.capabilities.voiceConversation.availability === 'available'
+                      ? `Gateway relay ready${gateway.capabilities.voiceConversation.supportsBargeIn ? ' with barge-in' : ''}`
+                      : gateway.capabilities.voiceConversation.setupHint ?? 'not offered by this Gateway'}
                   </p>
                 </>
               ) : null}

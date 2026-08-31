@@ -12,6 +12,14 @@ import type {
   VoiceInputSession,
   VoiceInputStopCommand,
 } from '../../shared/voice-input';
+import type {
+  VoiceConversationAudioChunk,
+  VoiceConversationCancelOutputCommand,
+  VoiceConversationEvent,
+  VoiceConversationMarkCommand,
+  VoiceConversationSession,
+  VoiceConversationStopCommand,
+} from '../../shared/voice-conversation';
 
 export interface AgentAdapterRuntime {
   readonly descriptor: AdapterDescriptor;
@@ -31,5 +39,11 @@ export interface AgentAdapterRuntime {
   appendVoiceInput?(input: VoiceInputAudioChunk): Promise<void>;
   stopVoiceInput?(input: VoiceInputStopCommand): Promise<void>;
   onVoiceInputEvent?(listener: (event: VoiceInputEvent) => void): () => void;
+  startVoiceConversation?(): Promise<VoiceConversationSession>;
+  appendVoiceConversation?(input: VoiceConversationAudioChunk): Promise<void>;
+  cancelVoiceConversationOutput?(input: VoiceConversationCancelOutputCommand): Promise<'applied' | 'stale' | 'idle'>;
+  acknowledgeVoiceConversationMark?(input: VoiceConversationMarkCommand): Promise<void>;
+  stopVoiceConversation?(input: VoiceConversationStopCommand): Promise<void>;
+  onVoiceConversationEvent?(listener: (event: VoiceConversationEvent) => void): () => void;
   rendererSafeError(error: unknown, operationInput?: unknown): string;
 }

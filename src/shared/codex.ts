@@ -43,6 +43,14 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
     transport: 'none',
     setupHint: 'Codex app-server does not expose an admitted streaming transcription surface.',
   },
+  voiceConversation: {
+    availability: 'unsupported',
+    transport: 'none',
+    inputFormats: [],
+    outputFormats: [],
+    supportsBargeIn: false,
+    setupHint: 'Codex app-server does not expose an admitted realtime audio relay.',
+  },
   agentActions: {
     availability: codexTypedActionPolicy.availability,
     transport: 'none',

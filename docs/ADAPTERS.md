@@ -151,6 +151,7 @@ Every adapter must first pass the executable descriptor/state/event invariants a
 10. bounded queues and backpressure.
 11. typed agent-action admission, duplicate/wrong-session rejection, and no replay after reconnect.
 12. voice capability discovery, microphone/session ownership, bounded audio backpressure, partial/final transcript isolation, cancel/disconnect cleanup, and unsupported-provider behavior.
+13. full-duplex format negotiation, bounded capture/playback, mark timing, turn-scoped barge-in, provider rejection downgrade, adapter-switch cleanup, and text/voice UI exclusivity.
 
 ## Voice input contract
 
@@ -161,6 +162,16 @@ Gateway method discovery proves the transport surface, not provider credentials.
 OpenClaw maps the generic contract to its authenticated transcription-only Talk shape: `talk.session.create({ mode: "transcription", transport: "gateway-relay", brain: "none" })`, serialized `talk.session.appendAudio`, `talk.event`, then `talk.session.close`. The native remote session id used for append/close and the transcription event id are tracked separately. Only events matching the active transcription identity become provider-neutral transcript/error/closed events. The existing `operator.write` scope satisfies OpenClaw's Talk authorization; Deskiii does not request admin or Talk-secret scope.
 
 Codex, Hermes, Claude, and Simulation remain explicitly unsupported. This does not prevent their existing text adapters from working, and Deskiii does not locally transcribe audio and silently feed text into them as a misleading substitute. A future local/system STT provider may become a distinct reviewed adapter-independent transcription runtime, but it must have its own privacy, model-download, Store, and lifecycle policy.
+
+## Realtime voice-conversation contract
+
+`AgentAdapterCapabilities.voiceConversation` is independent of dictation. `available` requires `gateway-relay-realtime`, at least one validated mono input and output format, and an optional truthful barge-in flag. Non-available states must expose `transport: none`, no formats, and `supportsBargeIn: false`. The registry admits one dictation or realtime session across all adapters, pins cleanup to the runtime that created it, and closes that session before adapter/session switching or disposal.
+
+OpenClaw is the first mapping: `talk.catalog` must report a configured ready realtime provider, `gateway-relay`, and compatible PCM16 or G.711 formats; Deskiii then requests `talk.session.create({ sessionKey, mode: "realtime", transport: "gateway-relay", brain: "agent-consult" })`. Audio append, output cancellation, playback marks, close, and `talk.event` remain main-owned. The renderer receives a generated session id plus negotiated formats, not Gateway/provider credentials or tool authority. Provider-side agent consultation continues through OpenClaw's existing policy and selected session.
+
+Method/catalog readiness is not an entitlement claim. A synchronous creation error or asynchronous provider rejection disables further starts on that connection and publishes `setup-required`. The actual bounded provider error is still shown for diagnosis. On the reference Gateway, the intended `runnercourage@gmail.com` OAuth profile is first and contains an account id, but GPT-Live rejects `/v1/live` with 403; live assistant audio is therefore an external account-access gate rather than a passed integration claim.
+
+The renderer serializes a bounded capture queue and stops instead of silently dropping microphone audio. Output is decoded into a bounded Web Audio schedule; clear/cancel stops already scheduled sources, playback marks are acknowledged at their audible boundary, and avatar `speaking` follows scheduled audio rather than transcript arrival. The live-voice dock replaces the text composer for the session and exposes phase, Interrupt when meaningful, End, Escape, and reduced-motion-safe activity. No wake word, launch-time capture, persistence, or background listener is admitted.
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
 

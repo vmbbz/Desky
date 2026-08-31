@@ -10,6 +10,7 @@ import type {
 } from '../src/shared/agent-adapter';
 import { openClawCapabilities } from '../src/shared/adapter-capabilities';
 import type { VoiceInputEvent } from '../src/shared/voice-input';
+import type { VoiceConversationEvent } from '../src/shared/voice-conversation';
 
 class FixtureRuntime implements AgentAdapterRuntime {
   readonly calls: string[] = [];
@@ -18,6 +19,7 @@ class FixtureRuntime implements AgentAdapterRuntime {
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
   private readonly actionListeners = new Set<(command: AgentActionCommand) => void>();
   private readonly voiceInputListeners = new Set<(event: VoiceInputEvent) => void>();
+  private readonly voiceConversationListeners = new Set<(event: VoiceConversationEvent) => void>();
   private state: AdapterConnectionState;
 
   constructor(
@@ -83,6 +85,28 @@ class FixtureRuntime implements AgentAdapterRuntime {
   async stopVoiceInput(input: { sessionId: string; discard: boolean }) {
     this.calls.push(`voice:stop:${input.sessionId}:${input.discard}`);
   }
+  async startVoiceConversation() {
+    this.calls.push('conversation:start');
+    return {
+      sessionId: 'conversation-1',
+      input: { encoding: 'g711_ulaw' as const, sampleRateHz: 8000, channels: 1 as const },
+      output: { encoding: 'pcm16' as const, sampleRateHz: 24000, channels: 1 as const },
+      supportsBargeIn: true,
+    };
+  }
+  async appendVoiceConversation(input: { sessionId: string }) {
+    this.calls.push(`conversation:append:${input.sessionId}`);
+  }
+  async cancelVoiceConversationOutput(input: { sessionId: string; turnId?: string }) {
+    this.calls.push(`conversation:cancel:${input.sessionId}:${input.turnId ?? ''}`);
+    return 'applied' as const;
+  }
+  async acknowledgeVoiceConversationMark(input: { sessionId: string; markName: string }) {
+    this.calls.push(`conversation:mark:${input.sessionId}:${input.markName}`);
+  }
+  async stopVoiceConversation(input: { sessionId: string }) {
+    this.calls.push(`conversation:stop:${input.sessionId}`);
+  }
 
   onState(listener: (state: AdapterConnectionState) => void) {
     this.stateListeners.add(listener);
@@ -104,8 +128,21 @@ class FixtureRuntime implements AgentAdapterRuntime {
     return () => this.voiceInputListeners.delete(listener);
   }
 
+  onVoiceConversationEvent(listener: (event: VoiceConversationEvent) => void) {
+    this.voiceConversationListeners.add(listener);
+    return () => this.voiceConversationListeners.delete(listener);
+  }
+
   enableVoiceInput() {
     this.state = { ...this.state, capabilities: openClawCapabilities(false, true) };
+  }
+
+  enableVoiceConversation() {
+    this.state = { ...this.state, capabilities: openClawCapabilities(false, false, true) };
+  }
+
+  enableAllVoice() {
+    this.state = { ...this.state, capabilities: openClawCapabilities(false, true, true) };
   }
 
   rendererSafeError(error: unknown, operationInput?: unknown): string {
@@ -119,6 +156,10 @@ class FixtureRuntime implements AgentAdapterRuntime {
 
   emitAction(command: AgentActionCommand) {
     for (const listener of this.actionListeners) listener(command);
+  }
+
+  emitVoiceConversation(event: VoiceConversationEvent) {
+    for (const listener of this.voiceConversationListeners) listener(event);
   }
 
   private emitState() {
@@ -259,5 +300,86 @@ describe('AgentAdapterRegistry', () => {
     expect(second.calls).toEqual(['connect:{}']);
     await expect(registry.appendVoiceInput({ sessionId: session.sessionId, audioBase64: '/w==' }))
       .rejects.toThrow('unavailable');
+  });
+
+  it('routes full-duplex voice only in direct builds and keeps dictation mutually exclusive', async () => {
+    const directRuntime = new FixtureRuntime('openclaw', 'OpenClaw', ['direct', 'store']);
+    directRuntime.enableAllVoice();
+    const direct = new AgentAdapterRegistry([directRuntime], 'openclaw', 'direct');
+    const conversation = await direct.startVoiceConversation();
+    await expect(direct.startVoiceInput()).rejects.toThrow('already active');
+    await direct.appendVoiceConversation({
+      sessionId: conversation.sessionId,
+      audioBase64: '/w==',
+      timestamp: 123,
+    });
+    expect(await direct.cancelVoiceConversationOutput({
+      sessionId: conversation.sessionId,
+      turnId: 'turn-1',
+    })).toBe('applied');
+    await direct.acknowledgeVoiceConversationMark({
+      sessionId: conversation.sessionId,
+      markName: 'played-1',
+    });
+    await direct.stopVoiceConversation({ sessionId: conversation.sessionId });
+    expect(directRuntime.calls).toEqual([
+      'conversation:start',
+      'conversation:append:conversation-1',
+      'conversation:cancel:conversation-1:turn-1',
+      'conversation:mark:conversation-1:played-1',
+      'conversation:stop:conversation-1',
+    ]);
+
+    const storeRuntime = new FixtureRuntime('openclaw', 'OpenClaw', ['direct', 'store']);
+    storeRuntime.enableVoiceConversation();
+    const store = new AgentAdapterRegistry([storeRuntime], 'openclaw', 'store');
+    expect(store.getState().capabilities.voiceConversation).toMatchObject({
+      availability: 'unsupported',
+      transport: 'none',
+    });
+    await expect(store.startVoiceConversation()).rejects.toThrow('unavailable');
+    expect(storeRuntime.calls).toEqual([]);
+  });
+
+  it('preserves a bounded realtime event emitted while the session start is resolving', async () => {
+    const runtime = new FixtureRuntime('openclaw', 'OpenClaw', ['direct']);
+    runtime.enableVoiceConversation();
+    const originalStart = runtime.startVoiceConversation.bind(runtime);
+    runtime.startVoiceConversation = async () => {
+      const session = await originalStart();
+      runtime.emitVoiceConversation({ type: 'ready', sessionId: session.sessionId });
+      return session;
+    };
+    const registry = new AgentAdapterRegistry([runtime], 'openclaw', 'direct');
+    const listener = vi.fn();
+    registry.onVoiceConversationEvent(listener);
+
+    const session = await registry.startVoiceConversation();
+
+    expect(session.sessionId).toBe('conversation-1');
+    expect(listener).toHaveBeenCalledWith({ type: 'ready', sessionId: 'conversation-1' });
+    await registry.stopVoiceConversation({ sessionId: session.sessionId });
+  });
+
+  it('closes the creating runtime realtime session before an adapter switch', async () => {
+    const first = new FixtureRuntime('first', 'First', ['direct']);
+    const second = new FixtureRuntime('second', 'Second', ['direct']);
+    first.enableVoiceConversation();
+    second.enableVoiceConversation();
+    const registry = new AgentAdapterRegistry([first, second], 'first', 'direct');
+
+    const session = await registry.startVoiceConversation();
+    await registry.connect({ adapterId: 'second', configuration: {} });
+
+    expect(session.sessionId).toBe('conversation-1');
+    expect(first.calls).toEqual([
+      'conversation:start',
+      'conversation:stop:conversation-1',
+    ]);
+    expect(second.calls).toEqual(['connect:{}']);
+    await expect(registry.appendVoiceConversation({
+      sessionId: session.sessionId,
+      audioBase64: '/w==',
+    })).rejects.toThrow('unavailable');
   });
 });

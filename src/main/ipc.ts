@@ -59,6 +59,15 @@ import {
   type VoiceInputStopCommand,
 } from '../shared/voice-input';
 import {
+  isBoundedVoiceConversationInputBase64,
+  type VoiceConversationAudioChunk,
+  type VoiceConversationCancelOutputCommand,
+  type VoiceConversationEvent,
+  type VoiceConversationMarkCommand,
+  type VoiceConversationSession,
+  type VoiceConversationStopCommand,
+} from '../shared/voice-conversation';
+import {
   admitVrm1CompatibilityFixture,
   readScopedVrm1CompatibilityFile,
 } from './vrm1-compatibility-fixture';
@@ -99,6 +108,14 @@ const voiceInputChannels = {
   start: 'desky:voice-input:start',
   append: 'desky:voice-input:append',
   stop: 'desky:voice-input:stop',
+} as const;
+const voiceConversationChannels = {
+  event: 'desky:voice-conversation:event',
+  start: 'desky:voice-conversation:start',
+  append: 'desky:voice-conversation:append',
+  cancelOutput: 'desky:voice-conversation:cancel-output',
+  acknowledgeMark: 'desky:voice-conversation:acknowledge-mark',
+  stop: 'desky:voice-conversation:stop',
 } as const;
 const codexWorkspaceChannels = {
   select: 'desky:codex-workspace:select',
@@ -212,6 +229,63 @@ function readVoiceStopCommand(value: unknown): VoiceInputStopCommand {
   return { sessionId: value.sessionId, discard: value.discard };
 }
 
+function readVoiceConversationAudioChunk(value: unknown): VoiceConversationAudioChunk {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512
+    || !isBoundedVoiceConversationInputBase64(value.audioBase64)
+    || (value.timestamp !== undefined
+      && (typeof value.timestamp !== 'number' || !Number.isFinite(value.timestamp)))) {
+    throw new Error('Invalid voice-conversation audio chunk.');
+  }
+  return {
+    sessionId: value.sessionId,
+    audioBase64: value.audioBase64,
+    ...(value.timestamp === undefined ? {} : { timestamp: value.timestamp }),
+  };
+}
+
+function readVoiceConversationCancelOutput(
+  value: unknown,
+): VoiceConversationCancelOutputCommand {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512
+    || (value.turnId !== undefined
+      && (typeof value.turnId !== 'string' || value.turnId.length === 0 || value.turnId.length > 512))) {
+    throw new Error('Invalid voice-conversation cancellation command.');
+  }
+  return {
+    sessionId: value.sessionId,
+    ...(typeof value.turnId === 'string' ? { turnId: value.turnId } : {}),
+  };
+}
+
+function readVoiceConversationMark(value: unknown): VoiceConversationMarkCommand {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512
+    || typeof value.markName !== 'string'
+    || value.markName.length === 0
+    || value.markName.length > 512) {
+    throw new Error('Invalid voice-conversation playback mark.');
+  }
+  return { sessionId: value.sessionId, markName: value.markName };
+}
+
+function readVoiceConversationStop(value: unknown): VoiceConversationStopCommand {
+  if (!isRecord(value)
+    || typeof value.sessionId !== 'string'
+    || value.sessionId.length === 0
+    || value.sessionId.length > 512) {
+    throw new Error('Invalid voice-conversation stop command.');
+  }
+  return { sessionId: value.sessionId };
+}
+
 function assertText(value: unknown, name: string, limit: number): string {
   if (typeof value !== 'string' || value.length > limit) throw new Error(`Invalid ${name}.`);
   return value;
@@ -268,6 +342,20 @@ export function registerIpc(
   });
   let voiceInputOwnerId: number | undefined;
   let activeVoiceInputSessionId: string | undefined;
+  let voiceConversationOwnerId: number | undefined;
+  let activeVoiceConversationSessionId: string | undefined;
+  let pendingVoiceConversationEvents: VoiceConversationEvent[] = [];
+  const forwardVoiceConversationEvent = (voiceEvent: VoiceConversationEvent) => {
+    if (voiceEvent.sessionId !== activeVoiceConversationSessionId) return;
+    const owner = BrowserWindow.getAllWindows().find(
+      (window) => window.webContents.id === voiceConversationOwnerId,
+    );
+    owner?.webContents.send(voiceConversationChannels.event, voiceEvent);
+    if (voiceEvent.type === 'closed') {
+      voiceConversationOwnerId = undefined;
+      activeVoiceConversationSessionId = undefined;
+    }
+  };
   const avatarFetcher = shouldDisableAvatarNetwork(
     process.env.DESKY_VISUAL_TEST_DISABLE_NETWORK,
     process.env.DESKY_VISUAL_TEST_EXERCISE,
@@ -583,8 +671,8 @@ export function registerIpc(
     return adapters.resolveApproval(approval);
   });
   ipcMain.handle(voiceInputChannels.start, async (event) => {
-    if (voiceInputOwnerId) {
-      throw new Error('Voice input is already active on another Deskiii surface.');
+    if (voiceInputOwnerId || voiceConversationOwnerId) {
+      throw new Error('A voice session is already active on another Deskiii surface.');
     }
     voiceInputOwnerId = event.sender.id;
     let session: VoiceInputSession;
@@ -620,6 +708,63 @@ export function registerIpc(
     voiceInputOwnerId = undefined;
     activeVoiceInputSessionId = undefined;
     await adapters.stopVoiceInput(command);
+  });
+  ipcMain.handle(voiceConversationChannels.start, async (event) => {
+    if (voiceInputOwnerId || voiceConversationOwnerId) {
+      throw new Error('A voice session is already active on another Deskiii surface.');
+    }
+    voiceConversationOwnerId = event.sender.id;
+    pendingVoiceConversationEvents = [];
+    let session: VoiceConversationSession;
+    try {
+      session = await adapters.startVoiceConversation();
+      activeVoiceConversationSessionId = session.sessionId;
+    } catch (error) {
+      voiceConversationOwnerId = undefined;
+      pendingVoiceConversationEvents = [];
+      throw error;
+    }
+    const pendingEvents = pendingVoiceConversationEvents;
+    pendingVoiceConversationEvents = [];
+    for (const voiceEvent of pendingEvents) forwardVoiceConversationEvent(voiceEvent);
+    const ownerId = event.sender.id;
+    event.sender.once('destroyed', () => {
+      if (voiceConversationOwnerId !== ownerId || !activeVoiceConversationSessionId) return;
+      const sessionId = activeVoiceConversationSessionId;
+      voiceConversationOwnerId = undefined;
+      activeVoiceConversationSessionId = undefined;
+      void adapters.stopVoiceConversation({ sessionId }).catch(() => undefined);
+    });
+    return session;
+  });
+  ipcMain.handle(voiceConversationChannels.append, (event, input: unknown) => {
+    const chunk = readVoiceConversationAudioChunk(input);
+    if (voiceConversationOwnerId !== event.sender.id
+      || chunk.sessionId !== activeVoiceConversationSessionId) {
+      throw new Error('Voice-conversation session is not owned by this surface.');
+    }
+    return adapters.appendVoiceConversation(chunk);
+  });
+  ipcMain.handle(voiceConversationChannels.cancelOutput, (event, input: unknown) => {
+    const command = readVoiceConversationCancelOutput(input);
+    if (voiceConversationOwnerId !== event.sender.id
+      || command.sessionId !== activeVoiceConversationSessionId) return 'idle';
+    return adapters.cancelVoiceConversationOutput(command);
+  });
+  ipcMain.handle(voiceConversationChannels.acknowledgeMark, (event, input: unknown) => {
+    const command = readVoiceConversationMark(input);
+    if (voiceConversationOwnerId !== event.sender.id
+      || command.sessionId !== activeVoiceConversationSessionId) return;
+    return adapters.acknowledgeVoiceConversationMark(command);
+  });
+  ipcMain.handle(voiceConversationChannels.stop, async (event, input: unknown) => {
+    const command = readVoiceConversationStop(input);
+    if (voiceConversationOwnerId !== event.sender.id
+      || command.sessionId !== activeVoiceConversationSessionId) return;
+    voiceConversationOwnerId = undefined;
+    activeVoiceConversationSessionId = undefined;
+    pendingVoiceConversationEvents = [];
+    await adapters.stopVoiceConversation(command);
   });
   ipcMain.handle(codexWorkspaceChannels.select, async (event, sandbox: unknown) => {
     if (getDistributionProfile() !== 'direct'
@@ -704,6 +849,13 @@ export function registerIpc(
       voiceInputOwnerId = undefined;
       activeVoiceInputSessionId = undefined;
     }
+  });
+  adapters.onVoiceConversationEvent((voiceEvent) => {
+    if (voiceConversationOwnerId && !activeVoiceConversationSessionId) {
+      if (pendingVoiceConversationEvents.length < 8) pendingVoiceConversationEvents.push(voiceEvent);
+      return;
+    }
+    forwardVoiceConversationEvent(voiceEvent);
   });
   adapters.onEvent((adapterEvent) => {
     const snapshot = companion.applyEvent(adapterEvent);

@@ -21,6 +21,14 @@ import type {
   VoiceInputSession,
   VoiceInputStopCommand,
 } from '../../shared/voice-input';
+import type {
+  VoiceConversationAudioChunk,
+  VoiceConversationCancelOutputCommand,
+  VoiceConversationEvent,
+  VoiceConversationMarkCommand,
+  VoiceConversationSession,
+  VoiceConversationStopCommand,
+} from '../../shared/voice-conversation';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -69,6 +77,11 @@ export function mapOpenClawState(state: OpenClawConnectionState): AdapterConnect
     capabilities: {
       ...state.capabilities,
       voiceInput: { ...state.capabilities.voiceInput },
+      voiceConversation: {
+        ...state.capabilities.voiceConversation,
+        inputFormats: state.capabilities.voiceConversation.inputFormats.map((format) => ({ ...format })),
+        outputFormats: state.capabilities.voiceConversation.outputFormats.map((format) => ({ ...format })),
+      },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],
@@ -151,6 +164,32 @@ export class OpenClawRuntime implements AgentAdapterRuntime {
 
   onVoiceInputEvent(listener: (event: VoiceInputEvent) => void): () => void {
     return this.host.onVoiceInputEvent(listener);
+  }
+
+  startVoiceConversation(): Promise<VoiceConversationSession> {
+    return this.host.startVoiceConversation();
+  }
+
+  appendVoiceConversation(input: VoiceConversationAudioChunk): Promise<void> {
+    return this.host.appendVoiceConversation(input.sessionId, input.audioBase64, input.timestamp);
+  }
+
+  cancelVoiceConversationOutput(
+    input: VoiceConversationCancelOutputCommand,
+  ): Promise<'applied' | 'stale' | 'idle'> {
+    return this.host.cancelVoiceConversationOutput(input.sessionId, input.turnId);
+  }
+
+  acknowledgeVoiceConversationMark(input: VoiceConversationMarkCommand): Promise<void> {
+    return this.host.acknowledgeVoiceConversationMark(input.sessionId, input.markName);
+  }
+
+  stopVoiceConversation(input: VoiceConversationStopCommand): Promise<void> {
+    return this.host.stopVoiceConversation(input.sessionId);
+  }
+
+  onVoiceConversationEvent(listener: (event: VoiceConversationEvent) => void): () => void {
+    return this.host.onVoiceConversationEvent(listener);
   }
 
   rendererSafeError(error: unknown, operationInput?: unknown): string {

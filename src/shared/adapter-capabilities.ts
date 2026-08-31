@@ -1,10 +1,12 @@
 import { avatarActionKinds, type AvatarActionKind } from './agent-actions';
+import type { VoiceConversationAudioFormat } from './voice-conversation';
 
 export const agentAdapterKinds = ['openclaw', 'codex', 'claude', 'hermes', 'simulation'] as const;
 export type AgentAdapterKind = (typeof agentAdapterKinds)[number];
 
 export type AgentActionAvailability = 'available' | 'setup-required' | 'unsupported';
 export type VoiceInputAvailability = 'available' | 'setup-required' | 'unsupported';
+export type VoiceConversationAvailability = 'available' | 'setup-required' | 'unsupported';
 
 /**
  * Provider-neutral capability contract consumed by Desky's UI and motion host.
@@ -27,6 +29,14 @@ export interface AgentAdapterCapabilities {
     inputSampleRateHz?: 8000;
     setupHint?: string;
   };
+  voiceConversation: {
+    availability: VoiceConversationAvailability;
+    transport: 'gateway-relay-realtime' | 'none';
+    inputFormats: VoiceConversationAudioFormat[];
+    outputFormats: VoiceConversationAudioFormat[];
+    supportsBargeIn: boolean;
+    setupHint?: string;
+  };
   agentActions: {
     availability: AgentActionAvailability;
     transport: 'typed-tool-event' | 'none';
@@ -38,6 +48,7 @@ export interface AgentAdapterCapabilities {
 export function openClawCapabilities(
   actionsAvailable: boolean,
   voiceInputAvailable = false,
+  voiceConversationAvailable = false,
 ): AgentAdapterCapabilities {
   return {
     schemaVersion: 1,
@@ -58,6 +69,27 @@ export function openClawCapabilities(
       : {
           availability: 'unsupported',
           transport: 'none',
+        },
+    voiceConversation: voiceConversationAvailable
+      ? {
+          availability: 'available',
+          transport: 'gateway-relay-realtime',
+          inputFormats: [
+            { encoding: 'g711_ulaw', sampleRateHz: 8000, channels: 1 },
+            { encoding: 'pcm16', sampleRateHz: 24000, channels: 1 },
+          ],
+          outputFormats: [
+            { encoding: 'g711_ulaw', sampleRateHz: 8000, channels: 1 },
+            { encoding: 'pcm16', sampleRateHz: 24000, channels: 1 },
+          ],
+          supportsBargeIn: true,
+        }
+      : {
+          availability: 'unsupported',
+          transport: 'none',
+          inputFormats: [],
+          outputFormats: [],
+          supportsBargeIn: false,
         },
     agentActions: actionsAvailable
       ? {
@@ -86,6 +118,13 @@ export const simulationCapabilities: AgentAdapterCapabilities = Object.freeze({
   voiceInput: {
     availability: 'unsupported',
     transport: 'none',
+  },
+  voiceConversation: {
+    availability: 'unsupported',
+    transport: 'none',
+    inputFormats: [],
+    outputFormats: [],
+    supportsBargeIn: false,
   },
   agentActions: {
     availability: 'unsupported',

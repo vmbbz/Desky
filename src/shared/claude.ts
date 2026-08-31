@@ -29,6 +29,14 @@ export const claudeFoundationCapabilities: AgentAdapterCapabilities = Object.fre
     transport: 'none',
     setupHint: 'Claude Agent SDK has no admitted streaming transcription transport in Deskiii.',
   },
+  voiceConversation: {
+    availability: 'unsupported',
+    transport: 'none',
+    inputFormats: [],
+    outputFormats: [],
+    supportsBargeIn: false,
+    setupHint: 'Claude Agent SDK has no admitted realtime audio relay in Deskiii.',
+  },
   agentActions: {
     availability: 'unsupported',
     transport: 'none',

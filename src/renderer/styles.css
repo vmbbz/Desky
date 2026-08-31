@@ -230,11 +230,11 @@ button { cursor: pointer; }
 
 .prompt-bar {
   -webkit-app-region: no-drag;
-  display: grid;
-  grid-template-columns: 1fr auto;
+  display: flex;
   gap: 7px;
   margin: 0 10px 7px;
 }
+.prompt-bar input { flex: 1 1 auto; }
 .prompt-bar input,
 .prompt-bar button {
   height: 38px;
@@ -273,6 +273,116 @@ button { cursor: pointer; }
   bottom: -1px;
   font-size: 9px;
   line-height: 1;
+}
+.voice-session-dock {
+  -webkit-app-region: no-drag;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 6px 7px 6px 12px;
+  border: 1px solid rgba(114, 221, 212, 0.3);
+  border-radius: 18px;
+  background:
+    linear-gradient(115deg, rgba(22, 58, 61, 0.92), rgba(8, 13, 22, 0.94) 58%),
+    rgba(8, 12, 20, 0.94);
+  color: #eefdfb;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28), 0 0 24px rgba(74, 199, 189, 0.08);
+  backdrop-filter: blur(20px);
+}
+
+.voice-session-dock--ambient {
+  position: absolute;
+  right: 42px;
+  bottom: 9px;
+  left: 42px;
+}
+
+.voice-session-dock--control { margin: 0 10px 7px; }
+
+.voice-session-dock__activity {
+  display: flex;
+  flex: 0 0 25px;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 22px;
+  color: #72ddd4;
+}
+
+.voice-session-dock__activity i {
+  width: 2px;
+  height: 5px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.64;
+  transform-origin: center;
+  animation: voice-session-pulse 1.15s ease-in-out infinite alternate;
+}
+
+.voice-session-dock__activity i:nth-child(2) { animation-delay: -0.72s; }
+.voice-session-dock__activity i:nth-child(3) { animation-delay: -0.28s; }
+.voice-session-dock__activity i:nth-child(4) { animation-delay: -0.94s; }
+.voice-session-dock__activity i:nth-child(5) { animation-delay: -0.46s; }
+.voice-session-dock[data-phase="thinking"] .voice-session-dock__activity { color: #ffd19b; }
+.voice-session-dock[data-phase="speaking"] .voice-session-dock__activity i { animation-duration: 0.48s; }
+.voice-session-dock[data-phase="requesting"] .voice-session-dock__activity i,
+.voice-session-dock[data-phase="stopping"] .voice-session-dock__activity i { animation-duration: 1.6s; opacity: 0.42; }
+
+@keyframes voice-session-pulse {
+  from { height: 4px; transform: scaleY(0.72); }
+  to { height: 19px; transform: scaleY(1); }
+}
+
+.voice-session-dock__copy {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 1px;
+}
+
+.voice-session-dock__copy strong { font-size: 11px; letter-spacing: 0.01em; }
+.voice-session-dock__copy small {
+  overflow: hidden;
+  color: #8fa6ad;
+  font-size: 8px;
+  letter-spacing: 0.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-session-dock button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 11px;
+  color: #d8e6e9;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 720;
+}
+
+.voice-session-dock button svg { width: 14px; height: 14px; }
+.voice-session-dock__interrupt { padding: 0 10px; background: rgba(255, 181, 92, 0.1); }
+.voice-session-dock__interrupt:hover { border-color: rgba(255, 193, 117, 0.46); color: #ffe0b9; }
+.voice-session-dock button.voice-session-dock__end {
+  width: 34px;
+  padding: 0;
+  border-color: rgba(255, 126, 148, 0.3);
+  background: rgba(105, 29, 44, 0.54);
+  color: #ffadba;
+}
+.voice-session-dock__end:hover { border-color: rgba(255, 145, 164, 0.55); background: rgba(125, 32, 50, 0.7); }
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-session-dock__activity i { animation: none; }
+  .voice-session-dock__activity i:nth-child(2),
+  .voice-session-dock__activity i:nth-child(4) { height: 10px; }
 }
 
 footer { display: flex; justify-content: space-between; padding: 0 12px; color: #748096; font-size: 9px; }
@@ -453,6 +563,7 @@ body[data-desky-surface="control-center"] {
 }
 
 .ambient-companion[data-composer-expanded="true"] .ambient-speech-bubble { top: 45px; }
+.ambient-companion[data-voice-active="true"]:not([data-bubble-placement="below"]) .ambient-speech-bubble { top: 45px; }
 
 .ambient-speech-bubble::after {
   content: "";
@@ -522,6 +633,8 @@ body[data-desky-surface="control-center"] {
 
 .ambient-companion[data-bubble-visible="true"] .ambient-avatar { inset: 96px 28px 46px; }
 .ambient-companion[data-composer-expanded="true"] .ambient-avatar { bottom: 58px; }
+.ambient-companion[data-voice-active="true"] .ambient-avatar { bottom: 62px; }
+.ambient-companion[data-voice-active="true"] .ambient-motion-status { display: none; }
 
 .ambient-avatar .avatar-stage { width: 100%; height: 100%; }
 .ambient-motion-status {
@@ -575,6 +688,7 @@ body[data-desky-surface="control-center"] {
 }
 
 .ambient-companion[data-bubble-placement="below"][data-composer-expanded="true"] .ambient-speech-bubble { bottom: 62px; }
+.ambient-companion[data-bubble-placement="below"][data-voice-active="true"] .ambient-speech-bubble { bottom: 72px; }
 
 .ambient-companion[data-bubble-placement="below"] .ambient-speech-bubble::after {
   top: -7px;
@@ -603,8 +717,7 @@ body[data-desky-surface="control-center"] {
   right: 26px;
   bottom: 9px;
   left: 26px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
   gap: 5px;
   padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.13);
@@ -613,6 +726,7 @@ body[data-desky-surface="control-center"] {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(18px);
 }
+.ambient-prompt input { flex: 1 1 auto; }
 
 .ambient-prompt input,
 .ambient-prompt button {
@@ -635,6 +749,7 @@ body[data-desky-surface="control-center"] {
   left: 50%;
   transform: translateX(-50%);
 }
+.ambient-launcher { display: flex; gap: 6px; }
 
 .ambient-launcher button {
   min-width: 114px;
@@ -664,6 +779,7 @@ body[data-desky-surface="control-center"] {
 .ambient-prompt input:focus-visible,
 .ambient-prompt button:focus-visible,
 .ambient-launcher button:focus-visible,
+.voice-session-dock button:focus-visible,
 .control-center button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -752,7 +868,8 @@ body[data-desky-surface="control-center"] {
 .response-truncation { display: block; margin-bottom: 7px; color: #e7bd72; font-size: 10px; }
 .control-center .approval-card,
 .control-center .session-row,
-.control-center .prompt-bar { margin-right: 0; margin-left: 0; }
+.control-center .prompt-bar,
+.control-center .voice-session-dock { margin-right: 0; margin-left: 0; }
 .control-center footer { margin-top: 14px; padding: 0 2px; }
 
 .marketplace-view { color: #e9eef8; }

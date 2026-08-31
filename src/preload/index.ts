@@ -54,6 +54,14 @@ import type {
   VoiceInputEvent,
   VoiceInputStopCommand,
 } from '../shared/voice-input';
+import type {
+  VoiceConversationAudioChunk,
+  VoiceConversationBridge,
+  VoiceConversationCancelOutputCommand,
+  VoiceConversationEvent,
+  VoiceConversationMarkCommand,
+  VoiceConversationStopCommand,
+} from '../shared/voice-conversation';
 
 const channels = {
   state: 'desky:adapter:state',
@@ -108,6 +116,36 @@ const voiceInput: VoiceInputBridge = Object.freeze({
     const handler = (_event: Electron.IpcRendererEvent, voiceEvent: VoiceInputEvent) => listener(voiceEvent);
     ipcRenderer.on(voiceInputChannels.event, handler);
     return () => ipcRenderer.removeListener(voiceInputChannels.event, handler);
+  },
+});
+
+const voiceConversationChannels = {
+  event: 'desky:voice-conversation:event',
+  start: 'desky:voice-conversation:start',
+  append: 'desky:voice-conversation:append',
+  cancelOutput: 'desky:voice-conversation:cancel-output',
+  acknowledgeMark: 'desky:voice-conversation:acknowledge-mark',
+  stop: 'desky:voice-conversation:stop',
+} as const;
+
+const voiceConversation: VoiceConversationBridge = Object.freeze({
+  start: () => ipcRenderer.invoke(voiceConversationChannels.start),
+  append: (input: VoiceConversationAudioChunk) => (
+    ipcRenderer.invoke(voiceConversationChannels.append, input)
+  ),
+  cancelOutput: (input: VoiceConversationCancelOutputCommand) => (
+    ipcRenderer.invoke(voiceConversationChannels.cancelOutput, input)
+  ),
+  acknowledgeMark: (input: VoiceConversationMarkCommand) => (
+    ipcRenderer.invoke(voiceConversationChannels.acknowledgeMark, input)
+  ),
+  stop: (input: VoiceConversationStopCommand) => (
+    ipcRenderer.invoke(voiceConversationChannels.stop, input)
+  ),
+  onEvent: (listener: (event: VoiceConversationEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, voiceEvent: VoiceConversationEvent) => listener(voiceEvent);
+    ipcRenderer.on(voiceConversationChannels.event, handler);
+    return () => ipcRenderer.removeListener(voiceConversationChannels.event, handler);
   },
 });
 
@@ -256,6 +294,7 @@ const api = Object.freeze({
   animation,
   adapters,
   voiceInput,
+  voiceConversation,
   codexWorkspace,
 });
 

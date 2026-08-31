@@ -6,6 +6,7 @@ import type {
   AdapterDescriptor,
 } from '../../shared/agent-adapter';
 import type { AdapterEvent } from '../../shared/adapter-events';
+import { isVoiceConversationAudioFormat } from '../../shared/voice-conversation';
 
 export const agentAdapterContractVersion = 1 as const;
 
@@ -129,6 +130,18 @@ export function assertAdapterConnectionState(
     || !['streaming-transcription', 'none'].includes(String(capabilities.voiceInput.transport))
     || (capabilities.voiceInput.setupHint !== undefined
       && !isBoundedString(capabilities.voiceInput.setupHint, 240))
+    || !isRecord(capabilities.voiceConversation)
+    || !actionAvailability.has(String(capabilities.voiceConversation.availability))
+    || !['gateway-relay-realtime', 'none'].includes(String(capabilities.voiceConversation.transport))
+    || !Array.isArray(capabilities.voiceConversation.inputFormats)
+    || capabilities.voiceConversation.inputFormats.length > 4
+    || capabilities.voiceConversation.inputFormats.some((format) => !isVoiceConversationAudioFormat(format))
+    || !Array.isArray(capabilities.voiceConversation.outputFormats)
+    || capabilities.voiceConversation.outputFormats.length > 4
+    || capabilities.voiceConversation.outputFormats.some((format) => !isVoiceConversationAudioFormat(format))
+    || typeof capabilities.voiceConversation.supportsBargeIn !== 'boolean'
+    || (capabilities.voiceConversation.setupHint !== undefined
+      && !isBoundedString(capabilities.voiceConversation.setupHint, 240))
     || !isRecord(capabilities.agentActions)
     || !actionAvailability.has(String(capabilities.agentActions.availability))
     || !actionTransports.has(String(capabilities.agentActions.transport))
@@ -149,6 +162,18 @@ export function assertAdapterConnectionState(
     || capabilities.voiceInput.inputEncoding !== undefined
     || capabilities.voiceInput.inputSampleRateHz !== undefined) {
     contractError('unavailable voice input with an advertised transport');
+  }
+  if (capabilities.voiceConversation.availability === 'available') {
+    if (capabilities.voiceConversation.transport !== 'gateway-relay-realtime'
+      || capabilities.voiceConversation.inputFormats.length === 0
+      || capabilities.voiceConversation.outputFormats.length === 0) {
+      contractError('available voice conversation without an admitted transport');
+    }
+  } else if (capabilities.voiceConversation.transport !== 'none'
+    || capabilities.voiceConversation.inputFormats.length !== 0
+    || capabilities.voiceConversation.outputFormats.length !== 0
+    || capabilities.voiceConversation.supportsBargeIn) {
+    contractError('unavailable voice conversation with an advertised transport');
   }
   if (capabilities.agentActions.availability === 'available'
     && (capabilities.agentActions.transport === 'none'

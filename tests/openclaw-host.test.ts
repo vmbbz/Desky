@@ -22,7 +22,8 @@ const requiredMethods = [
   'sessions.messages.unsubscribe', 'sessions.create', 'chat.send', 'chat.history',
   'sessions.abort', 'approval.resolve',
   'desky.actions.capabilities',
-  'talk.session.create', 'talk.session.appendAudio', 'talk.session.close',
+  'talk.catalog', 'talk.session.create', 'talk.session.appendAudio',
+  'talk.session.cancelOutput', 'talk.session.acknowledgeMark', 'talk.session.close',
 ];
 
 const encryption: EncryptionProvider = {
@@ -81,12 +82,52 @@ class FixtureClient implements GatewayClientPort {
         actions: ['wave', 'jump'],
         transport: 'session-tool-stream',
       };
-    } else if (method === 'talk.session.create') {
+    } else if (method === 'talk.catalog') {
       value = {
-        sessionId: 'voice-session-1',
-        transcriptionSessionId: 'voice-transcription-1',
-        audio: { inputEncoding: 'g711_ulaw', inputSampleRateHz: 8000 },
+        modes: ['realtime', 'transcription'],
+        transports: ['gateway-relay'],
+        brains: ['agent-consult', 'none'],
+        speech: { providers: [] },
+        transcription: { ready: true, providers: [{ id: 'openai', configured: true }] },
+        realtime: {
+          ready: true,
+          activeProvider: 'openai',
+          providers: [{
+            id: 'openai',
+            configured: true,
+            transports: ['gateway-relay'],
+            inputAudioFormats: [
+              { encoding: 'g711_ulaw', sampleRateHz: 8000, channels: 1 },
+              { encoding: 'pcm16', sampleRateHz: 24000, channels: 1 },
+            ],
+            outputAudioFormats: [
+              { encoding: 'g711_ulaw', sampleRateHz: 8000, channels: 1 },
+              { encoding: 'pcm16', sampleRateHz: 24000, channels: 1 },
+            ],
+            supportsBargeIn: true,
+          }],
+        },
       };
+    } else if (method === 'talk.session.create') {
+      const mode = (params as { mode?: string }).mode;
+      value = mode === 'realtime'
+        ? {
+            sessionId: 'realtime-session-1',
+            relaySessionId: 'realtime-session-1',
+            audio: {
+              inputEncoding: 'g711_ulaw',
+              inputSampleRateHz: 8000,
+              outputEncoding: 'pcm16',
+              outputSampleRateHz: 24000,
+            },
+          }
+        : {
+            sessionId: 'voice-session-1',
+            transcriptionSessionId: 'voice-transcription-1',
+            audio: { inputEncoding: 'g711_ulaw', inputSampleRateHz: 8000 },
+          };
+    } else if (method === 'talk.session.cancelOutput') {
+      value = { ok: true, status: 'applied', turnId: 'talk-turn-1' };
     }
     return Promise.resolve(value as T);
   }
@@ -161,6 +202,9 @@ describe('OpenClawAdapterHost contract fixture', () => {
     expect(safe).not.toContain('visible');
     expect(safe).not.toContain('exact-secret');
     expect(safe.length).toBeLessThanOrEqual(240);
+    expect(redactOpenClawError({ message: 'cross-realm token=hidden detail' })).toBe(
+      'cross-realm token=[redacted] detail',
+    );
   });
 
   it('rejects a failed connection with the same redacted message stored in state', async () => {
@@ -442,6 +486,166 @@ describe('OpenClawAdapterHost contract fixture', () => {
       { type: 'transcript', sessionId: session.sessionId, text: 'Hello Deskiii', final: true },
       { type: 'closed', sessionId: session.sessionId, reason: 'complete' },
     ]);
+  });
+
+  it('discovers, starts, interrupts, marks, and closes a turn-scoped realtime voice relay', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    let client: FixtureClient | undefined;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        client = new FixtureClient(options);
+        return client;
+      },
+    );
+    const events: unknown[] = [];
+    host.onVoiceConversationEvent((event) => events.push(event));
+    const connected = await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    expect(connected.capabilities.voiceConversation).toMatchObject({
+      availability: 'available',
+      transport: 'gateway-relay-realtime',
+      supportsBargeIn: true,
+    });
+    await host.selectSession('agent:main:desky');
+
+    const session = await host.startVoiceConversation();
+    expect(session).toEqual({
+      sessionId: 'realtime-session-1',
+      input: { encoding: 'g711_ulaw', sampleRateHz: 8000, channels: 1 },
+      output: { encoding: 'pcm16', sampleRateHz: 24000, channels: 1 },
+      supportsBargeIn: true,
+    });
+    await host.appendVoiceConversation(session.sessionId, '////', 123);
+    client?.options.onEvent('talk.event', {
+      relaySessionId: session.sessionId,
+      type: 'transcript',
+      role: 'assistant',
+      text: 'Hello from voice',
+      final: true,
+      talkEvent: { turnId: 'talk-turn-1' },
+    });
+    client?.options.onEvent('talk.event', {
+      relaySessionId: session.sessionId,
+      type: 'audio',
+      audioBase64: 'AAAA',
+      talkEvent: { turnId: 'talk-turn-1' },
+    });
+    client?.options.onEvent('talk.event', {
+      relaySessionId: session.sessionId,
+      type: 'mark',
+      markName: 'played-1',
+      talkEvent: { turnId: 'talk-turn-1' },
+    });
+    expect(await host.cancelVoiceConversationOutput(session.sessionId, 'talk-turn-1')).toBe('applied');
+    await host.acknowledgeVoiceConversationMark(session.sessionId, 'played-1');
+    await host.stopVoiceConversation(session.sessionId);
+
+    expect(client?.calls).toEqual(expect.arrayContaining([
+      {
+        method: 'talk.session.create',
+        params: {
+          sessionKey: 'agent:main:desky',
+          mode: 'realtime',
+          transport: 'gateway-relay',
+          brain: 'agent-consult',
+        },
+      },
+      {
+        method: 'talk.session.appendAudio',
+        params: { sessionId: session.sessionId, audioBase64: '////', timestamp: 123 },
+      },
+      {
+        method: 'talk.session.cancelOutput',
+        params: {
+          sessionId: session.sessionId,
+          turnId: 'talk-turn-1',
+          reason: 'deskiii-user-interrupt',
+        },
+      },
+      {
+        method: 'talk.session.acknowledgeMark',
+        params: { sessionId: session.sessionId, markName: 'played-1' },
+      },
+      { method: 'talk.session.close', params: { sessionId: session.sessionId } },
+    ]));
+    expect(events).toEqual([
+      {
+        type: 'transcript',
+        sessionId: session.sessionId,
+        role: 'assistant',
+        text: 'Hello from voice',
+        final: true,
+        turnId: 'talk-turn-1',
+      },
+      {
+        type: 'audio',
+        sessionId: session.sessionId,
+        audioBase64: 'AAAA',
+        turnId: 'talk-turn-1',
+      },
+      {
+        type: 'mark',
+        sessionId: session.sessionId,
+        markName: 'played-1',
+        turnId: 'talk-turn-1',
+      },
+      { type: 'closed', sessionId: session.sessionId, reason: 'complete' },
+    ]);
+  });
+
+  it('fails realtime voice closed after a provider account rejection', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    let client: FixtureClient | undefined;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        client = new FixtureClient(options);
+        return client;
+      },
+    );
+    const events: unknown[] = [];
+    host.onVoiceConversationEvent((event) => events.push(event));
+    await host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    });
+    await host.selectSession('agent:main:desky');
+    const session = await host.startVoiceConversation();
+
+    client?.options.onEvent('talk.event', {
+      relaySessionId: session.sessionId,
+      type: 'session.error',
+      message: 'GPT-Live rejected the session (403). account access unavailable token=private',
+    });
+
+    expect(host.getState().capabilities.voiceConversation).toEqual({
+      availability: 'setup-required',
+      transport: 'none',
+      inputFormats: [],
+      outputFormats: [],
+      supportsBargeIn: false,
+      setupHint: 'OpenClaw realtime voice was rejected. Verify the selected OAuth account has GPT-Live access, then reconnect.',
+    });
+    expect(host.getState().message).not.toContain('private');
+    expect(events).toEqual([{
+      type: 'error',
+      sessionId: session.sessionId,
+      message: 'GPT-Live rejected the session (403). account access unavailable token=[redacted]',
+    }]);
+    await host.stopVoiceConversation(session.sessionId);
   });
 
   it('downgrades advertised voice input when OpenClaw has no configured transcription provider', async () => {

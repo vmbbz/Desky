@@ -127,6 +127,11 @@ function cloneState(state: AdapterConnectionState): AdapterConnectionState {
     capabilities: {
       ...state.capabilities,
       voiceInput: { ...state.capabilities.voiceInput },
+      voiceConversation: {
+        ...state.capabilities.voiceConversation,
+        inputFormats: state.capabilities.voiceConversation.inputFormats.map((format) => ({ ...format })),
+        outputFormats: state.capabilities.voiceConversation.outputFormats.map((format) => ({ ...format })),
+      },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],

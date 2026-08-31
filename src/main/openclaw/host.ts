@@ -4,6 +4,13 @@ import type { AdapterEvent } from '../../shared/adapter-events';
 import type { AgentActionCommand } from '../../shared/agent-actions';
 import { openClawCapabilities } from '../../shared/adapter-capabilities';
 import type { VoiceInputEvent, VoiceInputSession } from '../../shared/voice-input';
+import {
+  isBoundedVoiceConversationOutputBase64,
+  isVoiceConversationAudioFormat,
+  type VoiceConversationAudioFormat,
+  type VoiceConversationEvent,
+  type VoiceConversationSession,
+} from '../../shared/voice-conversation';
 import type {
   OpenClawConnectInput,
   OpenClawConnectionState,
@@ -53,6 +60,14 @@ const voiceInputMethods = [
   'talk.session.appendAudio',
   'talk.session.close',
 ] as const;
+const voiceConversationMethods = [
+  'talk.session.create',
+  'talk.session.appendAudio',
+  'talk.session.cancelOutput',
+  'talk.session.acknowledgeMark',
+  'talk.session.close',
+] as const;
+const talkCatalogMethod = 'talk.catalog';
 const maximumReconnectAttempt = 100;
 
 function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
@@ -62,11 +77,122 @@ function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
     capabilities: {
       ...state.capabilities,
       voiceInput: { ...state.capabilities.voiceInput },
+      voiceConversation: {
+        ...state.capabilities.voiceConversation,
+        inputFormats: state.capabilities.voiceConversation.inputFormats.map((format) => ({ ...format })),
+        outputFormats: state.capabilities.voiceConversation.outputFormats.map((format) => ({ ...format })),
+      },
       agentActions: {
         ...state.capabilities.agentActions,
         actions: [...state.capabilities.agentActions.actions],
       },
     },
+  };
+}
+
+function readTalkAudioFormats(value: unknown): VoiceConversationAudioFormat[] {
+  if (!Array.isArray(value)) return [];
+  const formats: VoiceConversationAudioFormat[] = [];
+  for (const candidate of value) {
+    if (!isVoiceConversationAudioFormat(candidate)) continue;
+    if (!formats.some((format) => (
+      format.encoding === candidate.encoding && format.sampleRateHz === candidate.sampleRateHz
+    ))) formats.push({ ...candidate });
+    if (formats.length === 4) break;
+  }
+  return formats;
+}
+
+function configuredTalkProvider(group: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (!Array.isArray(group.providers)) return undefined;
+  const activeProvider = typeof group.activeProvider === 'string' ? group.activeProvider : undefined;
+  const providers = group.providers.filter(
+    (provider): provider is Record<string, unknown> => Boolean(provider) && typeof provider === 'object',
+  );
+  return providers.find((provider) => provider.id === activeProvider && provider.configured === true)
+    ?? providers.find((provider) => provider.configured === true);
+}
+
+async function discoverTalkCapabilities(
+  client: GatewayClientPort,
+  methods: readonly string[],
+  events: readonly string[],
+) {
+  const relaySurface = voiceInputMethods.every((method) => methods.includes(method))
+    && events.includes('talk.event');
+  const unsupported = openClawCapabilities(false).voiceConversation;
+  if (!relaySurface) {
+    return {
+      voiceInput: openClawCapabilities(false).voiceInput,
+      voiceConversation: unsupported,
+    };
+  }
+  if (!methods.includes(talkCatalogMethod)) {
+    return {
+      voiceInput: openClawCapabilities(false, true).voiceInput,
+      voiceConversation: unsupported,
+    };
+  }
+  let value: unknown;
+  try {
+    value = await client.request(talkCatalogMethod, {});
+  } catch {
+    return {
+      voiceInput: {
+        availability: 'setup-required' as const,
+        transport: 'none' as const,
+        setupHint: 'OpenClaw Talk discovery failed. Reconnect after checking the Gateway.',
+      },
+      voiceConversation: {
+        ...unsupported,
+        availability: 'setup-required' as const,
+        setupHint: 'OpenClaw realtime voice discovery failed. Reconnect after checking the Gateway.',
+      },
+    };
+  }
+  if (!value || typeof value !== 'object') {
+    return {
+      voiceInput: openClawCapabilities(false).voiceInput,
+      voiceConversation: unsupported,
+    };
+  }
+  const catalog = value as Record<string, unknown>;
+  const transcription = catalog.transcription && typeof catalog.transcription === 'object'
+    ? catalog.transcription as Record<string, unknown>
+    : {};
+  const realtime = catalog.realtime && typeof catalog.realtime === 'object'
+    ? catalog.realtime as Record<string, unknown>
+    : {};
+  const realtimeProvider = configuredTalkProvider(realtime);
+  const transports = Array.isArray(realtimeProvider?.transports) ? realtimeProvider.transports : [];
+  const inputFormats = readTalkAudioFormats(realtimeProvider?.inputAudioFormats);
+  const outputFormats = readTalkAudioFormats(realtimeProvider?.outputAudioFormats);
+  const realtimeReady = realtime.ready === true
+    && voiceConversationMethods.every((method) => methods.includes(method))
+    && transports.includes('gateway-relay')
+    && inputFormats.length > 0
+    && outputFormats.length > 0;
+  return {
+    voiceInput: transcription.ready === true
+      ? openClawCapabilities(false, true).voiceInput
+      : {
+          availability: 'setup-required' as const,
+          transport: 'none' as const,
+          setupHint: 'Configure an OpenClaw realtime transcription provider and credentials, then reconnect.',
+        },
+    voiceConversation: realtimeReady
+      ? {
+          availability: 'available' as const,
+          transport: 'gateway-relay-realtime' as const,
+          inputFormats,
+          outputFormats,
+          supportsBargeIn: realtimeProvider?.supportsBargeIn === true,
+        }
+      : {
+          ...unsupported,
+          availability: 'setup-required' as const,
+          setupHint: 'Configure an OpenClaw realtime voice provider and credentials, then reconnect.',
+        },
   };
 }
 
@@ -95,7 +221,13 @@ async function discoverDeskyActionCapabilities(
 }
 
 export function redactOpenClawError(error: unknown, secrets: Array<string | undefined> = []): string {
-  const raw = error instanceof Error ? error.message : 'OpenClaw operation failed.';
+  const raw = error instanceof Error
+    ? error.message
+    : typeof error === 'string'
+      ? error
+      : error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : 'OpenClaw operation failed.';
   let redacted = raw;
   for (const secret of secrets) {
     if (secret) redacted = redacted.replaceAll(secret, '[redacted]');
@@ -195,7 +327,12 @@ export class OpenClawAdapterHost {
   private readonly eventListeners = new Set<(event: AdapterEvent) => void>();
   private readonly actionListeners = new Set<(command: AgentActionCommand) => void>();
   private readonly voiceInputListeners = new Set<(event: VoiceInputEvent) => void>();
+  private readonly voiceConversationListeners = new Set<(event: VoiceConversationEvent) => void>();
   private activeVoiceInputSession?: { sessionId: string; transcriptionSessionId: string };
+  private activeVoiceConversationSession?: {
+    sessionId: string;
+    supportsBargeIn: boolean;
+  };
   private readonly terminalRuns = new Set<string>();
   private readonly terminalApprovals = new Set<string>();
   private readonly handledActionCommands = new Set<string>();
@@ -239,6 +376,11 @@ export class OpenClawAdapterHost {
     return () => this.voiceInputListeners.delete(listener);
   }
 
+  onVoiceConversationEvent(listener: (event: VoiceConversationEvent) => void): () => void {
+    this.voiceConversationListeners.add(listener);
+    return () => this.voiceConversationListeners.delete(listener);
+  }
+
   getState(): OpenClawConnectionState {
     return cloneState(this.state);
   }
@@ -256,6 +398,8 @@ export class OpenClawAdapterHost {
     this.rememberCredential = input.rememberCredential;
     this.clearReconnectTimer();
     this.generation += 1;
+    this.closeVoiceInputLocally('disconnected');
+    this.closeVoiceConversationLocally('disconnected');
     this.client?.close('Replacing connection');
     this.profile = {
       gatewayUrl: endpoint.url,
@@ -282,6 +426,7 @@ export class OpenClawAdapterHost {
     const client = this.client;
     this.client = undefined;
     this.closeVoiceInputLocally('disconnected');
+    this.closeVoiceConversationLocally('disconnected');
     client?.close();
     this.patchState({
       status: 'disconnected',
@@ -401,8 +546,8 @@ export class OpenClawAdapterHost {
 
   async startVoiceInput(): Promise<VoiceInputSession> {
     const client = this.requireClient();
-    if (this.activeVoiceInputSession) {
-      throw new Error('Finish the current voice input before starting another.');
+    if (this.activeVoiceInputSession || this.activeVoiceConversationSession) {
+      throw new Error('Finish the current voice session before starting dictation.');
     }
     if (!this.state.capabilities.voiceInput
       || this.state.capabilities.voiceInput.availability !== 'available'
@@ -483,6 +628,121 @@ export class OpenClawAdapterHost {
     }
   }
 
+  async startVoiceConversation(): Promise<VoiceConversationSession> {
+    const client = this.requireClient();
+    if (this.activeVoiceInputSession || this.activeVoiceConversationSession) {
+      throw new Error('Finish the current voice session before starting a conversation.');
+    }
+    const capability = this.state.capabilities.voiceConversation;
+    if (capability.availability !== 'available'
+      || !voiceConversationMethods.every((method) => client.features?.methods.includes(method))) {
+      throw new Error(capability.setupHint ?? 'This OpenClaw Gateway does not offer admitted realtime voice.');
+    }
+    const sessionKey = this.state.selectedSessionKey;
+    if (!sessionKey) throw new Error('Select or create an OpenClaw session before starting voice conversation.');
+    let value: unknown;
+    try {
+      value = await client.request('talk.session.create', {
+        sessionKey,
+        mode: 'realtime',
+        transport: 'gateway-relay',
+        brain: 'agent-consult',
+      }, 20_000);
+    } catch (error) {
+      const message = redactOpenClawError(error);
+      if (/realtime|provider|credential|oauth|api key/i.test(message)) {
+        const setupHint = this.markVoiceConversationSetupRequired(message);
+        throw new Error(setupHint);
+      }
+      throw error;
+    }
+    if (!value || typeof value !== 'object') {
+      throw new Error('OpenClaw returned an invalid realtime voice session.');
+    }
+    const result = value as Record<string, unknown>;
+    const sessionId = typeof result.relaySessionId === 'string'
+      ? result.relaySessionId
+      : typeof result.sessionId === 'string' ? result.sessionId : undefined;
+    const audio = result.audio && typeof result.audio === 'object'
+      ? result.audio as Record<string, unknown>
+      : undefined;
+    const input: VoiceConversationAudioFormat = {
+      encoding: audio?.inputEncoding as VoiceConversationAudioFormat['encoding'],
+      sampleRateHz: Number(audio?.inputSampleRateHz),
+      channels: 1,
+    };
+    const output: VoiceConversationAudioFormat = {
+      encoding: audio?.outputEncoding as VoiceConversationAudioFormat['encoding'],
+      sampleRateHz: Number(audio?.outputSampleRateHz),
+      channels: 1,
+    };
+    if (!sessionId || sessionId.length > 512
+      || !isVoiceConversationAudioFormat(input)
+      || !isVoiceConversationAudioFormat(output)) {
+      if (sessionId) await client.request('talk.session.close', { sessionId }).catch(() => undefined);
+      throw new Error('OpenClaw returned an unsupported realtime voice audio format.');
+    }
+    this.activeVoiceConversationSession = {
+      sessionId,
+      supportsBargeIn: capability.supportsBargeIn,
+    };
+    return {
+      sessionId,
+      input,
+      output,
+      supportsBargeIn: capability.supportsBargeIn,
+    };
+  }
+
+  async appendVoiceConversation(
+    sessionId: string,
+    audioBase64: string,
+    timestamp?: number,
+  ): Promise<void> {
+    if (sessionId !== this.activeVoiceConversationSession?.sessionId) {
+      throw new Error('Voice conversation is no longer active.');
+    }
+    await this.requireClient().request('talk.session.appendAudio', {
+      sessionId,
+      audioBase64,
+      ...(timestamp === undefined ? {} : { timestamp }),
+    }, 10_000);
+  }
+
+  async cancelVoiceConversationOutput(
+    sessionId: string,
+    turnId?: string,
+  ): Promise<'applied' | 'stale' | 'idle'> {
+    if (sessionId !== this.activeVoiceConversationSession?.sessionId) return 'idle';
+    const value = await this.requireClient().request<unknown>('talk.session.cancelOutput', {
+      sessionId,
+      ...(turnId ? { turnId } : {}),
+      reason: 'deskiii-user-interrupt',
+    }, 10_000);
+    if (!value || typeof value !== 'object') return 'idle';
+    const status = (value as Record<string, unknown>).status;
+    return status === 'applied' || status === 'stale' ? status : 'idle';
+  }
+
+  async acknowledgeVoiceConversationMark(sessionId: string, markName: string): Promise<void> {
+    if (sessionId !== this.activeVoiceConversationSession?.sessionId) return;
+    await this.requireClient().request('talk.session.acknowledgeMark', { sessionId, markName }, 10_000);
+  }
+
+  async stopVoiceConversation(sessionId: string): Promise<void> {
+    if (sessionId !== this.activeVoiceConversationSession?.sessionId) return;
+    try {
+      await this.requireClient().request('talk.session.close', { sessionId }, 10_000);
+      if (sessionId === this.activeVoiceConversationSession?.sessionId) {
+        this.emitVoiceConversationEvent({ type: 'closed', sessionId, reason: 'complete' });
+      }
+    } finally {
+      if (sessionId === this.activeVoiceConversationSession?.sessionId) {
+        this.activeVoiceConversationSession = undefined;
+      }
+    }
+  }
+
   private async connectCurrentProfile(reconnecting: boolean, generation: number): Promise<void> {
     const profile = this.profile;
     if (!profile) throw new Error('No OpenClaw profile is configured.');
@@ -522,9 +782,11 @@ export class OpenClawAdapterHost {
         client,
         hello.features.methods,
       );
-      const voiceInputAvailable = voiceInputMethods.every((method) => (
-        hello.features.methods.includes(method)
-      )) && hello.features.events.includes('talk.event');
+      const talkCapabilities = await discoverTalkCapabilities(
+        client,
+        hello.features.methods,
+        hello.features.events,
+      );
       if (hello.auth.deviceToken) {
         profile.deviceToken = hello.auth.deviceToken;
         this.persistProfile(this.rememberCredential);
@@ -534,7 +796,15 @@ export class OpenClawAdapterHost {
         serverVersion: hello.server.version,
         message: 'Connected — choose a session',
         reconnectAttempt: 0,
-        capabilities: openClawCapabilities(actionCapabilitiesAvailable, voiceInputAvailable),
+        capabilities: {
+          ...openClawCapabilities(
+            actionCapabilitiesAvailable,
+            talkCapabilities.voiceInput.availability === 'available',
+            talkCapabilities.voiceConversation.availability === 'available',
+          ),
+          voiceInput: talkCapabilities.voiceInput,
+          voiceConversation: talkCapabilities.voiceConversation,
+        },
       });
       this.emitEvent({
         protocolVersion: 1,
@@ -549,10 +819,25 @@ export class OpenClawAdapterHost {
         await client.request('sessions.subscribe', {});
       }
       await this.refreshSessions();
-      if (profile.selectedSessionKey && this.state.sessions.some((item) => item.key === profile.selectedSessionKey)) {
-        await this.selectSession(profile.selectedSessionKey);
+      const selectedSessionExists = profile.selectedSessionKey
+        && this.state.sessions.some((item) => item.key === profile.selectedSessionKey);
+      if (profile.selectedSessionKey && !selectedSessionExists) {
+        profile.selectedSessionKey = undefined;
+        this.patchState({
+          selectedSessionKey: undefined,
+          message: this.state.sessions.length > 0
+            ? 'Saved session was replaced — selecting the newest session'
+            : 'Connected — create a session',
+        });
+        this.persistProfile(this.rememberCredential);
+      }
+      const selectedSessionKey = selectedSessionExists
+        ? profile.selectedSessionKey
+        : this.state.sessions[0]?.key;
+      if (selectedSessionKey) {
+        await this.selectSession(selectedSessionKey);
         if (reconnecting && hello.features.methods.includes('chat.history')) {
-          await client.request('chat.history', { sessionKey: profile.selectedSessionKey, limit: 50 });
+          await client.request('chat.history', { sessionKey: selectedSessionKey, limit: 50 });
         }
       }
     } catch (error) {
@@ -585,7 +870,10 @@ export class OpenClawAdapterHost {
     if (event === 'sessions.changed' || event === 'session.created' || event === 'session.updated') {
       void this.refreshSessions().catch(() => undefined);
     }
-    if (event === 'talk.event') this.handleVoiceInputEvent(payload);
+    if (event === 'talk.event') {
+      this.handleVoiceInputEvent(payload);
+      this.handleVoiceConversationEvent(payload);
+    }
     const action = normalizeOpenClawAgentAction(client.connectionId ?? 'openclaw', event, payload);
     if (action
       && action.sessionId === this.state.selectedSessionKey
@@ -618,6 +906,7 @@ export class OpenClawAdapterHost {
     if (generation !== this.generation || expected) return;
     this.client = undefined;
     this.closeVoiceInputLocally('disconnected');
+    this.closeVoiceConversationLocally('disconnected');
     this.emitEvent({
       protocolVersion: 1,
       eventId: randomUUID(),
@@ -721,6 +1010,28 @@ export class OpenClawAdapterHost {
     for (const listener of this.stateListeners) listener(snapshot);
   }
 
+  private markVoiceConversationSetupRequired(providerMessage: string): string {
+    const accountRejected = /403|forbidden|rejected|account|oauth/i.test(providerMessage);
+    const setupHint = accountRejected
+      ? 'OpenClaw realtime voice was rejected. Verify the selected OAuth account has GPT-Live access, then reconnect.'
+      : 'Configure an OpenClaw realtime voice provider and credentials, then reconnect.';
+    this.patchState({
+      message: providerMessage,
+      capabilities: {
+        ...this.state.capabilities,
+        voiceConversation: {
+          availability: 'setup-required',
+          transport: 'none',
+          inputFormats: [],
+          outputFormats: [],
+          supportsBargeIn: false,
+          setupHint,
+        },
+      },
+    });
+    return setupHint;
+  }
+
   private emitEvent(event: AdapterEvent): void {
     for (const listener of this.eventListeners) listener(event);
   }
@@ -786,6 +1097,105 @@ export class OpenClawAdapterHost {
     }
   }
 
+  private handleVoiceConversationEvent(value: unknown): void {
+    if (!value || typeof value !== 'object' || !this.activeVoiceConversationSession) return;
+    const payload = value as Record<string, unknown>;
+    const eventSessionId = typeof payload.relaySessionId === 'string'
+      ? payload.relaySessionId
+      : typeof payload.sessionId === 'string' ? payload.sessionId : undefined;
+    if (eventSessionId !== this.activeVoiceConversationSession.sessionId) return;
+    const { sessionId } = this.activeVoiceConversationSession;
+    const talkEvent = payload.talkEvent && typeof payload.talkEvent === 'object'
+      ? payload.talkEvent as Record<string, unknown>
+      : payload;
+    const eventType = typeof payload.type === 'string'
+      ? payload.type
+      : typeof talkEvent.type === 'string' ? talkEvent.type : '';
+    const turnId = typeof talkEvent.turnId === 'string' && talkEvent.turnId.length <= 512
+      ? talkEvent.turnId
+      : undefined;
+    if (eventType === 'ready' || eventType === 'session.ready') {
+      this.emitVoiceConversationEvent({ type: 'ready', sessionId });
+      return;
+    }
+    if (eventType === 'audio' || eventType === 'output.audio.delta') {
+      const audioBase64 = typeof payload.audioBase64 === 'string'
+        ? payload.audioBase64
+        : talkEvent.audioBase64;
+      if (!isBoundedVoiceConversationOutputBase64(audioBase64)) {
+        this.emitVoiceConversationEvent({
+          type: 'error',
+          sessionId,
+          message: 'OpenClaw returned an invalid or oversized realtime audio chunk.',
+        });
+        return;
+      }
+      this.emitVoiceConversationEvent({ type: 'audio', sessionId, audioBase64, turnId });
+      return;
+    }
+    if (eventType === 'audioDone' || eventType === 'output.audio.done') {
+      this.emitVoiceConversationEvent({ type: 'audio-done', sessionId, turnId });
+      return;
+    }
+    if (eventType === 'clear' || eventType === 'output.audio.clear') {
+      this.emitVoiceConversationEvent({ type: 'clear', sessionId, turnId });
+      return;
+    }
+    if (eventType === 'mark' || eventType === 'output.audio.mark') {
+      const markName = typeof payload.markName === 'string'
+        ? payload.markName
+        : typeof talkEvent.markName === 'string' ? talkEvent.markName : undefined;
+      if (markName && markName.length <= 512) {
+        this.emitVoiceConversationEvent({ type: 'mark', sessionId, markName, turnId });
+      }
+      return;
+    }
+    if (eventType === 'transcript'
+      || eventType === 'transcript.delta'
+      || eventType === 'transcript.done') {
+      const role = payload.role === 'user' || payload.role === 'assistant'
+        ? payload.role
+        : talkEvent.role === 'user' || talkEvent.role === 'assistant' ? talkEvent.role : undefined;
+      const text = typeof payload.text === 'string'
+        ? payload.text.trim()
+        : typeof talkEvent.text === 'string' ? talkEvent.text.trim() : '';
+      if (role && text) {
+        this.emitVoiceConversationEvent({
+          type: 'transcript',
+          sessionId,
+          role,
+          text: text.slice(0, 100_000),
+          final: payload.final === true || talkEvent.final === true || eventType === 'transcript.done',
+          turnId,
+        });
+      }
+      return;
+    }
+    if (eventType === 'error' || eventType === 'session.error') {
+      const message = typeof payload.message === 'string'
+        ? payload.message
+        : typeof talkEvent.message === 'string' ? talkEvent.message : 'OpenClaw realtime voice failed.';
+      const safeMessage = redactOpenClawError(message).slice(0, 240);
+      if (/403|forbidden|rejected|provider|credential|oauth|api key|account access|unavailable/i.test(safeMessage)) {
+        this.markVoiceConversationSetupRequired(safeMessage);
+      }
+      this.emitVoiceConversationEvent({
+        type: 'error',
+        sessionId,
+        message: safeMessage,
+      });
+      return;
+    }
+    if (eventType === 'close' || eventType === 'session.closed') {
+      this.activeVoiceConversationSession = undefined;
+      this.emitVoiceConversationEvent({
+        type: 'closed',
+        sessionId,
+        reason: payload.reason === 'error' ? 'error' : 'complete',
+      });
+    }
+  }
+
   private closeVoiceInputLocally(
     reason: 'complete' | 'cancelled' | 'error' | 'disconnected',
   ): void {
@@ -794,8 +1204,20 @@ export class OpenClawAdapterHost {
     if (sessionId) this.emitVoiceInputEvent({ type: 'closed', sessionId, reason });
   }
 
+  private closeVoiceConversationLocally(
+    reason: 'complete' | 'cancelled' | 'error' | 'disconnected',
+  ): void {
+    const sessionId = this.activeVoiceConversationSession?.sessionId;
+    this.activeVoiceConversationSession = undefined;
+    if (sessionId) this.emitVoiceConversationEvent({ type: 'closed', sessionId, reason });
+  }
+
   private emitVoiceInputEvent(event: VoiceInputEvent): void {
     for (const listener of this.voiceInputListeners) listener(event);
+  }
+
+  private emitVoiceConversationEvent(event: VoiceConversationEvent): void {
+    for (const listener of this.voiceConversationListeners) listener(event);
   }
 
   private emitApprovalResolved(
