@@ -9,6 +9,10 @@ import { bytesToBase64, floatToG711Ulaw } from './voice-input-controller';
 const maximumPendingAppends = 20;
 const maximumScheduledOutputSeconds = 8;
 const maximumPendingStartEvents = 8;
+const outputJitterBufferSeconds = 0.12;
+const outputGapGraceMs = 300;
+const outputPlaybackWatchdogSlackMs = 2_000;
+const minimumAudibleOutputAmplitude = 1 / 1_024;
 
 export type VoiceConversationPhase =
   | 'idle'
@@ -101,6 +105,13 @@ function decodeOutput(bytes: Uint8Array, encoding: VoiceConversationAudioEncodin
   return encoding === 'g711_ulaw' ? g711UlawToFloat(bytes) : pcm16LittleEndianToFloat(bytes);
 }
 
+function hasAudibleOutput(samples: Float32Array): boolean {
+  for (let index = 0; index < samples.length; index += 1) {
+    if (Math.abs(samples[index] ?? 0) >= minimumAudibleOutputAmplitude) return true;
+  }
+  return false;
+}
+
 export class VoiceConversationController {
   private phaseValue: VoiceConversationPhase = 'idle';
   private stream?: MediaStream;
@@ -117,6 +128,13 @@ export class VoiceConversationController {
   private readonly playbackSources = new Set<AudioBufferSourceNode>();
   private readonly markTimers = new Set<number>();
   private currentTurnId?: string;
+  private outputTurnId?: string;
+  private ignoredOutputTurnId?: string;
+  private ignoreUnscopedOutput = false;
+  private outputDoneReceived = false;
+  private outputTranscriptDoneReceived = false;
+  private outputGapTimer?: number;
+  private playbackWatchdogTimer?: number;
   private removeEventListener?: () => void;
   private stopPromise?: Promise<void>;
   private pendingStartEvents: VoiceConversationEvent[] = [];
@@ -191,7 +209,9 @@ export class VoiceConversationController {
       sessionId: session.sessionId,
       ...(this.currentTurnId ? { turnId: this.currentTurnId } : {}),
     });
+    this.ignoreCurrentOutputTurn();
     this.clearPlayback();
+    this.resetOutputLifecycle();
     if (this.phaseValue !== 'stopping') this.setPhase('listening');
     return result;
   }
@@ -255,19 +275,41 @@ export class VoiceConversationController {
     }
     if (event.type === 'transcript') {
       this.callbacks.onTranscript(event.role, event.text, event.final);
-      if (event.role === 'user' && event.final) this.setPhase('thinking');
+      if (event.role === 'user' && event.final) {
+        if (event.turnId !== this.ignoredOutputTurnId) this.ignoredOutputTurnId = undefined;
+        this.ignoreUnscopedOutput = false;
+        this.beginOutputTurn(event.turnId);
+        this.setPhase('thinking');
+      } else if (event.role === 'assistant' && event.final) {
+        if ((!event.turnId && this.ignoreUnscopedOutput)
+          || (event.turnId && event.turnId === this.ignoredOutputTurnId)) return;
+        this.observeOutputTurn(event.turnId);
+        this.outputTranscriptDoneReceived = true;
+        if (this.playbackSources.size === 0) this.scheduleOutputSettled();
+      }
       return;
     }
     if (event.type === 'audio') {
+      if ((!event.turnId && this.ignoreUnscopedOutput)
+        || (event.turnId && event.turnId === this.ignoredOutputTurnId)) return;
+      this.observeOutputTurn(event.turnId);
       this.scheduleAudio(event.audioBase64);
       return;
     }
     if (event.type === 'audio-done') {
-      if (this.playbackSources.size === 0) this.setPhase('listening');
+      if ((!event.turnId && this.ignoreUnscopedOutput)
+        || (event.turnId && event.turnId === this.ignoredOutputTurnId)) return;
+      if (this.outputTurnId && event.turnId && event.turnId !== this.outputTurnId) return;
+      this.observeOutputTurn(event.turnId);
+      this.outputDoneReceived = true;
+      if (this.playbackSources.size === 0) this.scheduleOutputSettled();
       return;
     }
     if (event.type === 'clear') {
+      this.ignoredOutputTurnId = event.turnId ?? this.outputTurnId ?? this.currentTurnId;
+      this.ignoreUnscopedOutput = true;
       this.clearPlayback();
+      this.resetOutputLifecycle();
       this.setPhase('listening');
       return;
     }
@@ -306,9 +348,10 @@ export class VoiceConversationController {
     const context = this.context;
     const session = this.session;
     if (!context || !session) return;
+    if (context.state === 'suspended') void context.resume().catch(() => undefined);
     const samples = decodeOutput(base64ToBytes(audioBase64), session.output.encoding);
     const duration = samples.length / session.output.sampleRateHz;
-    const startAt = Math.max(context.currentTime + 0.015, this.nextPlaybackAt);
+    const startAt = Math.max(context.currentTime + outputJitterBufferSeconds, this.nextPlaybackAt);
     if (startAt + duration - context.currentTime > maximumScheduledOutputSeconds) {
       this.callbacks.onError('Voice playback was stopped because the output queue exceeded 8 seconds.');
       void this.interrupt().catch(() => undefined);
@@ -324,12 +367,14 @@ export class VoiceConversationController {
       source.disconnect();
       this.playbackSources.delete(source);
       if (generation === this.playbackGeneration && this.playbackSources.size === 0
-        && this.phaseValue !== 'stopping') this.setPhase('listening');
+        && this.phaseValue !== 'stopping') this.scheduleOutputSettled();
     };
     this.playbackSources.add(source);
     this.nextPlaybackAt = startAt + duration;
     source.start(startAt);
-    this.setPhase('speaking');
+    this.cancelOutputGapTimer();
+    this.schedulePlaybackWatchdog();
+    if (hasAudibleOutput(samples)) this.setPhase('speaking');
   }
 
   private scheduleMark(markName: string): void {
@@ -349,6 +394,8 @@ export class VoiceConversationController {
 
   private clearPlayback(): void {
     this.playbackGeneration += 1;
+    this.cancelOutputGapTimer();
+    this.cancelPlaybackWatchdog();
     for (const source of this.playbackSources) {
       source.onended = null;
       try { source.stop(); } catch { /* The source may already be terminal. */ }
@@ -358,6 +405,80 @@ export class VoiceConversationController {
     for (const timer of this.markTimers) window.clearTimeout(timer);
     this.markTimers.clear();
     if (this.context) this.nextPlaybackAt = this.context.currentTime;
+  }
+
+  private beginOutputTurn(turnId?: string): void {
+    this.outputTurnId = turnId;
+    this.outputDoneReceived = false;
+    this.outputTranscriptDoneReceived = false;
+    this.cancelOutputGapTimer();
+  }
+
+  private observeOutputTurn(turnId?: string): void {
+    if (!turnId) return;
+    if (this.outputTurnId === turnId) return;
+    this.outputTurnId = turnId;
+    this.outputDoneReceived = false;
+    this.outputTranscriptDoneReceived = false;
+    this.cancelOutputGapTimer();
+  }
+
+  private ignoreCurrentOutputTurn(): void {
+    this.ignoredOutputTurnId = this.outputTurnId ?? this.currentTurnId;
+    this.ignoreUnscopedOutput = true;
+  }
+
+  private resetOutputLifecycle(): void {
+    this.outputTurnId = undefined;
+    this.outputDoneReceived = false;
+    this.outputTranscriptDoneReceived = false;
+    this.cancelOutputGapTimer();
+  }
+
+  private scheduleOutputSettled(): void {
+    this.cancelOutputGapTimer();
+    const generation = this.playbackGeneration;
+    this.outputGapTimer = window.setTimeout(() => {
+      this.outputGapTimer = undefined;
+      if (generation !== this.playbackGeneration || this.playbackSources.size > 0
+        || this.phaseValue === 'stopping' || this.phaseValue === 'idle') return;
+      if (this.outputDoneReceived || this.outputTranscriptDoneReceived) {
+        this.resetOutputLifecycle();
+        this.setPhase('listening');
+      } else if (this.phaseValue === 'speaking') {
+        this.setPhase('thinking');
+      }
+    }, outputGapGraceMs);
+  }
+
+  private cancelOutputGapTimer(): void {
+    if (this.outputGapTimer === undefined) return;
+    window.clearTimeout(this.outputGapTimer);
+    this.outputGapTimer = undefined;
+  }
+
+  private schedulePlaybackWatchdog(): void {
+    const context = this.context;
+    if (!context) return;
+    this.cancelPlaybackWatchdog();
+    const generation = this.playbackGeneration;
+    const expectedQueueMs = Math.max(0, (this.nextPlaybackAt - context.currentTime) * 1_000);
+    this.playbackWatchdogTimer = window.setTimeout(() => {
+      this.playbackWatchdogTimer = undefined;
+      if (generation !== this.playbackGeneration || this.playbackSources.size === 0
+        || this.phaseValue === 'stopping' || this.phaseValue === 'idle') return;
+      const completed = this.outputDoneReceived;
+      this.clearPlayback();
+      this.resetOutputLifecycle();
+      this.setPhase(completed ? 'listening' : 'thinking');
+      this.callbacks.onError('Voice playback stalled. Check the Windows output device and try voice again.');
+    }, expectedQueueMs + outputPlaybackWatchdogSlackMs);
+  }
+
+  private cancelPlaybackWatchdog(): void {
+    if (this.playbackWatchdogTimer === undefined) return;
+    window.clearTimeout(this.playbackWatchdogTimer);
+    this.playbackWatchdogTimer = undefined;
   }
 
   private async stopInternal(reportError: boolean): Promise<void> {
@@ -379,6 +500,9 @@ export class VoiceConversationController {
     this.pendingStartEvents = [];
     this.pendingStartEventsOverflowed = false;
     this.currentTurnId = undefined;
+    this.ignoredOutputTurnId = undefined;
+    this.ignoreUnscopedOutput = false;
+    this.resetOutputLifecycle();
     this.setPhase('idle');
   }
 
