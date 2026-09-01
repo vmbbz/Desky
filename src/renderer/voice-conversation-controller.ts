@@ -261,11 +261,14 @@ export class VoiceConversationController {
     const context = this.context;
     if (!session || !context || this.phaseValue === 'requesting' || this.phaseValue === 'stopping') return;
     if (this.detectBargeInSpeech(samples)) {
-      void this.interrupt('barge-in').catch((error: unknown) => {
-        this.callbacks.onError(safeVoiceError(error));
-        void this.stop(false);
-      });
-      return;
+      // GPT-Live/Frameless Bidi owns barge-in from continued incoming audio.
+      // Cancelling the Gateway turn closes that provider session by contract,
+      // which would also stop the microphone. Drop only local playback and
+      // append this exact speech frame so the provider can interrupt in place.
+      this.ignoreCurrentOutputTurn();
+      this.clearPlayback();
+      this.resetOutputLifecycle();
+      this.setPhase('listening');
     }
     if (this.outputCancellationPending) return;
     if (this.pendingAppends >= maximumPendingAppends) {

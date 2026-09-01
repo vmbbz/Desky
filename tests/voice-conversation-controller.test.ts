@@ -329,7 +329,7 @@ describe('VoiceConversationController playback lifecycle', () => {
     await harness.controller.stop();
   });
 
-  it('matches OpenClaw desktop natural barge-in after two sustained speech frames', async () => {
+  it('keeps the live session and microphone active during natural speech barge-in', async () => {
     const harness = createHarness();
     await harness.controller.start();
     harness.emit({
@@ -344,12 +344,9 @@ describe('VoiceConversationController playback lifecycle', () => {
     expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
 
     audioContext.processor.emitInput(bargeInSpeechFrame());
-    await vi.waitFor(() => expect(harness.bridge.cancelOutput).toHaveBeenCalledWith({
-      sessionId: 'voice-1',
-      turnId: 'turn-speaking',
-      reason: 'barge-in',
-    }));
+    await vi.waitFor(() => expect(harness.bridge.append).toHaveBeenCalledTimes(2));
 
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
     expect(harness.controller.phase).toBe('listening');
     expect(harness.errors).toEqual([]);
     await harness.controller.stop();
