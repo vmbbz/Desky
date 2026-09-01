@@ -133,6 +133,7 @@ export class VoiceConversationController {
   private ignoreUnscopedOutput = false;
   private outputDoneReceived = false;
   private outputTranscriptDoneReceived = false;
+  private audibleOutputObserved = false;
   private outputGapTimer?: number;
   private playbackWatchdogTimer?: number;
   private removeEventListener?: () => void;
@@ -351,6 +352,13 @@ export class VoiceConversationController {
     if (context.state === 'suspended') void context.resume().catch(() => undefined);
     const samples = decodeOutput(base64ToBytes(audioBase64), session.output.encoding);
     const duration = samples.length / session.output.sampleRateHz;
+    const audible = hasAudibleOutput(samples);
+    // Some realtime transports publish zero-amplitude comfort frames before the
+    // provider has produced a response. They are transport keepalive, not an
+    // assistant turn: do not let them own the Speaking state, consume the
+    // bounded playback queue, or cancel a session that may still answer.
+    if (!audible && !this.audibleOutputObserved) return;
+    if (audible) this.audibleOutputObserved = true;
     const startAt = Math.max(context.currentTime + outputJitterBufferSeconds, this.nextPlaybackAt);
     if (startAt + duration - context.currentTime > maximumScheduledOutputSeconds) {
       this.callbacks.onError('Voice playback was stopped because the output queue exceeded 8 seconds.');
@@ -374,7 +382,7 @@ export class VoiceConversationController {
     source.start(startAt);
     this.cancelOutputGapTimer();
     this.schedulePlaybackWatchdog();
-    if (hasAudibleOutput(samples)) this.setPhase('speaking');
+    if (audible) this.setPhase('speaking');
   }
 
   private scheduleMark(markName: string): void {
@@ -411,16 +419,14 @@ export class VoiceConversationController {
     this.outputTurnId = turnId;
     this.outputDoneReceived = false;
     this.outputTranscriptDoneReceived = false;
+    this.audibleOutputObserved = false;
     this.cancelOutputGapTimer();
   }
 
   private observeOutputTurn(turnId?: string): void {
     if (!turnId) return;
     if (this.outputTurnId === turnId) return;
-    this.outputTurnId = turnId;
-    this.outputDoneReceived = false;
-    this.outputTranscriptDoneReceived = false;
-    this.cancelOutputGapTimer();
+    this.beginOutputTurn(turnId);
   }
 
   private ignoreCurrentOutputTurn(): void {
@@ -432,6 +438,7 @@ export class VoiceConversationController {
     this.outputTurnId = undefined;
     this.outputDoneReceived = false;
     this.outputTranscriptDoneReceived = false;
+    this.audibleOutputObserved = false;
     this.cancelOutputGapTimer();
   }
 

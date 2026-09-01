@@ -71,6 +71,7 @@ import {
   admitVrm1CompatibilityFixture,
   readScopedVrm1CompatibilityFile,
 } from './vrm1-compatibility-fixture';
+import type { VoiceEvidenceRecorder } from './voice-evidence-recorder';
 
 const runtimeInfoChannel = 'desky:runtime-info';
 const windowActionChannel = 'desky:window-action';
@@ -331,6 +332,7 @@ export function registerIpc(
   adapters: AgentAdapterRegistry,
   windows: DeskyWindowManager,
   codexWorkspaceGrants: CodexWorkspaceGrantBroker,
+  voiceEvidence?: VoiceEvidenceRecorder,
 ): void {
   const companion = new CompanionStateHost();
   const animation = new LocalAnimationPreviewHost();
@@ -712,13 +714,16 @@ export function registerIpc(
     if (voiceInputOwnerId || voiceConversationOwnerId) {
       throw new Error('A voice session is already active on another Deskiii surface.');
     }
+    voiceEvidence?.record('session.start.requested');
     voiceConversationOwnerId = event.sender.id;
     pendingVoiceConversationEvents = [];
     let session: VoiceConversationSession;
     try {
       session = await adapters.startVoiceConversation();
       activeVoiceConversationSessionId = session.sessionId;
+      voiceEvidence?.recordSession(session);
     } catch (error) {
+      voiceEvidence?.record('session.start.failed');
       voiceConversationOwnerId = undefined;
       pendingVoiceConversationEvents = [];
       throw error;
@@ -732,6 +737,7 @@ export function registerIpc(
       const sessionId = activeVoiceConversationSessionId;
       voiceConversationOwnerId = undefined;
       activeVoiceConversationSessionId = undefined;
+      voiceEvidence?.record('session.owner.destroyed');
       void adapters.stopVoiceConversation({ sessionId }).catch(() => undefined);
     });
     return session;
@@ -742,28 +748,39 @@ export function registerIpc(
       || chunk.sessionId !== activeVoiceConversationSessionId) {
       throw new Error('Voice-conversation session is not owned by this surface.');
     }
+    voiceEvidence?.recordInput(chunk);
     return adapters.appendVoiceConversation(chunk);
   });
-  ipcMain.handle(voiceConversationChannels.cancelOutput, (event, input: unknown) => {
+  ipcMain.handle(voiceConversationChannels.cancelOutput, async (event, input: unknown) => {
     const command = readVoiceConversationCancelOutput(input);
+    voiceEvidence?.record('output.cancel.requested', { turnScoped: Boolean(command.turnId) });
     if (voiceConversationOwnerId !== event.sender.id
-      || command.sessionId !== activeVoiceConversationSessionId) return 'idle';
-    return adapters.cancelVoiceConversationOutput(command);
+      || command.sessionId !== activeVoiceConversationSessionId) {
+      voiceEvidence?.record('output.cancel.result', { result: 'idle' });
+      return 'idle';
+    }
+    const result = await adapters.cancelVoiceConversationOutput(command);
+    voiceEvidence?.record('output.cancel.result', { result });
+    return result;
   });
-  ipcMain.handle(voiceConversationChannels.acknowledgeMark, (event, input: unknown) => {
+  ipcMain.handle(voiceConversationChannels.acknowledgeMark, async (event, input: unknown) => {
     const command = readVoiceConversationMark(input);
     if (voiceConversationOwnerId !== event.sender.id
       || command.sessionId !== activeVoiceConversationSessionId) return;
-    return adapters.acknowledgeVoiceConversationMark(command);
+    voiceEvidence?.record('mark.acknowledge.requested');
+    await adapters.acknowledgeVoiceConversationMark(command);
+    voiceEvidence?.record('mark.acknowledged');
   });
   ipcMain.handle(voiceConversationChannels.stop, async (event, input: unknown) => {
     const command = readVoiceConversationStop(input);
     if (voiceConversationOwnerId !== event.sender.id
       || command.sessionId !== activeVoiceConversationSessionId) return;
+    voiceEvidence?.record('session.stop.requested');
     voiceConversationOwnerId = undefined;
     activeVoiceConversationSessionId = undefined;
     pendingVoiceConversationEvents = [];
     await adapters.stopVoiceConversation(command);
+    voiceEvidence?.record('session.stop.completed');
   });
   ipcMain.handle(codexWorkspaceChannels.select, async (event, sandbox: unknown) => {
     if (getDistributionProfile() !== 'direct'
@@ -850,6 +867,7 @@ export function registerIpc(
     }
   });
   adapters.onVoiceConversationEvent((voiceEvent) => {
+    voiceEvidence?.recordProviderEvent(voiceEvent);
     if (voiceConversationOwnerId && !activeVoiceConversationSessionId) {
       if (pendingVoiceConversationEvents.length < 8) pendingVoiceConversationEvents.push(voiceEvent);
       return;

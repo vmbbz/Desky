@@ -16,6 +16,10 @@ import { createProfileRuntimes } from './adapters/profile-runtimes';
 import { getDistributionProfile } from './capabilities';
 import { CodexWorkspaceGrantBroker } from './codex/workspace-grants';
 import { installBoundedApplicationShutdown } from './bounded-shutdown';
+import { VoiceEvidenceRecorder } from './voice-evidence-recorder';
+import { installBrokenPipeGuards } from './broken-pipe-guard';
+
+installBrokenPipeGuards();
 
 let windows: DeskyWindowManager | undefined;
 
@@ -72,11 +76,15 @@ if (!ownsUserSession) {
       'openclaw',
       distributionProfile,
     );
+    const voiceEvidence = VoiceEvidenceRecorder.forExercise(
+      process.env.DESKY_VISUAL_TEST_EXERCISE,
+    );
     const windowManager = new DeskyWindowManager(
       new DesktopStateStore(join(app.getPath('userData'), 'desktop-state.json')),
+      voiceEvidence,
     );
     windows = windowManager;
-    registerIpc(adapters, windowManager, codexWorkspaceGrants);
+    registerIpc(adapters, windowManager, codexWorkspaceGrants, voiceEvidence);
     windowManager.createInitialWindows();
 
     installBoundedApplicationShutdown(app, async () => {

@@ -86,6 +86,10 @@ function audiblePcm16Frame(sampleCount = 480): string {
   return Buffer.from(bytes).toString('base64');
 }
 
+function silentPcm16Frame(sampleCount: number): string {
+  return Buffer.alloc(sampleCount * 2).toString('base64');
+}
+
 function createHarness() {
   let listener: ((event: VoiceConversationEvent) => void) | undefined;
   const bridge: VoiceConversationBridge = {
@@ -264,6 +268,45 @@ describe('VoiceConversationController playback lifecycle', () => {
     expect(harness.controller.phase).toBe('thinking');
     await vi.advanceTimersByTimeAsync(400);
     expect(harness.controller.phase).toBe('listening');
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
+  it('ignores leading transport silence and plays later audible output without cancelling', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-delayed-audio',
+      role: 'user',
+      text: 'Can you hear me?',
+      final: true,
+    });
+    for (let index = 0; index < 500; index += 1) {
+      harness.emit({
+        type: 'audio',
+        sessionId: 'voice-1',
+        turnId: 'turn-delayed-audio',
+        audioBase64: silentPcm16Frame(480),
+      });
+    }
+
+    expect(audioContext.sources).toHaveLength(0);
+    expect(harness.controller.phase).toBe('thinking');
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+    expect(harness.errors).toEqual([]);
+
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-delayed-audio',
+      audioBase64: audiblePcm16Frame(),
+    });
+
+    expect(audioContext.sources).toHaveLength(1);
+    expect(harness.controller.phase).toBe('speaking');
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
     expect(harness.errors).toEqual([]);
     await harness.controller.stop();
   });

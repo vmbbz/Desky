@@ -46,6 +46,11 @@ import {
 } from './ambient-visibility-policy';
 import { createWindowOptions } from './window-options';
 import { isAdmittedMicrophonePermission } from './microphone-permission';
+import {
+  readRendererVoiceEvidence,
+  type VoiceEvidenceRecorder,
+  type VoiceEvidenceSnapshot,
+} from './voice-evidence-recorder';
 
 const applicationScheme = 'desky';
 const ambientSize = { width: 420, height: 580 };
@@ -108,6 +113,7 @@ async function captureVisualTest(
   surface: SurfaceKind,
   outputPath: string,
   powerLifecycle?: PowerLifecycleProbe,
+  voiceEvidence?: VoiceEvidenceRecorder,
 ): Promise<void> {
   const initialWindowBounds = window.getBounds();
   let visualExerciseError: string | null = null;
@@ -890,9 +896,47 @@ async function captureVisualTest(
       visualExerciseError = String(error);
     }
   }
+  if (surface === 'ambient' && voiceEvidence) {
+    await window.webContents.executeJavaScript(`(() => {
+      const observation = {
+        startedAt: performance.now(),
+        samples: [],
+        lastSignature: '',
+        timer: 0,
+        sample: null
+      };
+      observation.sample = () => {
+        const root = document.querySelector('.ambient-companion');
+        const dock = document.querySelector('.voice-session-dock');
+        const bubble = document.querySelector('.ambient-speech-bubble');
+        const value = {
+          phase: dock?.getAttribute('data-phase') ?? 'absent',
+          voiceActive: root?.dataset.voiceActive === 'true',
+          bubbleVisible: Boolean(bubble),
+          bubbleStatus: bubble?.querySelector('strong')?.textContent?.trim().slice(0, 80) ?? '',
+          bubbleTextLength: bubble?.querySelector('p')?.textContent?.length ?? 0,
+          companionMode: root
+            ? ([...root.classList].find((name) => name.startsWith('companion--'))?.slice(11) ?? '')
+            : ''
+        };
+        const signature = JSON.stringify(value);
+        if (signature === observation.lastSignature) return;
+        observation.lastSignature = signature;
+        if (observation.samples.length >= 1000) return;
+        observation.samples.push({
+          elapsedMs: Math.max(0, Math.round(performance.now() - observation.startedAt)),
+          ...value
+        });
+      };
+      observation.sample();
+      observation.timer = setInterval(observation.sample, 50);
+      globalThis.__deskyVoiceObservation = observation;
+    })()`);
+  }
   const requestedWaitMs = Number.parseInt(process.env.DESKY_VISUAL_TEST_WAIT_MS ?? '', 10);
+  const maximumWaitMs = voiceEvidence ? 180_000 : 60_000;
   const waitMs = Number.isSafeInteger(requestedWaitMs)
-    ? Math.max(0, Math.min(requestedWaitMs, 60_000))
+    ? Math.max(0, Math.min(requestedWaitMs, maximumWaitMs))
     : 8_000;
   await new Promise((resolve) => setTimeout(resolve, waitMs));
   if (surface === 'ambient'
@@ -1413,6 +1457,24 @@ async function captureVisualTest(
       visualExerciseError = String(error);
     }
   }
+  let voiceEvidenceSnapshot: VoiceEvidenceSnapshot | null = null;
+  if (surface === 'ambient' && voiceEvidence) {
+    try {
+      const rendererTimeline = await window.webContents.executeJavaScript(`(() => {
+        const observation = globalThis.__deskyVoiceObservation;
+        if (!observation) return [];
+        clearInterval(observation.timer);
+        observation.sample?.();
+        return observation.samples;
+      })()`);
+      voiceEvidenceSnapshot = voiceEvidence.snapshot(
+        readRendererVoiceEvidence(rendererTimeline),
+      );
+    } catch (error) {
+      visualExerciseError = visualExerciseError ?? String(error);
+      voiceEvidenceSnapshot = voiceEvidence.snapshot([]);
+    }
+  }
   const rendererDiagnostic = await window.webContents.executeJavaScript(`({
     url: location.href,
     title: document.title,
@@ -1536,6 +1598,7 @@ async function captureVisualTest(
     performanceLifecycle,
     realPowerLifecycle,
     codexFilesystemEvidence,
+    voiceEvidence: voiceEvidenceSnapshot,
   };
   const image = await window.webContents.capturePage();
   await writeFile(outputPath, image.toPNG());
@@ -1603,7 +1666,10 @@ export class DeskyWindowManager {
 
   private readonly surfaces = new Map<number, SurfaceKind>();
 
-  constructor(private readonly stateStore: DesktopStateStore) {
+  constructor(
+    private readonly stateStore: DesktopStateStore,
+    private readonly voiceEvidence?: VoiceEvidenceRecorder,
+  ) {
     this.desktopState = stateStore.load();
     this.desktopControls = new DesktopControls({
       getState: () => ({
@@ -1930,7 +1996,7 @@ export class DeskyWindowManager {
           }),
           suspend: this.handlePowerSuspend,
           resume: this.handlePowerResume,
-        });
+        }, this.voiceEvidence);
       }
     });
     if (process.env.DESKY_OPEN_DEVTOOLS === '1') {

@@ -90,6 +90,8 @@ const initialGateway: AdapterConnectionState = {
 };
 const visualTestState = new URLSearchParams(window.location.search).get('visualState');
 const visualTestExercise = new URLSearchParams(window.location.search).get('visualExercise');
+const visualTestUsesSimulation = Boolean(visualTestState)
+  && visualTestExercise !== 'voice-observation';
 const initialAvatarSelection: AvatarSelectionState = {
   activeAvatarId: '15dce553-3d3c-4288-8c03-c69c65167447',
   activeRevisionId: defaultAvatarRevisionId,
@@ -177,7 +179,7 @@ export function App() {
   const [avatarYawDegrees, setAvatarYawDegrees] = useState(0);
   const [avatarBounds, setAvatarBounds] = useState<DesktopRectangle>();
   const [adapterMode, setAdapterMode] = useState<'runtime' | 'simulation'>(
-    visualTestState ? 'simulation' : 'runtime',
+    visualTestUsesSimulation ? 'simulation' : 'runtime',
   );
   const [gateway, setGateway] = useState<AdapterConnectionState>(initialGateway);
   const [availableAdapters, setAvailableAdapters] = useState<AdapterDescriptor[]>([
@@ -279,7 +281,7 @@ export function App() {
       document.body.dataset.deskySurface = info.surface;
       setRuntimeInfo(info);
     });
-    void window.desky.adapters.getState().then((next) => {
+    void window.desky.adapters.getState().then(async (next) => {
       setGateway(next);
       setSelectedAdapterId(next.adapterId);
       setGatewayUrl(next.endpoint);
@@ -290,6 +292,26 @@ export function App() {
         setAuthKind(next.authenticationMethod);
       }
       setShowConnection(next.status !== 'connected');
+      if (visualTestExercise === 'voice-observation'
+        && next.adapterId === openClawAdapterDescriptor.adapterId
+        && next.status !== 'connected') {
+        try {
+          const connected = await window.desky.adapters.connect({
+            adapterId: next.adapterId,
+            configuration: {
+              gatewayUrl: next.endpoint,
+              authKind: next.authenticationMethod === 'password' ? 'password' : 'token',
+              rememberCredential: true,
+            },
+          });
+          setGateway(connected);
+          setSelectedAdapterId(connected.adapterId);
+          setGatewayUrl(connected.endpoint);
+          setShowConnection(connected.status !== 'connected');
+        } catch (error) {
+          setUiError(errorMessage(error));
+        }
+      }
     });
     void window.desky.adapters.list().then(setAvailableAdapters);
     const removeState = window.desky.adapters.onState(setGateway);
