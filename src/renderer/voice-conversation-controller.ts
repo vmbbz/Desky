@@ -7,6 +7,7 @@ import type {
 import { bytesToBase64, floatToG711Ulaw } from './voice-input-controller';
 
 const maximumPendingAppends = 20;
+const maximumConsecutiveAppendFailures = 3;
 const maximumScheduledOutputSeconds = 8;
 const maximumPendingStartEvents = 8;
 const outputJitterBufferSeconds = 0.12;
@@ -126,8 +127,9 @@ export class VoiceConversationController {
   private processor?: ScriptProcessorNode;
   private sink?: GainNode;
   private session?: VoiceConversationSession;
-  private appendChain: Promise<void> = Promise.resolve();
+  private readonly appendRequests = new Set<Promise<void>>();
   private pendingAppends = 0;
+  private consecutiveAppendFailures = 0;
   private generation = 0;
   private playbackGeneration = 0;
   private nextPlaybackAt = 0;
@@ -279,21 +281,26 @@ export class VoiceConversationController {
     const normalized = resampleLinear(samples, context.sampleRate, session.input.sampleRateHz);
     const audioBase64 = bytesToBase64(encodeInput(normalized, session.input.encoding));
     this.pendingAppends += 1;
-    this.appendChain = this.appendChain
-      .then(() => this.bridge.append({
+    const request = this.bridge.append({
         sessionId: session.sessionId,
         audioBase64,
         timestamp: Date.now(),
-      }))
+      })
+      .then(() => {
+        this.consecutiveAppendFailures = 0;
+      })
       .catch((error: unknown) => {
-        if (this.session?.sessionId === session.sessionId) {
+        if (this.session?.sessionId === session.sessionId
+          && ++this.consecutiveAppendFailures >= maximumConsecutiveAppendFailures) {
           this.callbacks.onError(safeVoiceError(error));
           void this.stop(false);
         }
       })
       .finally(() => {
+        this.appendRequests.delete(request);
         this.pendingAppends = Math.max(0, this.pendingAppends - 1);
       });
+    this.appendRequests.add(request);
   }
 
   private detectBargeInSpeech(samples: Float32Array): boolean {
@@ -591,7 +598,7 @@ export class VoiceConversationController {
     this.stopLocalMedia();
     const session = this.session;
     this.session = undefined;
-    await this.appendChain;
+    await Promise.allSettled([...this.appendRequests]);
     if (session) {
       await this.bridge.stop({ sessionId: session.sessionId }).catch((error: unknown) => {
         if (reportError) this.callbacks.onError(safeVoiceError(error));
@@ -599,8 +606,9 @@ export class VoiceConversationController {
     }
     this.removeEventListener?.();
     this.removeEventListener = undefined;
-    this.appendChain = Promise.resolve();
+    this.appendRequests.clear();
     this.pendingAppends = 0;
+    this.consecutiveAppendFailures = 0;
     this.outputCancellationPending = false;
     this.speechFramesDuringPlayback = 0;
     this.pendingStartEvents = [];

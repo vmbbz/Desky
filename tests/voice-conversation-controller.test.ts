@@ -352,6 +352,42 @@ describe('VoiceConversationController playback lifecycle', () => {
     await harness.controller.stop();
   });
 
+  it('dispatches microphone frames without waiting for prior Gateway acknowledgements', async () => {
+    const harness = createHarness();
+    const releases: Array<() => void> = [];
+    vi.mocked(harness.bridge.append).mockImplementation(() => new Promise<void>((resolve) => {
+      releases.push(resolve);
+    }));
+    await harness.controller.start();
+
+    audioContext.processor.emitInput(new Float32Array(4096));
+    audioContext.processor.emitInput(new Float32Array(4096));
+    audioContext.processor.emitInput(new Float32Array(4096));
+
+    expect(harness.bridge.append).toHaveBeenCalledTimes(3);
+    expect(harness.controller.phase).toBe('listening');
+    releases.forEach((release) => release());
+    await Promise.resolve();
+    await harness.controller.stop();
+  });
+
+  it('keeps the microphone active after an isolated audio-append failure', async () => {
+    const harness = createHarness();
+    vi.mocked(harness.bridge.append)
+      .mockRejectedValueOnce(new Error('transient append failure'))
+      .mockResolvedValue(undefined);
+    await harness.controller.start();
+
+    audioContext.processor.emitInput(new Float32Array(4096));
+    await vi.waitFor(() => expect(harness.bridge.append).toHaveBeenCalledTimes(1));
+    audioContext.processor.emitInput(new Float32Array(4096));
+    await vi.waitFor(() => expect(harness.bridge.append).toHaveBeenCalledTimes(2));
+
+    expect(harness.controller.phase).toBe('listening');
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
   it('does not mistake noise or one speech-like frame for barge-in', async () => {
     const harness = createHarness();
     await harness.controller.start();
