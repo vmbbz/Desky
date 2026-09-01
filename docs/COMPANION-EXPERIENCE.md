@@ -63,7 +63,7 @@ A click or keyboard shortcut temporarily expands the local interaction:
 ```
 
 - The bubble and composer flip or shift when the companion is close to a work-area edge.
-- The companion grip uses the native desktop drag path for reliable movement. Main independently rejects resize, maximize, and full-screen transitions, while every pointer-driven avatar/gap drag is normalized to the fixed ambient dimensions, so Windows Snap cannot leave the transparent surface widened.
+- The companion grip uses the native desktop drag path for reliable movement. Main independently rejects resize, maximize, and full-screen transitions, and immediately repairs post-drag native resize/move events because Windows Snap can bypass Electron's cancellable `will-resize` event for a frameless window. Every pointer-driven avatar/gap drag is also normalized to the fixed ambient dimensions, so the transparent surface cannot remain widened at a screen edge.
 - The composer receives focus only after an explicit user action.
 - A draft survives dismissal, reconnect, and an accidental focus change.
 - `Enter` sends, `Shift+Enter` inserts a line break where multiline input is enabled, and `Escape` collapses the focused surface without discarding the draft.

@@ -1961,19 +1961,28 @@ export class DeskyWindowManager {
     window.webContents.on('will-navigate', (event) => event.preventDefault());
     window.webContents.on('destroyed', () => this.surfaces.delete(contentsId));
     if (surface === 'ambient') {
+      let restoringAmbientBounds = false;
       const restoreFixedAmbientBounds = () => {
-        if (window.isDestroyed()) return;
+        if (window.isDestroyed() || restoringAmbientBounds) return;
         const current = window.getBounds();
         if (current.width === ambientSize.width && current.height === ambientSize.height) return;
-        window.unmaximize();
+        restoringAmbientBounds = true;
+        if (window.isMaximized()) window.unmaximize();
         const fixed = clampBoundsToDisplays({
           x: current.x,
           y: current.y,
           ...ambientSize,
         }, this.displayGeometries()).bounds;
         window.setBounds(fixed, false);
+        setImmediate(() => {
+          restoringAmbientBounds = false;
+          restoreFixedAmbientBounds();
+        });
       };
       window.on('will-resize', (event) => event.preventDefault());
+      // Windows Snap can resize a frameless window without delivering a
+      // cancellable will-resize event. Repair that native resize immediately.
+      window.on('resize', restoreFixedAmbientBounds);
       window.on('maximize', () => setImmediate(restoreFixedAmbientBounds));
       window.on('enter-full-screen', () => {
         window.setFullScreen(false);
@@ -1991,7 +2000,10 @@ export class DeskyWindowManager {
       window.on('minimize', () => {
         setImmediate(this.recoverAmbientVisibility);
       });
-      window.on('move', () => this.schedulePlacementSave());
+      window.on('move', () => {
+        restoreFixedAmbientBounds();
+        this.schedulePlacementSave();
+      });
       window.on('show', () => this.publishAmbientState());
       window.on('hide', () => this.publishAmbientState());
       window.webContents.on('context-menu', () => {
