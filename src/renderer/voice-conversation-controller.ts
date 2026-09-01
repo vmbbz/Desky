@@ -13,6 +13,7 @@ const outputJitterBufferSeconds = 0.12;
 const outputGapGraceMs = 300;
 const outputPlaybackWatchdogSlackMs = 2_000;
 const minimumAudibleOutputAmplitude = 1 / 1_024;
+const maximumScheduledConsecutiveSilenceSeconds = 0.5;
 
 export type VoiceConversationPhase =
   | 'idle'
@@ -134,6 +135,7 @@ export class VoiceConversationController {
   private outputDoneReceived = false;
   private outputTranscriptDoneReceived = false;
   private audibleOutputObserved = false;
+  private scheduledConsecutiveSilenceSeconds = 0;
   private outputGapTimer?: number;
   private playbackWatchdogTimer?: number;
   private removeEventListener?: () => void;
@@ -358,7 +360,18 @@ export class VoiceConversationController {
     // assistant turn: do not let them own the Speaking state, consume the
     // bounded playback queue, or cancel a session that may still answer.
     if (!audible && !this.audibleOutputObserved) return;
-    if (audible) this.audibleOutputObserved = true;
+    if (audible) {
+      this.audibleOutputObserved = true;
+      this.scheduledConsecutiveSilenceSeconds = 0;
+    } else {
+      // GPT-Live's WebRTC media peer is continuous: after a spoken response it
+      // can keep publishing exact-zero comfort frames without an audio-done
+      // event. Preserve ordinary pauses inside speech, but do not turn an
+      // unbounded transport tail into queued playback or a stuck Speaking UI.
+      if (this.scheduledConsecutiveSilenceSeconds + duration
+        > maximumScheduledConsecutiveSilenceSeconds) return;
+      this.scheduledConsecutiveSilenceSeconds += duration;
+    }
     const startAt = Math.max(context.currentTime + outputJitterBufferSeconds, this.nextPlaybackAt);
     if (startAt + duration - context.currentTime > maximumScheduledOutputSeconds) {
       this.callbacks.onError('Voice playback was stopped because the output queue exceeded 8 seconds.');
@@ -420,6 +433,7 @@ export class VoiceConversationController {
     this.outputDoneReceived = false;
     this.outputTranscriptDoneReceived = false;
     this.audibleOutputObserved = false;
+    this.scheduledConsecutiveSilenceSeconds = 0;
     this.cancelOutputGapTimer();
   }
 
@@ -439,6 +453,7 @@ export class VoiceConversationController {
     this.outputDoneReceived = false;
     this.outputTranscriptDoneReceived = false;
     this.audibleOutputObserved = false;
+    this.scheduledConsecutiveSilenceSeconds = 0;
     this.cancelOutputGapTimer();
   }
 

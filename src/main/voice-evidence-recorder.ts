@@ -43,6 +43,8 @@ export interface VoiceEvidenceSnapshot {
   provider: {
     inputChunkCount: number;
     inputAudioBytes: number;
+    inputAudibleChunkCount: number;
+    inputPeakPcm16: number;
     outputChunkCount: number;
     outputAudioBytes: number;
     outputAudibleChunkCount: number;
@@ -61,11 +63,6 @@ function boundedText(value: unknown, maximum: number): string {
     throw new Error('Invalid renderer voice-evidence text.');
   }
   return value;
-}
-
-function decodedBase64Bytes(value: string): number {
-  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
-  return Math.max(0, Math.floor(value.length * 3 / 4) - padding);
 }
 
 function pcm16Peak(bytes: Uint8Array): number {
@@ -134,10 +131,13 @@ export class VoiceEvidenceRecorder {
   private readonly entries: VoiceEvidenceEntry[] = [];
   private inputChunkCount = 0;
   private inputAudioBytes = 0;
+  private inputAudibleChunkCount = 0;
+  private inputPeakPcm16 = 0;
   private outputChunkCount = 0;
   private outputAudioBytes = 0;
   private outputAudibleChunkCount = 0;
   private outputPeakPcm16 = 0;
+  private inputEncoding?: VoiceConversationSession['input']['encoding'];
   private outputEncoding?: VoiceConversationSession['output']['encoding'];
   private outputSpanTurn?: string;
 
@@ -156,6 +156,7 @@ export class VoiceEvidenceRecorder {
   }
 
   recordSession(session: VoiceConversationSession): void {
+    this.inputEncoding = session.input.encoding;
     this.outputEncoding = session.output.encoding;
     this.record('session.started', {
       inputEncoding: session.input.encoding,
@@ -167,8 +168,14 @@ export class VoiceEvidenceRecorder {
   }
 
   recordInput(chunk: VoiceConversationAudioChunk): void {
+    const bytes = decodeBase64(chunk.audioBase64);
+    const peak = this.inputEncoding === 'g711_ulaw'
+      ? g711UlawPeak(bytes)
+      : pcm16Peak(bytes);
     this.inputChunkCount += 1;
-    this.inputAudioBytes += decodedBase64Bytes(chunk.audioBase64);
+    this.inputAudioBytes += bytes.byteLength;
+    this.inputPeakPcm16 = Math.max(this.inputPeakPcm16, peak);
+    if (peak >= minimumAudiblePcm16) this.inputAudibleChunkCount += 1;
     if (this.inputChunkCount === 1) this.record('input.audio.started');
   }
 
@@ -220,6 +227,8 @@ export class VoiceEvidenceRecorder {
       provider: {
         inputChunkCount: this.inputChunkCount,
         inputAudioBytes: this.inputAudioBytes,
+        inputAudibleChunkCount: this.inputAudibleChunkCount,
+        inputPeakPcm16: this.inputPeakPcm16,
         outputChunkCount: this.outputChunkCount,
         outputAudioBytes: this.outputAudioBytes,
         outputAudibleChunkCount: this.outputAudibleChunkCount,

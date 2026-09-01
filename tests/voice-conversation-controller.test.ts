@@ -245,6 +245,62 @@ describe('VoiceConversationController playback lifecycle', () => {
     await harness.controller.stop();
   });
 
+  it('interrupts audible output and admits a second turn in the same session', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-interrupted',
+      audioBase64: audiblePcm16Frame(),
+    });
+
+    await expect(harness.controller.interrupt()).resolves.toBe('applied');
+    expect(harness.bridge.cancelOutput).toHaveBeenCalledWith({
+      sessionId: 'voice-1',
+      turnId: 'turn-interrupted',
+    });
+    expect(harness.controller.phase).toBe('listening');
+
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-interrupted',
+      audioBase64: audiblePcm16Frame(),
+    });
+    expect(audioContext.sources).toHaveLength(1);
+
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-recovered',
+      role: 'user',
+      text: 'Reply again.',
+      final: true,
+    });
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-recovered',
+      audioBase64: audiblePcm16Frame(),
+    });
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-recovered',
+      role: 'assistant',
+      text: 'Recovered.',
+      final: true,
+    });
+    expect(audioContext.sources).toHaveLength(2);
+    audioContext.sources[1]?.finish();
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(harness.controller.phase).toBe('listening');
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
   it('returns to listening when a response completes without any playable audio', async () => {
     const harness = createHarness();
     await harness.controller.start();
@@ -307,6 +363,42 @@ describe('VoiceConversationController playback lifecycle', () => {
     expect(audioContext.sources).toHaveLength(1);
     expect(harness.controller.phase).toBe('speaking');
     expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
+  it('bounds continuous trailing comfort silence and settles after the final transcript', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-with-comfort-tail',
+      audioBase64: audiblePcm16Frame(),
+    });
+    for (let index = 0; index < 100; index += 1) {
+      harness.emit({
+        type: 'audio',
+        sessionId: 'voice-1',
+        turnId: 'turn-with-comfort-tail',
+        audioBase64: silentPcm16Frame(480),
+      });
+    }
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-with-comfort-tail',
+      role: 'assistant',
+      text: 'Finished speaking.',
+      final: true,
+    });
+
+    expect(audioContext.sources.length).toBeGreaterThan(1);
+    expect(audioContext.sources.length).toBeLessThan(30);
+    for (const source of audioContext.sources) source.finish();
+    await vi.advanceTimersByTimeAsync(400);
+
+    expect(harness.controller.phase).toBe('listening');
     expect(harness.errors).toEqual([]);
     await harness.controller.stop();
   });

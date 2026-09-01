@@ -23,9 +23,11 @@ describe('VoiceEvidenceRecorder', () => {
       output: { encoding: 'pcm16', sampleRateHz: 24_000, channels: 1 },
       supportsBargeIn: true,
     });
+    const input = Buffer.alloc(960);
+    input.writeInt16LE(6_000, 0);
     recorder.recordInput({
       sessionId: 'sensitive-session-id',
-      audioBase64: Buffer.from('private microphone bytes').toString('base64'),
+      audioBase64: input.toString('base64'),
     });
     recorder.recordProviderEvent({
       type: 'transcript',
@@ -53,7 +55,9 @@ describe('VoiceEvidenceRecorder', () => {
 
     const snapshot = recorder.snapshot([]);
     expect(snapshot.provider.inputChunkCount).toBe(1);
-    expect(snapshot.provider.inputAudioBytes).toBe(24);
+    expect(snapshot.provider.inputAudioBytes).toBe(960);
+    expect(snapshot.provider.inputAudibleChunkCount).toBe(1);
+    expect(snapshot.provider.inputPeakPcm16).toBe(6_000);
     expect(snapshot.provider.outputChunkCount).toBe(1_500);
     expect(snapshot.provider.outputAudioBytes).toBe(1_440_000);
     expect(snapshot.provider.outputAudibleChunkCount).toBe(1_500);
