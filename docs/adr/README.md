@@ -11,3 +11,4 @@
 - [0009 — Supabase commerce PostgreSQL boundary](0009-supabase-commerce-postgres-boundary.md)
 - [0010 — Hosted commerce identity and operations](0010-hosted-commerce-identity-and-operations.md)
 - [0011 — Independent Base settlement observer and paid-grant closure](0011-independent-base-settlement-observer.md)
+- [0012 — Separate speech runtimes from agent adapters](0012-provider-neutral-speech-plane.md)

@@ -161,7 +161,9 @@ Gateway method discovery proves the transport surface, not provider credentials.
 
 OpenClaw maps the generic contract to its authenticated transcription-only Talk shape: `talk.session.create({ mode: "transcription", transport: "gateway-relay", brain: "none" })`, serialized `talk.session.appendAudio`, `talk.event`, then `talk.session.close`. The native remote session id used for append/close and the transcription event id are tracked separately. Only events matching the active transcription identity become provider-neutral transcript/error/closed events. The existing `operator.write` scope satisfies OpenClaw's Talk authorization; Deskiii does not request admin or Talk-secret scope.
 
-Codex, Hermes, Claude, and Simulation direct adapters remain explicitly unsupported. This does not prevent their existing text adapters from working, and Deskiii does not locally transcribe audio and silently feed text into them as a misleading substitute. If OpenClaw itself is configured to use Codex, Hermes, Claude, or another model/runtime as its selected agent brain, Talk remains an OpenClaw capability: Deskiii sends audio only through the normalized OpenClaw Talk contract and OpenClaw owns the consultation, tools, approvals, and model credentials. A future local/system STT provider may become a distinct reviewed adapter-independent transcription runtime, but it must have its own privacy, model-download, Store, and lifecycle policy.
+Codex, Hermes, Claude, and Simulation direct adapters remain explicitly unsupported in the current voice implementation. This does not prevent their text adapters from working. Deskiii will not quietly transcribe audio and feed it into them while claiming a native provider voice feature. If OpenClaw itself is configured to use a similarly named model/runtime as its selected agent brain, Talk remains an OpenClaw capability: OpenClaw owns that consultation, tools, approvals, credentials, and session identity.
+
+F5d.4 admits a future explicit cascade topology instead: a separately named speech runtime performs STT, the final transcript crosses the same normalized `send` boundary as typed text, the selected agent adapter remains authoritative for tools/approvals/cancellation, and only normalized visible assistant text enters TTS. When speech and agent runtimes differ, the UI and diagnostics name both. This is not a substitute hidden inside an agent adapter; it is the provider-neutral architecture in ADR 0012.
 
 ## Realtime voice-conversation contract
 
@@ -174,6 +176,19 @@ Method/catalog readiness is not an entitlement claim. A synchronous creation err
 The renderer serializes a bounded capture queue and stops instead of silently dropping microphone audio. Output is decoded into a bounded Web Audio schedule; clear/cancel stops already scheduled sources, playback marks are acknowledged at their audible boundary, and avatar `speaking` follows scheduled audio rather than transcript arrival. The live-voice dock replaces the text composer for the session and exposes phase, Interrupt when meaningful, End, Escape, and reduced-motion-safe activity. No wake word, launch-time capture, persistence, or background listener is admitted.
 
 The simulation adapter is a UI/state-machine harness only. It is always labeled `Simulation`, never persisted as a production connection, and cannot satisfy an integration milestone.
+
+## Multi-provider speech disposition
+
+Voice does not become four separate copies of microphone/VAD/playback logic. The implementation sequence is:
+
+1. Close OpenClaw F5d.3 live evidence.
+2. Extract the proven OpenClaw path behind a main-owned speech-runtime registry and `VoiceCoordinator`, keeping renderer behavior and wire semantics unchanged.
+3. Admit Hermes relay transcription and streaming PCM TTS as the first cascade runtime. Deskiii deliberately avoids Hermes client-direct `/api/audio/voice-config`, because that route can return resolved provider credentials.
+4. Compose the admitted cascade with direct Hermes and Codex agents. Cancellation, approvals, tools, reconnect, and exactly-once terminals remain owned by the active agent adapter.
+5. Keep native Codex realtime non-production while `thread/realtime/*` requires `experimentalApi`; use only a version-pinned lab probe to watch stabilization.
+6. Add Claude to the cascade only after its authenticated agent/package gate. The supported Agent SDK does not define native audio.
+
+No provider instruction file or system prompt has to be edited. The speech plane submits ordinary user text and consumes normalized assistant text. Full topology, package implications, and evidence are in `docs/research/VOICE-PROVIDER-TOPOLOGY-2026-09-01.md`.
 
 ## Provider conversation handoff
 

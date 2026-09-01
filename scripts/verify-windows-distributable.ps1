@@ -22,6 +22,7 @@ $output = [System.IO.Path]::GetFullPath($OutputPath)
 $temporaryBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
 $temporary = Join-Path $temporaryBase ("desky-artifact-verification-" + [guid]::NewGuid().ToString('N'))
 $asarVerifier = Join-Path $PSScriptRoot 'verify-release-artifact.mjs'
+$externalRuntimeVerifier = Join-Path $PSScriptRoot 'verify-external-runtime-payload.mjs'
 
 function Assert-Equal {
   param([object]$Actual, [object]$Expected, [string]$Label)
@@ -37,6 +38,16 @@ function Invoke-AsarPolicy {
   param([string]$AsarPath)
   & node $asarVerifier $ProfileId $AsarPath
   if ($LASTEXITCODE -ne 0) { throw "ASAR release policy failed for $ProfileId." }
+}
+
+function Assert-NoBundledExternalAgentOrSpeechRuntime {
+  param([string]$PackageRoot)
+
+  $json = & node $externalRuntimeVerifier $PackageRoot
+  if ($LASTEXITCODE -ne 0) { throw 'External agent/speech runtime payload policy failed.' }
+  $report = $json | ConvertFrom-Json
+  Assert-True ($report.verified -eq $true) 'External runtime payload verifier did not return a verified result.'
+  return [int]$report.signaturesAbsent
 }
 
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $output) | Out-Null
@@ -100,6 +111,7 @@ try {
     }
 
     Invoke-AsarPolicy (Join-Path $temporary 'app\resources\app.asar')
+    $details.externalRuntimePayloadSignaturesAbsent = Assert-NoBundledExternalAgentOrSpeechRuntime (Join-Path $temporary 'app')
 
     if ($ReleaseMode -eq 'development') {
       Assert-Equal $signature.SignerCertificate.Subject 'CN=Desky Development' 'Development MSIX signer'
@@ -132,6 +144,7 @@ try {
     Assert-True ($null -ne $asar) 'Direct update package is missing app.asar.'
     Assert-True ($null -ne $packagedExecutable) 'Direct update package is missing Desky.exe.'
     Invoke-AsarPolicy $asar.FullName
+    $details.externalRuntimePayloadSignaturesAbsent = Assert-NoBundledExternalAgentOrSpeechRuntime (Join-Path $temporary 'nupkg')
     $applicationSignature = Get-AuthenticodeSignature -LiteralPath $packagedExecutable.FullName
 
     $releases = Get-Content -Raw -LiteralPath $releasesFile
