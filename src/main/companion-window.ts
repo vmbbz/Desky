@@ -31,6 +31,7 @@ import {
   defaultAmbientBounds,
   deriveAmbientEdgeLayout,
   displayArrangementKey,
+  resolveAmbientDragBounds,
   resolveArrangementBounds,
   type DisplayGeometry,
 } from './desktop-placement';
@@ -1871,11 +1872,12 @@ export class DeskyWindowManager {
     }
     const drag = this.ambientDrag;
     if (!drag || drag.contentsId !== contents.id) return;
-    const candidate = {
-      ...drag.startBounds,
-      x: drag.startBounds.x + Math.round(command.pointerX - drag.pointerX),
-      y: drag.startBounds.y + Math.round(command.pointerY - drag.pointerY),
-    };
+    const candidate = resolveAmbientDragBounds(
+      drag.startBounds,
+      { x: drag.pointerX, y: drag.pointerY },
+      { x: command.pointerX, y: command.pointerY },
+      ambientSize,
+    );
     const clamped = clampBoundsToDisplays(candidate, this.displayGeometries()).bounds;
     this.ambient.setBounds(clamped, false);
     if (command.phase === 'end') {
@@ -1959,6 +1961,24 @@ export class DeskyWindowManager {
     window.webContents.on('will-navigate', (event) => event.preventDefault());
     window.webContents.on('destroyed', () => this.surfaces.delete(contentsId));
     if (surface === 'ambient') {
+      const restoreFixedAmbientBounds = () => {
+        if (window.isDestroyed()) return;
+        const current = window.getBounds();
+        if (current.width === ambientSize.width && current.height === ambientSize.height) return;
+        window.unmaximize();
+        const fixed = clampBoundsToDisplays({
+          x: current.x,
+          y: current.y,
+          ...ambientSize,
+        }, this.displayGeometries()).bounds;
+        window.setBounds(fixed, false);
+      };
+      window.on('will-resize', (event) => event.preventDefault());
+      window.on('maximize', () => setImmediate(restoreFixedAmbientBounds));
+      window.on('enter-full-screen', () => {
+        window.setFullScreen(false);
+        setImmediate(restoreFixedAmbientBounds);
+      });
       window.setAlwaysOnTop(this.desktopState.alwaysOnTop);
       if (process.platform === 'darwin') {
         window.setVisibleOnAllWorkspaces(true, {

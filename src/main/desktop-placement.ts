@@ -151,3 +151,17 @@ export function deriveAmbientEdgeLayout(
         : 'center',
   };
 }
+
+export function resolveAmbientDragBounds(
+  startBounds: DesktopRectangle,
+  pointerStart: Pick<DesktopRectangle, 'x' | 'y'>,
+  pointerCurrent: Pick<DesktopRectangle, 'x' | 'y'>,
+  fixedSize: Pick<DesktopRectangle, 'width' | 'height'>,
+): DesktopRectangle {
+  return {
+    x: startBounds.x + Math.round(pointerCurrent.x - pointerStart.x),
+    y: startBounds.y + Math.round(pointerCurrent.y - pointerStart.y),
+    width: fixedSize.width,
+    height: fixedSize.height,
+  };
+}

@@ -5,6 +5,7 @@ import {
   defaultAmbientBounds,
   deriveAmbientEdgeLayout,
   displayArrangementKey,
+  resolveAmbientDragBounds,
   resolveArrangementBounds,
   type DisplayGeometry,
 } from '../src/main/desktop-placement';
@@ -80,5 +81,14 @@ describe('desktop placement', () => {
       { x: 700, y: 200, width: 420, height: 580 },
       primary.workArea,
     )).toEqual({ bubblePlacement: 'above', horizontalPlacement: 'center' });
+  });
+
+  it('keeps the ambient container fixed-size even if Windows reports a snapped start bound', () => {
+    expect(resolveAmbientDragBounds(
+      { x: 0, y: 0, width: 1920, height: 1040 },
+      { x: 100, y: 100 },
+      { x: 165, y: 142 },
+      { width: 420, height: 580 },
+    )).toEqual({ x: 65, y: 42, width: 420, height: 580 });
   });
 });
