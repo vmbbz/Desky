@@ -125,6 +125,26 @@ describe('agent adapter contract v1', () => {
     })).toThrow('contract v1');
   });
 
+  it('keeps every direct non-OpenClaw provider voice fail-closed', () => {
+    for (const capabilities of [
+      hermesFoundationCapabilities,
+      codexFoundationCapabilities,
+      claudeFoundationCapabilities,
+    ]) {
+      expect(capabilities.voiceInput).toMatchObject({
+        availability: 'unsupported',
+        transport: 'none',
+      });
+      expect(capabilities.voiceConversation).toMatchObject({
+        availability: 'unsupported',
+        transport: 'none',
+        inputFormats: [],
+        outputFormats: [],
+        supportsBargeIn: false,
+      });
+    }
+  });
+
   it('admits bounded normalized events and rejects oversized payloads', () => {
     expect(() => assertAdapterEvent({
       protocolVersion: 1,

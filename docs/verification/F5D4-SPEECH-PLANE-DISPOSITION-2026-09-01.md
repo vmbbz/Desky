@@ -7,7 +7,7 @@ The next multi-provider voice architecture and its package boundary are admitted
 ## Source audit
 
 - Current OpenClaw voice remains the only implemented Deskiii path.
-- Pinned Hermes source `057dcdf236f8a6a26721c10fcc6ccb72726e272a` contains authenticated `/api/audio/transcribe`, `/api/audio/voice-config`, and `/api/audio/speak-stream` routes plus desktop continuous-voice/barge-in orchestration. Deskiii admits only the relay design; provider credential export is rejected.
+- Pinned Hermes source `057dcdf236f8a6a26721c10fcc6ccb72726e272a` contains `/api/audio/transcribe`, `/api/audio/voice-config`, and `/api/audio/speak-stream` on its Dashboard/Desktop web server, not on Deskiii's admitted `/v1` API Server. The admitted server explicitly advertises `audio_api: false` and `realtime_voice: false`. No Hermes speech design is therefore admitted yet; provider credential export remains rejected.
 - Pinned Codex source `6478a751fde8884b2fdc76486fe23175a8e795d4` contains `thread/realtime/*` audio protocol, but the methods are experimental. The published stable app-server overview does not list them. Production capability remains disabled.
 - The supported Claude Agent SDK surface has no documented audio transport. Claude requires the shared cascade design after its existing authenticated admission gate.
 
@@ -57,6 +57,6 @@ The Claude admission-only executable is 337,745,056 bytes and remains outside or
 
 1. Complete OpenClaw F5d.3 audible output, transcript ordering, interruption, clear/mark, disconnect, and same-session recovery.
 2. Extract the live OpenClaw implementation behind the provider-neutral speech runtime without regression.
-3. Implement and live-prove the Hermes relay speech runtime.
+3. Select and admit a speech runtime. Prefer a versioned Hermes `/v1` audio contract if upstream provides one; otherwise treat its Dashboard/Desktop server or another speech provider as a distinct security, credential, lifecycle, and billing boundary.
 4. Prove cross-agent cascade with direct Codex and Hermes.
 5. Revisit native Codex realtime only when stable; add Claude only after its authenticated agent and distribution gates.

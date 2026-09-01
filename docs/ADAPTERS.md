@@ -183,10 +183,10 @@ Voice does not become four separate copies of microphone/VAD/playback logic. The
 
 1. Close OpenClaw F5d.3 live evidence.
 2. Extract the proven OpenClaw path behind a main-owned speech-runtime registry and `VoiceCoordinator`, keeping renderer behavior and wire semantics unchanged.
-3. Admit Hermes relay transcription and streaming PCM TTS as the first cascade runtime. Deskiii deliberately avoids Hermes client-direct `/api/audio/voice-config`, because that route can return resolved provider credentials.
+3. Select and admit an independent cascade speech runtime. The current Hermes `/v1` API Server reports both audio capabilities false; Hermes Dashboard/Desktop audio is a second server surface and may be considered only with separate endpoint, authentication, version, TLS, and lifecycle admission. Deskiii will not call `/api/audio/voice-config`, because it can return resolved provider credentials.
 4. Compose the admitted cascade with direct Hermes and Codex agents. Cancellation, approvals, tools, reconnect, and exactly-once terminals remain owned by the active agent adapter.
 5. Keep native Codex realtime non-production while `thread/realtime/*` requires `experimentalApi`; use only a version-pinned lab probe to watch stabilization.
-6. Add Claude to the cascade only after its authenticated agent/package gate. The supported Agent SDK does not define native audio.
+6. Add Claude to the cascade only after its authenticated agent/package gate. Interactive Claude Code dictation requires Claude.ai login and is unavailable to the API-key Agent SDK topology, so it is not a Deskiii speech transport.
 
 No provider instruction file or system prompt has to be edited. The speech plane submits ordinary user text and consumes normalized assistant text. Full topology, package implications, and evidence are in `docs/research/VOICE-PROVIDER-TOPOLOGY-2026-09-01.md`.
 

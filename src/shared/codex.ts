@@ -41,7 +41,7 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
   voiceInput: {
     availability: 'unsupported',
     transport: 'none',
-    setupHint: 'Codex app-server does not expose an admitted streaming transcription surface.',
+    setupHint: 'Codex app-server realtime audio is experimental and is not admitted in production.',
   },
   voiceConversation: {
     availability: 'unsupported',
@@ -49,7 +49,7 @@ export const codexFoundationCapabilities: AgentAdapterCapabilities = Object.free
     inputFormats: [],
     outputFormats: [],
     supportsBargeIn: false,
-    setupHint: 'Codex app-server does not expose an admitted realtime audio relay.',
+    setupHint: 'Codex thread/realtime methods require experimentalApi and remain disabled.',
   },
   agentActions: {
     availability: codexTypedActionPolicy.availability,

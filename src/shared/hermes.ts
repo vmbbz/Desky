@@ -27,7 +27,7 @@ export const hermesFoundationCapabilities: AgentAdapterCapabilities = Object.fre
   voiceInput: {
     availability: 'unsupported',
     transport: 'none',
-    setupHint: 'Hermes voice input has not been admitted into the Deskiii adapter contract.',
+    setupHint: 'The admitted Hermes /v1 API server reports audio_api=false; no Hermes speech transport is admitted.',
   },
   voiceConversation: {
     availability: 'unsupported',
@@ -35,7 +35,7 @@ export const hermesFoundationCapabilities: AgentAdapterCapabilities = Object.fre
     inputFormats: [],
     outputFormats: [],
     supportsBargeIn: false,
-    setupHint: 'Hermes realtime audio has not been admitted into the Deskiii adapter contract.',
+    setupHint: 'Hermes Dashboard voice is a separate, unadmitted server surface; realtime audio remains unavailable.',
   },
   agentActions: {
     availability: 'unsupported',

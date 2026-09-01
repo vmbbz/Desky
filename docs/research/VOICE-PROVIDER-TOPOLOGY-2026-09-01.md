@@ -11,20 +11,21 @@ This is a source/protocol disposition, not live proof that Hermes, Codex, or Cla
 | Agent route | Official/current speech evidence | Deskiii release decision | Base-installer impact |
 | --- | --- | --- | --- |
 | OpenClaw Gateway | Admitted Talk catalog/session/event relay with realtime agent consultation | Keep as the first coupled realtime speech runtime; finish the live matrix | No gateway or model bundled; current Web Audio/WebSocket code only |
-| Hermes API Server | Official continuous voice, STT relay, streaming TTS WebSocket, and barge-in implementation | First cascade candidate; relay only, never client-direct credential export | No Hermes/Python/model payload in Deskiii; external Hermes may install optional voice dependencies |
+| Hermes API Server | The admitted `/v1` server explicitly reports `audio_api: false` and `realtime_voice: false`; voice routes are on a separate Dashboard/Desktop web server | Keep direct Hermes voice disabled. Prefer a future versioned `/v1` audio contract; otherwise admit the second server as a separate speech runtime with a full security/lifecycle matrix | No Hermes/Python/model payload in Deskiii; external Hermes may install optional voice dependencies |
 | Codex app-server | Current pinned official source contains experimental `thread/realtime/start`, audio append/output, transcript, stop, and voice-list methods | Lab probe only until the surface is stable and published; otherwise use an admitted cascade speech runtime around the stable text adapter | No Codex executable bundled today; schema/bridge work is small |
-| Claude Agent SDK | Official Agent SDK overview documents the agent loop, tools, sessions, and permissions but no native audio surface | Use the shared cascade speech plane after Claude's authenticated adapter gate; do not claim native Claude voice | Voice adds no large library, but the current Claude agent executable would add 337,745,056 bytes and stays excluded |
+| Claude Agent SDK | Official Agent SDK documents text/tool streaming, not programmatic audio. Interactive Claude Code dictation requires Claude.ai login, is unavailable with an API key, and provides transcription rather than assistant speech | Use an independently admitted cascade speech runtime after Claude's authenticated adapter gate; do not claim native Claude voice | Voice adds no large library, but the current Claude agent executable would add 337,745,056 bytes and stays excluded |
 
 Primary references:
 
 - [Codex app-server documentation](https://developers.openai.com/codex/app-server/) describes the stable/experimental opt-in boundary. The stable published API overview does not list `thread/realtime/*`; pinned official source revision `6478a751fde8884b2fdc76486fe23175a8e795d4` marks the realtime methods experimental.
-- [Claude Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) is the supported agent integration surface and does not document an audio transport.
+- [Claude Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) and [streaming-output reference](https://code.claude.com/docs/en/agent-sdk/streaming-output) document the programmatic text/tool event surface. [Claude Code voice dictation](https://code.claude.com/docs/en/voice-dictation) is an interactive CLI/VS Code transcription feature, requires Claude.ai authentication, and is explicitly unavailable with API-key, Bedrock, Vertex, or Foundry configurations.
 - [Hermes voice mode](https://github.com/NousResearch/hermes-agent/blob/main/website/docs/user-guide/features/voice-mode.md) documents continuous voice, relay/client-direct topology, VAD, and barge-in.
 - [Hermes streaming TTS](https://github.com/NousResearch/hermes-agent/blob/main/docs/streaming-tts.md) documents sentence-chunked provider synthesis and raw PCM streaming. The admitted local source pin is `057dcdf236f8a6a26721c10fcc6ccb72726e272a`.
+- At that pin, [`gateway/platforms/api_server.py`](https://github.com/NousResearch/hermes-agent/blob/057dcdf236f8a6a26721c10fcc6ccb72726e272a/gateway/platforms/api_server.py#L3361-L3366) reports both audio capability flags false, while [`hermes_cli/web_server.py`](https://github.com/NousResearch/hermes-agent/blob/057dcdf236f8a6a26721c10fcc6ccb72726e272a/hermes_cli/web_server.py#L5175) owns the `/api/audio/*` routes.
 
 ## Security disposition
 
-Hermes's official desktop can fetch resolved STT/TTS configuration, including a provider credential, through `GET /api/audio/voice-config` and call providers directly. Deskiii will not use that path. It will prefer the authenticated Hermes relay endpoints so upstream credentials remain on the Hermes host. That costs one extra network hop but preserves the existing main-owned credential and renderer-isolation model.
+Hermes's official desktop can fetch resolved STT/TTS configuration, including a provider credential, through `GET /api/audio/voice-config` and call providers directly. Deskiii will not use that path. The current relay endpoints are also not silently reusable: they are served by `hermes_cli.web_server`, whereas Deskiii's admitted Hermes adapter connects to `gateway.platforms.api_server` under `/v1`. A future implementation must either add/admit audio on the `/v1` server or model the web server as a separate authenticated speech runtime. Tokens, TLS policy, capability discovery, origin policy, reconnect, and shutdown must be proved independently.
 
 The shared cascade path must enforce:
 
@@ -63,17 +64,18 @@ Release verification now also rejects exact external-runtime payloads such as `c
 - Adapt current OpenClaw Talk behind the new runtime.
 - Prove identical permission, overflow, interruption, stale-event, adapter-switch, disconnect, and surface-destruction behavior.
 
-### F5d.4b — Hermes relay admission
+### F5d.4b — cascade speech-runtime selection and admission
 
-- Add authenticated, version/capability-gated Hermes audio relay discovery.
-- Implement bounded recorded-audio transcription and raw PCM streaming TTS without using `/api/audio/voice-config`.
-- Compose transcript -> selected Hermes text run -> normalized assistant deltas -> synthesis.
+- Select one release topology: a versioned Hermes `/v1` audio extension, a separately admitted Hermes Dashboard/Desktop speech server, an operator-supplied speech provider, or a Deskiii-hosted speech relay.
+- Reject any topology that exports resolved upstream provider credentials to the renderer, reuses an agent token across an unproved server boundary, or adds a hidden local model/runtime payload.
+- Implement bounded recorded-audio transcription and streaming TTS behind `SpeechRuntime` only after version, capability, authentication, billing identity, privacy, and failure semantics are pinned.
+- Compose transcript -> selected agent text run -> normalized assistant deltas -> synthesis.
 - Prove VAD, barge-in during thinking and playback, approval/tool coexistence, Stop, disconnect, same-session recovery, and server-side credential isolation.
 - Run local and packaged Windows matrices; remote HTTPS remains a separate operational matrix.
 
 ### F5d.4c — cross-agent cascade
 
-- Allow an admitted cascade speech runtime to surround Codex, Hermes, and later Claude text adapters.
+- Allow the admitted cascade speech runtime to surround Codex, Hermes, and later Claude text adapters.
 - Pin both runtime identities for the session and disclose the pairing in UI/diagnostics.
 - Prove each agent's approval, cancellation, reconnect, and exactly-once terminal semantics remain authoritative.
 
@@ -85,5 +87,5 @@ Release verification now also rejects exact external-runtime payloads such as `c
 ### F5d.4e — Claude voice and distribution gate
 
 - First complete Claude's authenticated text/tool/package matrix with an authorized API key.
-- Use cascade speech; do not add a fake Claude-native voice capability.
+- Use cascade speech; do not reuse interactive Claude Code dictation or add a fake Claude-native voice capability.
 - Keep the 337,745,056-byte executable outside the base installer. Select and verify either an optional signed direct provider pack or a hosted topology before registering Claude in a release profile.
