@@ -481,14 +481,13 @@ body[data-desky-surface="control-center"] {
 }
 
 .ambient-drag-handle {
-  -webkit-app-region: no-drag;
+  -webkit-app-region: drag;
   position: absolute;
   z-index: 30;
   top: 8px;
   left: 10px;
   width: 27px;
   height: 26px;
-  padding: 0;
   display: grid;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.12);

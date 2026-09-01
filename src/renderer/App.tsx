@@ -873,13 +873,10 @@ export function App() {
     avatarHitTestRef.current = hitTest;
   }, []);
 
-  const beginAvatarManipulation = (
-    event: ReactPointerEvent<HTMLButtonElement>,
-    forcedMode?: 'move' | 'rotate',
-  ) => {
+  const beginAvatarManipulation = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
     const hitAvatar = avatarHitTestRef.current?.(event.clientX, event.clientY) ?? true;
-    const mode = forcedMode ?? resolveAvatarDragMode({
+    const mode = resolveAvatarDragMode({
       hitAvatar,
       forceRotate: event.shiftKey || event.altKey,
     });
@@ -1005,17 +1002,7 @@ export function App() {
       >
         {composerExpanded || voiceConversationActive ? (
           <>
-            <button
-              type="button"
-              className="ambient-drag-handle"
-              data-desky-interactive="true"
-              title="Move Deskiii"
-              aria-label="Move Deskiii"
-              onPointerDown={(event) => beginAvatarManipulation(event, 'move')}
-              onPointerMove={continueAvatarManipulation}
-              onPointerUp={endAvatarManipulation}
-              onPointerCancel={endAvatarManipulation}
-            >•••</button>
+            <div className="ambient-drag-handle" data-desky-interactive="true" title="Move Deskiii" aria-label="Move Deskiii">•••</div>
             <div className="ambient-actions" data-desky-interactive="true">
               <button type="button" aria-label="Wave hello" title="Wave hello" onClick={() => requestAvatarMotion('wave')}>✦</button>
               <button type="button" aria-label="Open Deskiii control center" onClick={() => window.desky.performWindowAction('open-control-center')}>⚙</button>

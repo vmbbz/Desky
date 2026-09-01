@@ -63,7 +63,7 @@ A click or keyboard shortcut temporarily expands the local interaction:
 ```
 
 - The bubble and composer flip or shift when the companion is close to a work-area edge.
-- The companion grip uses Deskiii's bounded pointer drag rather than a native titlebar drag. Windows Snap therefore cannot maximize or widen the transparent surface, and main independently rejects resize/full-screen transitions and normalizes every drag to the fixed ambient dimensions.
+- The companion grip uses the native desktop drag path for reliable movement. Main independently rejects resize, maximize, and full-screen transitions, while every pointer-driven avatar/gap drag is normalized to the fixed ambient dimensions, so Windows Snap cannot leave the transparent surface widened.
 - The composer receives focus only after an explicit user action.
 - A draft survives dismissal, reconnect, and an accidental focus change.
 - `Enter` sends, `Shift+Enter` inserts a line break where multiline input is enabled, and `Escape` collapses the focused surface without discarding the draft.
