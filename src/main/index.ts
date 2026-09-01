@@ -10,6 +10,7 @@ import {
 import { registerIpc } from './ipc';
 import { DesktopStateStore } from './desktop-state-store';
 import { OpenClawAdapterHost } from './openclaw/host';
+import { probeOpenClawGatewayStartup } from './openclaw/startup-probe';
 import { SecureVault } from './openclaw/secure-vault';
 import { AgentAdapterRegistry } from './adapters/registry';
 import { createProfileRuntimes } from './adapters/profile-runtimes';
@@ -57,6 +58,8 @@ if (!ownsUserSession) {
       connectionsVault,
       app.getVersion(),
       process.platform,
+      undefined,
+      probeOpenClawGatewayStartup,
     );
     const distributionProfile = getDistributionProfile();
     const codexWorkspaceGrants = new CodexWorkspaceGrantBroker({

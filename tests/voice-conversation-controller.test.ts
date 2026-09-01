@@ -33,12 +33,23 @@ class FakeAudioBufferSourceNode extends FakeAudioNode {
   }
 }
 
+class FakeScriptProcessorNode extends FakeAudioNode {
+  onaudioprocess: ((event: AudioProcessingEvent) => void) | null = null;
+
+  emitInput(samples: Float32Array): void {
+    this.onaudioprocess?.({
+      inputBuffer: { getChannelData: () => samples },
+    } as unknown as AudioProcessingEvent);
+  }
+}
+
 class FakeAudioContext {
   currentTime = 0;
   readonly sampleRate = 48_000;
   state: AudioContextState = 'running';
   readonly destination = new FakeAudioNode() as unknown as AudioDestinationNode;
   readonly sources: FakeAudioBufferSourceNode[] = [];
+  readonly processor = new FakeScriptProcessorNode();
 
   async resume(): Promise<void> {
     this.state = 'running';
@@ -53,7 +64,7 @@ class FakeAudioContext {
   }
 
   createScriptProcessor(): ScriptProcessorNode {
-    return Object.assign(new FakeAudioNode(), { onaudioprocess: null }) as unknown as ScriptProcessorNode;
+    return this.processor as unknown as ScriptProcessorNode;
   }
 
   createGain(): GainNode {
@@ -88,6 +99,13 @@ function audiblePcm16Frame(sampleCount = 480): string {
 
 function silentPcm16Frame(sampleCount: number): string {
   return Buffer.alloc(sampleCount * 2).toString('base64');
+}
+
+function bargeInSpeechFrame(): Float32Array {
+  const samples = new Float32Array(4096);
+  samples.fill(0.03);
+  samples[0] = 0.09;
+  return samples;
 }
 
 function createHarness() {
@@ -213,7 +231,7 @@ describe('VoiceConversationController playback lifecycle', () => {
     await harness.controller.stop();
   });
 
-  it('fully resets playback on clear and ignores late audio from the cancelled turn', async () => {
+  it('uses provider clear for speech barge-in without an explicit cancel RPC', async () => {
     const harness = createHarness();
     await harness.controller.start();
     harness.emit({
@@ -239,6 +257,7 @@ describe('VoiceConversationController playback lifecycle', () => {
 
     expect(harness.controller.phase).toBe('listening');
     expect(audioContext.sources).toHaveLength(1);
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(5_000);
     expect(harness.controller.phase).toBe('listening');
     expect(harness.errors).toEqual([]);
@@ -254,11 +273,20 @@ describe('VoiceConversationController playback lifecycle', () => {
       turnId: 'turn-interrupted',
       audioBase64: audiblePcm16Frame(),
     });
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-follow-up',
+      role: 'user',
+      text: 'Actually, stop.',
+      final: false,
+    });
 
     await expect(harness.controller.interrupt()).resolves.toBe('applied');
     expect(harness.bridge.cancelOutput).toHaveBeenCalledWith({
       sessionId: 'voice-1',
       turnId: 'turn-interrupted',
+      reason: 'internal-fallback',
     });
     expect(harness.controller.phase).toBe('listening');
 
@@ -301,6 +329,52 @@ describe('VoiceConversationController playback lifecycle', () => {
     await harness.controller.stop();
   });
 
+  it('matches OpenClaw desktop natural barge-in after two sustained speech frames', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-speaking',
+      audioBase64: audiblePcm16Frame(),
+    });
+
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+    await Promise.resolve();
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+    await vi.waitFor(() => expect(harness.bridge.cancelOutput).toHaveBeenCalledWith({
+      sessionId: 'voice-1',
+      turnId: 'turn-speaking',
+      reason: 'barge-in',
+    }));
+
+    expect(harness.controller.phase).toBe('listening');
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
+  it('does not mistake noise or one speech-like frame for barge-in', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'audio',
+      sessionId: 'voice-1',
+      turnId: 'turn-speaking',
+      audioBase64: audiblePcm16Frame(),
+    });
+
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+    audioContext.processor.emitInput(new Float32Array(4096).fill(0.005));
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+    await Promise.resolve();
+
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+    expect(harness.controller.phase).toBe('speaking');
+    await harness.controller.stop();
+  });
+
   it('returns to listening when a response completes without any playable audio', async () => {
     const harness = createHarness();
     await harness.controller.start();
@@ -324,6 +398,58 @@ describe('VoiceConversationController playback lifecycle', () => {
     expect(harness.controller.phase).toBe('thinking');
     await vi.advanceTimersByTimeAsync(400);
     expect(harness.controller.phase).toBe('listening');
+    expect(harness.errors).toEqual([]);
+    await harness.controller.stop();
+  });
+
+  it('ends a session whose provider-heard transcript never finalizes', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-stalled-input',
+      role: 'user',
+      text: 'Check my skills',
+      final: false,
+    });
+
+    expect(harness.controller.phase).toBe('hearing');
+    await vi.advanceTimersByTimeAsync(11_999);
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
+    expect(harness.bridge.stop).toHaveBeenCalledWith({ sessionId: 'voice-1' });
+    expect(harness.controller.phase).toBe('idle');
+    expect(harness.errors).toEqual([
+      'The voice provider stopped before finishing your sentence. Deskiii ended that live session safely; start voice and try again.',
+    ]);
+  });
+
+  it('cancels the input watchdog when the provider finalizes normally', async () => {
+    const harness = createHarness();
+    await harness.controller.start();
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-complete-input',
+      role: 'user',
+      text: 'Check my',
+      final: false,
+    });
+    harness.emit({
+      type: 'transcript',
+      sessionId: 'voice-1',
+      turnId: 'turn-complete-input',
+      role: 'user',
+      text: 'Check my skills',
+      final: true,
+    });
+
+    expect(harness.controller.phase).toBe('thinking');
+    await vi.advanceTimersByTimeAsync(13_000);
+    expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
     expect(harness.errors).toEqual([]);
     await harness.controller.stop();
   });

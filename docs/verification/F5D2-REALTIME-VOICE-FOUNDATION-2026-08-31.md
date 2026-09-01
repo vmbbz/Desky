@@ -15,7 +15,7 @@ This remains a foundation claim rather than a successful assistant-audio claim. 
 - Bounds canonical input IPC, serialized capture backlog, provider output, scheduled playback, transcript text, marks, error messages, and the create-response event handoff across runtime/IPC/renderer ownership.
 - Cancels output by active session and optional turn id, clears local playback immediately, and acknowledges marks at playback time.
 - Maps actual scheduled output to avatar Speaking rather than using assistant text as a fake audio signal.
-- Replaces the ambient and Control Center text composers during voice with Listening/Thinking/Speaking, contextual Interrupt, End, and Escape.
+- At the F5d.2 foundation snapshot, replaced the ambient and Control Center text composers during voice with Listening/Thinking/Speaking, contextual Interrupt, End, and Escape. F5d.3 subsequently removed the ordinary Interrupt control, added `Hearing you`, and adopted the official desktop client's guarded local speech detector plus turn-scoped cancellation for natural barge-in.
 - Auto-dismisses final assistant voice text using the existing bounded reading interval.
 - Fails Store profile voice closed pending its microphone manifest/certification gate.
 - Downgrades asynchronous provider rejection to `setup-required` until reconnect instead of leaving a repeatedly failing headset control enabled.
@@ -40,6 +40,8 @@ The agent-specific official auth commands report this effective order:
 2. `openai:cosychiruka@gmail.com`.
 
 The runner profile was refreshed through the official OpenClaw OAuth command. Read-only metadata inspection reports that the record contains the required OAuth/account metadata. Secret values and the account id were not printed.
+
+This order is historical evidence for the dated F5d.2 snapshot. The operator later exhausted and switched accounts. The replacement selection was reauthenticated and read-only verified on 2026-09-01; new functional claims still require their own fresh roundtrip evidence.
 
 After updating the stale GA `cedar` selection to the current GPT-Live Codex V3 `spruce` voice, an authenticated `talk.session.create` succeeds and returns PCM16 24 kHz input/output. The CLI connection then ends and the Gateway releases its connection-owned probe session. No audio was sent. This supersedes the earlier account-entitlement diagnosis: the 403 was consistent with the overloaded invalid-voice response.
 
@@ -67,7 +69,7 @@ From the clean package and now-admitted OAuth/model/voice session, prove:
 1. microphone allow and deny;
 2. real user and assistant transcript ordering;
 3. audible output in each negotiated format used by the provider;
-4. Interrupt during playback and exact turn cancellation;
+4. natural speech barge-in during playback and exact turn cancellation, without a UI button;
 5. clear/mark order at the audible boundary;
 6. queue overflow, malformed output, provider failure, disconnect, surface destruction, and recovery;
 7. same selected-session continuity without replay;

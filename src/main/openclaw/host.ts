@@ -28,6 +28,10 @@ import {
   type DeviceIdentity,
 } from './protocol';
 import type { SecureVault } from './secure-vault';
+import type {
+  OpenClawGatewayStartupProbe,
+  OpenClawGatewayStartupState,
+} from './startup-probe';
 import { isTerminalSecureTransportError } from '../secure-transport';
 
 interface StoredProfile {
@@ -69,6 +73,7 @@ const voiceConversationMethods = [
 ] as const;
 const talkCatalogMethod = 'talk.catalog';
 const maximumReconnectAttempt = 100;
+const startupMonitorIntervalMs = 5_000;
 
 function cloneState(state: OpenClawConnectionState): OpenClawConnectionState {
   return {
@@ -320,6 +325,7 @@ export class OpenClawAdapterHost {
   private profile?: StoredProfile;
   private identity?: DeviceIdentity;
   private reconnectTimer?: NodeJS.Timeout;
+  private startupMonitorTimer?: NodeJS.Timeout;
   private generation = 0;
   private manualDisconnect = false;
   private rememberCredential = false;
@@ -352,6 +358,7 @@ export class OpenClawAdapterHost {
     private readonly appVersion: string,
     private readonly platform: string,
     private readonly createClient: GatewayClientFactory = (options) => new OpenClawGatewayClient(options),
+    private readonly probeGatewayStartup?: OpenClawGatewayStartupProbe,
   ) {
     this.restoreProfile();
   }
@@ -397,6 +404,7 @@ export class OpenClawAdapterHost {
     this.manualDisconnect = false;
     this.rememberCredential = input.rememberCredential;
     this.clearReconnectTimer();
+    this.clearStartupMonitor();
     this.generation += 1;
     this.closeVoiceInputLocally('disconnected');
     this.closeVoiceConversationLocally('disconnected');
@@ -423,6 +431,7 @@ export class OpenClawAdapterHost {
     this.manualDisconnect = true;
     this.generation += 1;
     this.clearReconnectTimer();
+    this.clearStartupMonitor();
     const client = this.client;
     this.client = undefined;
     this.closeVoiceInputLocally('disconnected');
@@ -510,7 +519,7 @@ export class OpenClawAdapterHost {
     const key = this.state.selectedSessionKey;
     const runId = this.state.activeRunId;
     if (!key && !runId) return;
-    const result = abortAcknowledgement(await this.requireClient().request('sessions.abort', {
+    const result = abortAcknowledgement(await this.requireTransportClient().request('sessions.abort', {
       ...(key ? { key } : {}),
       ...(runId ? { runId } : {}),
       clearQueued: true,
@@ -530,7 +539,7 @@ export class OpenClawAdapterHost {
 
   async resolveApproval(input: OpenClawResolveApprovalInput): Promise<void> {
     if (!input.requestId || input.requestId.length > 1024) throw new Error('Invalid approval request.');
-    const result = approvalResolution(await this.requireClient().request('approval.resolve', {
+    const result = approvalResolution(await this.requireTransportClient().request('approval.resolve', {
       id: input.requestId,
       kind: input.kind,
       decision: input.decision,
@@ -712,12 +721,13 @@ export class OpenClawAdapterHost {
   async cancelVoiceConversationOutput(
     sessionId: string,
     turnId?: string,
+    reason: 'barge-in' | 'playback-overflow' | 'internal-fallback' = 'internal-fallback',
   ): Promise<'applied' | 'stale' | 'idle'> {
     if (sessionId !== this.activeVoiceConversationSession?.sessionId) return 'idle';
-    const value = await this.requireClient().request<unknown>('talk.session.cancelOutput', {
+    const value = await this.requireTransportClient().request<unknown>('talk.session.cancelOutput', {
       sessionId,
       ...(turnId ? { turnId } : {}),
-      reason: 'deskiii-user-interrupt',
+      reason: `deskiii-${reason}`,
     }, 10_000);
     if (!value || typeof value !== 'object') return 'idle';
     const status = (value as Record<string, unknown>).status;
@@ -726,13 +736,13 @@ export class OpenClawAdapterHost {
 
   async acknowledgeVoiceConversationMark(sessionId: string, markName: string): Promise<void> {
     if (sessionId !== this.activeVoiceConversationSession?.sessionId) return;
-    await this.requireClient().request('talk.session.acknowledgeMark', { sessionId, markName }, 10_000);
+    await this.requireTransportClient().request('talk.session.acknowledgeMark', { sessionId, markName }, 10_000);
   }
 
   async stopVoiceConversation(sessionId: string): Promise<void> {
     if (sessionId !== this.activeVoiceConversationSession?.sessionId) return;
     try {
-      await this.requireClient().request('talk.session.close', { sessionId }, 10_000);
+      await this.requireTransportClient().request('talk.session.close', { sessionId }, 10_000);
       if (sessionId === this.activeVoiceConversationSession?.sessionId) {
         this.emitVoiceConversationEvent({ type: 'closed', sessionId, reason: 'complete' });
       }
@@ -778,6 +788,13 @@ export class OpenClawAdapterHost {
       const hello = await client.connect();
       if (generation !== this.generation) return;
       this.assertRequiredFeatures(hello.features.methods);
+      const startup = await this.probeGatewayStartup?.(endpoint.url);
+      if (startup?.status === 'draining') {
+        throw new Error('OpenClaw Gateway is draining for restart. Restart it, then reconnect.');
+      }
+      if (startup?.status === 'starting') {
+        throw new Error('OpenClaw Gateway is still starting. Wait, then reconnect.');
+      }
       const actionCapabilitiesAvailable = await discoverDeskyActionCapabilities(
         client,
         hello.features.methods,
@@ -840,6 +857,7 @@ export class OpenClawAdapterHost {
           await client.request('chat.history', { sessionKey: selectedSessionKey, limit: 50 });
         }
       }
+      this.scheduleStartupMonitor(generation);
     } catch (error) {
       if (generation !== this.generation) return;
       client.close('Connection failed');
@@ -904,6 +922,7 @@ export class OpenClawAdapterHost {
 
   private handleClose(generation: number, reason: string, expected: boolean): void {
     if (generation !== this.generation || expected) return;
+    this.clearStartupMonitor();
     this.client = undefined;
     this.closeVoiceInputLocally('disconnected');
     this.closeVoiceConversationLocally('disconnected');
@@ -1002,6 +1021,58 @@ export class OpenClawAdapterHost {
   private requireClient(): GatewayClientPort {
     if (!this.client || this.state.status !== 'connected') throw new Error('Connect to OpenClaw first.');
     return this.client;
+  }
+
+  private requireTransportClient(): GatewayClientPort {
+    if (!this.client) throw new Error('OpenClaw Gateway transport is unavailable.');
+    return this.client;
+  }
+
+  private scheduleStartupMonitor(generation: number): void {
+    this.clearStartupMonitor();
+    if (!this.probeGatewayStartup || generation !== this.generation) return;
+    this.startupMonitorTimer = setTimeout(() => {
+      this.startupMonitorTimer = undefined;
+      void this.runStartupMonitor(generation);
+    }, startupMonitorIntervalMs);
+    this.startupMonitorTimer.unref?.();
+  }
+
+  private async runStartupMonitor(generation: number): Promise<void> {
+    const monitorableStatus = this.state.status === 'connected'
+      || this.state.status === 'reconnecting';
+    if (!this.probeGatewayStartup || generation !== this.generation
+      || !this.profile || !this.client || !monitorableStatus) return;
+    let startup: OpenClawGatewayStartupState;
+    try {
+      startup = await this.probeGatewayStartup(this.profile.gatewayUrl);
+    } catch {
+      startup = { status: 'unknown' };
+    }
+    const currentStatusIsMonitorable = this.state.status === 'connected'
+      || this.state.status === 'reconnecting';
+    if (generation !== this.generation || !this.client || !currentStatusIsMonitorable) return;
+    if (startup.status === 'draining' || startup.status === 'starting') {
+      this.withdrawConnectedClaim(startup);
+      return;
+    }
+    if (startup.status === 'started' && this.state.status === 'reconnecting') {
+      this.patchState({
+        status: 'connected',
+        reconnectAttempt: 0,
+        message: undefined,
+      });
+    }
+    this.scheduleStartupMonitor(generation);
+  }
+
+  private withdrawConnectedClaim(startup: OpenClawGatewayStartupState): void {
+    this.clearStartupMonitor();
+    const message = startup.status === 'draining'
+      ? 'OpenClaw Gateway is draining for restart. Restart it, then reconnect.'
+      : 'OpenClaw Gateway is still starting. Wait, then reconnect.';
+    this.patchState({ status: 'reconnecting', message });
+    this.scheduleStartupMonitor(this.generation);
   }
 
   private patchState(patch: Partial<OpenClawConnectionState>): void {
@@ -1259,6 +1330,11 @@ export class OpenClawAdapterHost {
   private clearReconnectTimer(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = undefined;
+  }
+
+  private clearStartupMonitor(): void {
+    if (this.startupMonitorTimer) clearTimeout(this.startupMonitorTimer);
+    this.startupMonitorTimer = undefined;
   }
 }
 

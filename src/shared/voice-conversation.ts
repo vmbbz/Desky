@@ -25,6 +25,7 @@ export interface VoiceConversationAudioChunk {
 export interface VoiceConversationCancelOutputCommand {
   sessionId: string;
   turnId?: string;
+  reason?: 'barge-in' | 'playback-overflow' | 'internal-fallback';
 }
 
 export interface VoiceConversationMarkCommand {

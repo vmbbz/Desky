@@ -162,14 +162,6 @@ function EndVoiceIcon() {
   );
 }
 
-function InterruptVoiceIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M5 12h14M9 8l-4 4 4 4" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.9" />
-    </svg>
-  );
-}
-
 export function App() {
   const simulation = useMemo(() => new SimulationAdapter(), []);
   const [state, setState] = useState<CompanionSnapshot>(initialCompanionSnapshot);
@@ -801,10 +793,10 @@ export function App() {
     </button>
   ) : null;
 
-  const voiceConversationCanInterrupt = voiceConversationPhase === 'speaking'
-    || voiceConversationPhase === 'thinking';
   const voiceConversationLabel = voiceConversationPhase === 'requesting'
     ? 'Starting voice'
+    : voiceConversationPhase === 'hearing'
+      ? 'Hearing you'
     : voiceConversationPhase === 'thinking'
       ? 'Thinking'
       : voiceConversationPhase === 'speaking'
@@ -831,16 +823,6 @@ export function App() {
         <strong>{voiceConversationLabel}</strong>
         <small>{runtimeLabel} · live voice</small>
       </span>
-      {voiceConversationCanInterrupt ? (
-        <button
-          className="voice-session-dock__interrupt"
-          type="button"
-          onClick={() => void voiceConversationControllerRef.current?.interrupt()}
-        >
-          <InterruptVoiceIcon />
-          <span>Interrupt</span>
-        </button>
-      ) : null}
       <button
         className="voice-session-dock__end"
         type="button"

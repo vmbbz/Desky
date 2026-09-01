@@ -57,15 +57,19 @@ The new controller suite failed against the pre-fix implementation for all obser
 - The earlier foreground Gateway was tied to an automation process and disappeared during a later observation. The reference machine now uses OpenClaw's own per-user `OpenClaw Gateway` Scheduled Task, pinned by its generated launcher to supported Node 22.22.3. A clean packaged run after the unusually long 218.5-second plugin startup completed action discovery, Talk catalog discovery, session subscription and history loading. OpenClaw remains an external user-installed runtime and is not present in the Deskiii artifact.
 - `windows-voice-20260901-113320` proved the actual microphone boundary was non-silent (`inputPeakPcm16=24385`) and the provider returned non-silent output (`outputPeakPcm16=16728`) with final user and assistant transcripts. It also exposed the continuous post-response comfort tail: the renderer still reported Speaking near capture end.
 - After bounding that tail, `windows-voice-20260901-113934` proved two real assistant responses in one session, non-silent microphone input (`inputPeakPcm16=32097`), non-silent provider output (`outputPeakPcm16=15871`), final user/assistant transcripts, `Speaking -> Thinking -> Listening`, and bubble dismissal. The final visible capture is Listening with no visual-exercise error. This closes normal audible-output and normal-completion recovery on the packaged Windows-direct/OpenClaw OAuth path.
+- `windows-voice-20260901-182305` then proved another non-silent 180-second session (`inputPeakPcm16=32766`, `outputPeakPcm16=12396`). The greeting finalized normally. The second, 22-character user request also finalized, but GPT-Live returned only a 29-character acknowledgement; sanitized Gateway events contained no native delegation and no agent run. This is not a Deskiii microphone or playback failure. The evidence capture itself ended at 182,205 ms and exposed a recorder validation bug because the renderer bound stopped exactly at 180,000 ms. The recorder now permits only 10 seconds of bounded finalization overhead while retaining the 180-second requested observation ceiling; 190,001 ms is rejected by regression.
+- The adjacent current OpenClaw source runtime now has native-first delegation recovery at commit `21a29a5f0`: a missing native event starts the same Gateway-owned bounded consult after 250 ms, native events during the grace win, pre-final/native event ordering does not duplicate, late native events are ignored after fallback delivery, and teardown cancels pending work. The OpenClaw owner/lifecycle suite passes 54 tests with one Bun-only skip; changed-file Oxlint and the OpenAI extension TypeScript project pass. A broad upstream extension helper remains blocked outside this patch by TS7056 in `packages/gateway-protocol/src/schema/protocol-schemas.ts`.
+- The selected OpenClaw OAuth profile was reauthenticated on 2026-09-01 and the corrected source Gateway reached `started`/ready with the OpenAI, Talk, and Desky-actions plugins loaded. Packaged capture `windows-voice-20260901-200830` authenticated, discovered Talk, created a realtime session, and delivered 7,720,960 microphone bytes, but no user transcript finalized and all returned PCM was silent. It is therefore an explicit inconclusive observation, not a fallback or barge-in pass. A subsequent capture never entered voice mode and is excluded.
 
 Skipped tests are pre-existing environment, credential, or platform lanes and are not counted as live voice evidence.
 
 ## Remaining live gate
 
-With normal audible output and completion now proved, continue in order:
+With normal audible output and completion proved, the newly selected OpenClaw account reauthenticated, and the patched source Gateway restarted, continue in order:
 
-1. Interrupt during audible playback, with no late audio or speaking state;
-2. a second same-session turn after interrupt;
-3. provider disconnect and reconnect;
-4. input/output device selection and device-removal behavior;
-5. only then, audio-driven expression/viseme timing.
+1. a real three-skills result rather than an acknowledgement-only turn;
+2. natural speech barge-in during audible playback, with no late audio or speaking state;
+3. a second same-session turn after barge-in;
+4. provider disconnect and reconnect;
+5. input/output device selection and device-removal behavior;
+6. only then, audio-driven expression/viseme timing.

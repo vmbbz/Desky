@@ -250,17 +250,25 @@ function readVoiceConversationAudioChunk(value: unknown): VoiceConversationAudio
 function readVoiceConversationCancelOutput(
   value: unknown,
 ): VoiceConversationCancelOutputCommand {
+  const reason = value && typeof value === 'object' && 'reason' in value
+    ? (value as Record<string, unknown>).reason
+    : undefined;
   if (!isRecord(value)
     || typeof value.sessionId !== 'string'
     || value.sessionId.length === 0
     || value.sessionId.length > 512
     || (value.turnId !== undefined
-      && (typeof value.turnId !== 'string' || value.turnId.length === 0 || value.turnId.length > 512))) {
+      && (typeof value.turnId !== 'string' || value.turnId.length === 0 || value.turnId.length > 512))
+    || (reason !== undefined
+      && reason !== 'barge-in'
+      && reason !== 'playback-overflow'
+      && reason !== 'internal-fallback')) {
     throw new Error('Invalid voice-conversation cancellation command.');
   }
   return {
     sessionId: value.sessionId,
     ...(typeof value.turnId === 'string' ? { turnId: value.turnId } : {}),
+    ...(reason === undefined ? {} : { reason }),
   };
 }
 
@@ -753,7 +761,10 @@ export function registerIpc(
   });
   ipcMain.handle(voiceConversationChannels.cancelOutput, async (event, input: unknown) => {
     const command = readVoiceConversationCancelOutput(input);
-    voiceEvidence?.record('output.cancel.requested', { turnScoped: Boolean(command.turnId) });
+    voiceEvidence?.record('output.cancel.requested', {
+      turnScoped: Boolean(command.turnId),
+      cancelReason: command.reason ?? 'internal-fallback',
+    });
     if (voiceConversationOwnerId !== event.sender.id
       || command.sessionId !== activeVoiceConversationSessionId) {
       voiceEvidence?.record('output.cancel.result', { result: 'idle' });

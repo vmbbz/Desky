@@ -34,7 +34,7 @@ talk.session.close
 talk.event
 ```
 
-The admitted topology is `mode=realtime`, `transport=gateway-relay`, and `brain=agent-consult`. The Gateway owns provider credentials and the OpenClaw agent/tool policy. A relay client exchanges bounded audio and normalized events; it does not receive a provider token or direct tool authority.
+The admitted topology is `mode=realtime`, `transport=gateway-relay`, and `brain=agent-consult`. Consultation routing is provider-specific. Current `gpt-live-1-codex` requires `consultRouting` to remain unset because session creation explicitly rejects forced routing for GPT-Live. The admitted OpenClaw source runtime is native-first: it consumes provider delegation events when present and, after a short grace, runs the same pinned Gateway agent consult for a finalized user turn that produced no native delegation. Results return through bounded speakable session context. Other realtime providers may use `force-agent-consult` only when their own provider contract supports it. A relay client exchanges bounded audio and normalized events; it does not receive a provider token or direct tool authority.
 
 The OpenAI GPT-Live relay prefers an OpenClaw ChatGPT OAuth profile and extracts its `chatgpt-account-id`. Platform `/v1/live` access remains separately gated. OpenClaw documents an overloaded 403: it can mean an invalid account, model, or voice. Current GPT-Live uses the separate Codex V3 voice contract (`arbor`, `breeze`, `cove`, `ember`, `juniper`, `maple`, `sol`, `spruce`, and `vale`); GA Realtime voices such as `cedar` are not interchangeable. The admitted reference configuration therefore uses `gpt-live-1-codex` with the currently roundtrip-verified `spruce` voice.
 
@@ -50,7 +50,7 @@ Main owns the remote session, exact selected agent session, renderer ownership, 
 
 Renderer capture uses one user gesture, echo cancellation, noise suppression, automatic gain control, negotiated resampling/encoding, and a bounded serialized append queue. It stops rather than dropping delayed microphone audio. Playback uses a bounded eight-second Web Audio schedule; clear/cancel invalidates sources and timers, marks are acknowledged when playback reaches them, and speaking state follows actual scheduled audio.
 
-Text dictation and realtime conversation are globally mutually exclusive. Starting realtime voice replaces the text composer with a dedicated state dock containing only phase, activity, contextual Interrupt, End, and Escape. No wake word, background listener, launch-time capture, or persisted audio is present.
+Text dictation and realtime conversation are globally mutually exclusive. Starting realtime voice replaces the text composer with a dedicated state dock containing phase, activity, End, and Escape. Natural speech barge-in is the default interaction: Deskiii mirrors the official desktop client's guarded local detector and calls exact-turn output cancellation without exposing an interrupt button. Provider `clear` remains the late-packet boundary. No wake word, background listener, launch-time capture, or persisted audio is present.
 
 ## Live reference-device evidence
 
@@ -63,11 +63,12 @@ speakerVoice=spruce
 mode=realtime
 transport=gateway-relay
 brain=agent-consult
+consultRouting=<unset for GPT-Live native delegation>
 ```
 
-The intended reference profile is now `openai:cosychiruka@gmail.com`, first in the persisted agent-specific order after the operator reported that Runner Courage had exhausted its available usage. Cosy Chiruka was refreshed through the official `openclaw models auth login --provider openai` browser flow and currently expires on 2026-09-10. Runner Courage remains explicitly second rather than being silently selected. Official read-only profile inspection reports OAuth metadata only. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii.
+The prior reference profile was authenticated through the official `openclaw models auth login --provider openai` browser flow, and official read-only inspection reported OAuth metadata only. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii. The operator has since switched accounts after exhausting that profile's usage; current profile order and expiry must be re-verified during the next live gate rather than copied from this historical snapshot.
 
-The current Gateway catalog reports GPT-Live ready, its model-specific voice set, Gateway relay, agent consultation, PCM16 24 kHz and G.711 mu-law 8 kHz input/output, and barge-in. A real `talk.session.create` now succeeds with `gpt-live-1-codex`, `spruce`, and negotiated PCM16 24 kHz. The previous 403 is therefore resolved as a stale voice-contract mismatch, not a proven account-entitlement failure. The CLI probe disconnected immediately after admission, so the Gateway correctly released the connection-owned session; no microphone audio was sent and no assistant-audio or interruption claim is made yet.
+The previous Gateway catalog reported GPT-Live ready, its model-specific voice set, Gateway relay, agent consultation, PCM16 24 kHz and G.711 mu-law 8 kHz input/output, and barge-in. A real `talk.session.create` succeeded with `gpt-live-1-codex`, `spruce`, and negotiated PCM16 24 kHz; the earlier 403 was therefore a stale voice-contract mismatch, not a proven account-entitlement failure. Two later failures were distinct. OpenClaw 2026.8.1 could reject a stale request root while its global `/startupz` state remained `started`; that request-admission defect is corrected in current source and is not detectable through the global lifecycle endpoint. In the later `windows-voice-20260901-182305` run, the user skills turn finalized and GPT-Live produced a short final acknowledgement, but sanitized Gateway events contained no native delegation or agent run. The local OpenClaw source patch `21a29a5f0` now prefers native delegation and deterministically falls back to the same Gateway-owned consult when it is omitted. Its 54 owner/lifecycle tests pass with one Bun-only skip, independent changed-file lint and the OpenAI extension type project pass. Account reauthentication and corrected source-Gateway restart are complete; the result/barge-in roundtrip remains pending.
 
 ## Remaining admission matrix
 
@@ -76,7 +77,7 @@ With GPT-Live authentication and session admission now proven:
 1. microphone allow and deny from a clean direct-package profile;
 2. user partial/final transcript ordering and assistant transcript correlation;
 3. audible assistant PCM/G.711 output and avatar speaking duration;
-4. Interrupt during real audible output, with exact turn cancellation and immediate local clear;
+4. speech-driven barge-in during real audible output, with provider clear, exact turn ownership, and no required button;
 5. mark acknowledgement after playback, never at network receipt;
 6. output queue overflow, malformed audio, provider error, Gateway disconnect, and window destruction;
 7. same selected-session recovery without replay;

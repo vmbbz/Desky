@@ -120,4 +120,25 @@ describe('VoiceEvidenceRecorder', () => {
       companionMode: 'speaking',
     }])).toThrow('Invalid renderer voice-evidence entry.');
   });
+
+  it('admits bounded capture-finalization overhead after a 180-second observation', () => {
+    expect(readRendererVoiceEvidence([{
+      elapsedMs: 180_750,
+      phase: 'listening',
+      voiceActive: true,
+      bubbleVisible: false,
+      bubbleStatus: '',
+      bubbleTextLength: 0,
+      companionMode: 'idle',
+    }])).toHaveLength(1);
+    expect(() => readRendererVoiceEvidence([{
+      elapsedMs: 190_001,
+      phase: 'listening',
+      voiceActive: true,
+      bubbleVisible: false,
+      bubbleStatus: '',
+      bubbleTextLength: 0,
+      companionMode: 'idle',
+    }])).toThrow('Invalid renderer voice-evidence entry.');
+  });
 });

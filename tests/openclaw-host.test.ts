@@ -286,6 +286,111 @@ describe('OpenClawAdapterHost contract fixture', () => {
     });
   });
 
+  it('withdraws a stale connected claim when the Gateway starts draining', async () => {
+    vi.useFakeTimers();
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const clients: FixtureClient[] = [];
+    let probes = 0;
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => {
+        const client = new FixtureClient(options);
+        clients.push(client);
+        return client;
+      },
+      async () => {
+        probes += 1;
+        if (probes === 1 || probes >= 3) return { status: 'started' as const };
+        return { status: 'draining' as const };
+      },
+    );
+
+    await expect(host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    })).resolves.toMatchObject({ status: 'connected' });
+
+    await host.send('Check your available skills.');
+    const voiceSession = await host.startVoiceConversation();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(host.getState()).toMatchObject({
+      status: 'reconnecting',
+      message: 'OpenClaw Gateway is draining for restart. Restart it, then reconnect.',
+    });
+    expect(probes).toBe(2);
+    expect(clients).toHaveLength(1);
+    await expect(host.send('This new turn must not be admitted.')).rejects.toThrow(
+      'Connect to OpenClaw first.',
+    );
+
+    await expect(host.cancelVoiceConversationOutput(
+      voiceSession.sessionId,
+      'talk-turn-1',
+    )).resolves.toBe('applied');
+    await expect(host.resolveApproval({
+      requestId: 'approval-during-drain',
+      kind: 'exec',
+      decision: 'deny',
+    })).resolves.toBeUndefined();
+    await expect(host.cancel()).resolves.toBeUndefined();
+    expect(clients[0].calls).toEqual(expect.arrayContaining([
+      {
+        method: 'talk.session.cancelOutput',
+        params: {
+          sessionId: voiceSession.sessionId,
+          turnId: 'talk-turn-1',
+          reason: 'deskiii-internal-fallback',
+        },
+      },
+      {
+        method: 'approval.resolve',
+        params: { id: 'approval-during-drain', kind: 'exec', decision: 'deny' },
+      },
+      {
+        method: 'sessions.abort',
+        params: { key: 'agent:main:desky', runId: 'run-1', clearQueued: true },
+      },
+    ]));
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(probes).toBe(3);
+    expect(host.getState()).toMatchObject({ status: 'connected', message: undefined });
+    await expect(host.send('Admit work after startup recovers.')).resolves.toBeUndefined();
+    expect(clients).toHaveLength(1);
+  });
+
+  it('rejects an explicit connection while the Gateway is already draining', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
+    temporaryDirectories.push(directory);
+    const host = new OpenClawAdapterHost(
+      new SecureVault(join(directory, 'vault.json'), encryption),
+      '0.1.0',
+      'win32',
+      (options) => new FixtureClient(options),
+      async () => ({ status: 'draining' }),
+    );
+
+    await expect(host.connect({
+      gatewayUrl: 'ws://127.0.0.1:18789',
+      authKind: 'token',
+      credential: 'bootstrap-token',
+      rememberCredential: false,
+    })).rejects.toThrow(
+      'OpenClaw Gateway is draining for restart. Restart it, then reconnect.',
+    );
+    expect(host.getState()).toMatchObject({
+      status: 'error',
+      message: 'OpenClaw Gateway is draining for restart. Restart it, then reconnect.',
+    });
+  });
+
   it('covers sessions, streaming, approvals, cancellation, and reconnect', async () => {
     vi.useFakeTimers();
     const directory = mkdtempSync(join(tmpdir(), 'desky-host-test-'));
@@ -544,7 +649,11 @@ describe('OpenClawAdapterHost contract fixture', () => {
       markName: 'played-1',
       talkEvent: { turnId: 'talk-turn-1' },
     });
-    expect(await host.cancelVoiceConversationOutput(session.sessionId, 'talk-turn-1')).toBe('applied');
+    expect(await host.cancelVoiceConversationOutput(
+      session.sessionId,
+      'talk-turn-1',
+      'barge-in',
+    )).toBe('applied');
     await host.acknowledgeVoiceConversationMark(session.sessionId, 'played-1');
     await host.stopVoiceConversation(session.sessionId);
 
@@ -567,7 +676,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
         params: {
           sessionId: session.sessionId,
           turnId: 'talk-turn-1',
-          reason: 'deskiii-user-interrupt',
+          reason: 'deskiii-barge-in',
         },
       },
       {

@@ -177,7 +177,7 @@ export class OpenClawRuntime implements AgentAdapterRuntime {
   cancelVoiceConversationOutput(
     input: VoiceConversationCancelOutputCommand,
   ): Promise<'applied' | 'stale' | 'idle'> {
-    return this.host.cancelVoiceConversationOutput(input.sessionId, input.turnId);
+    return this.host.cancelVoiceConversationOutput(input.sessionId, input.turnId, input.reason);
   }
 
   acknowledgeVoiceConversationMark(input: VoiceConversationMarkCommand): Promise<void> {

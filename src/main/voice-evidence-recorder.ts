@@ -6,7 +6,9 @@ import type {
 
 const maximumProviderEntries = 1_000;
 const maximumRendererEntries = 1_000;
-const maximumObservationMs = 180_000;
+const maximumRequestedObservationMs = 180_000;
+const captureFinalizationGraceMs = 10_000;
+const maximumRendererElapsedMs = maximumRequestedObservationMs + captureFinalizationGraceMs;
 const minimumAudiblePcm16 = 32;
 
 type VoiceEvidenceEntry = {
@@ -19,6 +21,7 @@ type VoiceEvidenceEntry = {
   audioBytes?: number;
   turnScoped?: boolean;
   reason?: 'complete' | 'cancelled' | 'error' | 'disconnected';
+  cancelReason?: 'barge-in' | 'playback-overflow' | 'internal-fallback';
   result?: 'applied' | 'stale' | 'idle';
   inputEncoding?: 'g711_ulaw' | 'pcm16';
   outputEncoding?: 'g711_ulaw' | 'pcm16';
@@ -104,7 +107,7 @@ export function readRendererVoiceEvidence(value: unknown): RendererVoiceEvidence
       || typeof entry.elapsedMs !== 'number'
       || !Number.isSafeInteger(entry.elapsedMs)
       || entry.elapsedMs < 0
-      || entry.elapsedMs > maximumObservationMs
+      || entry.elapsedMs > maximumRendererElapsedMs
       || !phases.has(entry.phase as RendererVoiceEvidenceEntry['phase'])
       || typeof entry.voiceActive !== 'boolean'
       || typeof entry.bubbleVisible !== 'boolean'

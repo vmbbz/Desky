@@ -368,8 +368,6 @@ button { cursor: pointer; }
 }
 
 .voice-session-dock button svg { width: 14px; height: 14px; }
-.voice-session-dock__interrupt { padding: 0 10px; background: rgba(255, 181, 92, 0.1); }
-.voice-session-dock__interrupt:hover { border-color: rgba(255, 193, 117, 0.46); color: #ffe0b9; }
 .voice-session-dock button.voice-session-dock__end {
   width: 34px;
   padding: 0;

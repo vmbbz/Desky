@@ -86,8 +86,8 @@ $deskiiiProcess = Start-Process `
   privacy = 'Metadata only: event order, roles, lengths, byte counts, formats, and UI phases. No transcript text, audio content, token, or credential is written.'
   instructions = @(
     'Click the headset button to enter voice conversation mode.',
-    'Say: Tell me in one short sentence what Deskiii is.',
-    'After audible speech begins, click Interrupt and say: Now reply with exactly DESKIII VOICE OK.',
+    'Say: Check your available skills and name three.',
+    'After audible speech begins, speak naturally over it: Stop. Name only one skill.',
     'Leave the voice session open until Deskiii captures and closes automatically.'
   )
 } | ConvertTo-Json -Depth 5
