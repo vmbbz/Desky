@@ -229,6 +229,7 @@ export function App() {
     revision: number;
     final: boolean;
   }>();
+  const [voiceConversationStreaming, setVoiceConversationStreaming] = useState(false);
   const [dismissedVoiceConversationRevision, setDismissedVoiceConversationRevision] = useState<number>();
   const ambientPromptRef = useRef<HTMLInputElement>(null);
   const voiceInputControllerRef = useRef<VoiceInputController | undefined>(undefined);
@@ -759,16 +760,24 @@ export function App() {
     if (!voiceConversationAvailable || busy || activeRun || voiceInputActive) return;
     setUiError('');
     setVoiceConversationResponse(undefined);
+    setVoiceConversationStreaming(false);
     const controller = new VoiceConversationController(window.desky.voiceConversation, {
       onPhase: setVoiceConversationPhase,
       onTranscript: (role, text, final) => {
         if (role !== 'assistant') return;
-        voiceConversationRevisionRef.current += 1;
-        setVoiceConversationResponse({
+        if (final) {
+          // Only bump the revision when the turn is complete so the bubble
+          // stays stable during streaming and the dismiss-timer fires once.
+          voiceConversationRevisionRef.current += 1;
+        }
+        setVoiceConversationStreaming(!final);
+        setVoiceConversationResponse((prev) => ({
           text,
-          revision: voiceConversationRevisionRef.current,
+          revision: final
+            ? voiceConversationRevisionRef.current
+            : (prev?.revision ?? voiceConversationRevisionRef.current),
           final,
-        });
+        }));
       },
       onError: (message) => setUiError(errorMessage(new Error(message))),
     });
@@ -1024,9 +1033,12 @@ export function App() {
         ) : null}
 
         {showAmbientBubble ? (
-          <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite">
+          <section className="ambient-speech-bubble" data-desky-interactive="true" aria-live="polite" data-streaming={voiceConversationStreaming || undefined}>
             <strong>{uiError ? 'Needs attention' : ambientCompanionLabel}</strong>
-            <p>{bubbleMessage}</p>
+            {/* During streaming: plain text so ReactMarkdown never tears down
+                mid-word. After final: still plain — markdown in voice bubbles
+                is rarely needed and the flicker cost is too high. */}
+            <p>{bubbleMessage}{voiceConversationStreaming ? <span className="streaming-cursor" aria-hidden="true" /> : null}</p>
             {state.pendingApproval && adapterMode === 'runtime' ? (
               <div className="ambient-approval-actions" aria-label="Approval choices">
                 {state.pendingApproval.allowedDecisions.includes('allow-once') ? (
