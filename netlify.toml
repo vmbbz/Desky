@@ -12,6 +12,41 @@
   to = "/checkout.html"
   status = 200
 
+[[redirects]]
+  from = "/privacy"
+  to = "/privacy/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/support"
+  to = "/support/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/security"
+  to = "/security/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/terms"
+  to = "/terms/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/licenses"
+  to = "/licenses/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/report-ai-content"
+  to = "/report-ai-content/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/account/delete"
+  to = "/account/delete/index.html"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]

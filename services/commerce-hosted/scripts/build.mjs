@@ -84,6 +84,10 @@ const marketingStyles = await copyBrandedAsset(
   resolve(root, 'src', 'marketing.css'),
   'marketing',
 );
+const legalStyles = await copyBrandedAsset(
+  resolve(root, 'src', 'legal.css'),
+  'legal',
+);
 const checkoutTemplate = await readFile(resolve(root, 'src', 'checkout.html'), 'utf8');
 const checkoutDocument = checkoutTemplate
   .replace('__DESKY_CHECKOUT_SCRIPT__', relativeAsset(script))
@@ -110,3 +114,45 @@ const marketingDocument = marketingTemplate
   .replaceAll('__DESKY_SIGNAL_POSTER__', signalPoster);
 if (marketingDocument.includes('__DESKY_')) throw new Error('Marketing template is incomplete.');
 await writeFile(resolve(output, 'index.html'), marketingDocument, 'utf8');
+
+// --- Legal and support pages ---
+const legalTokens = {
+  '__DESKY_MARKETING_STYLES__': marketingStyles,
+  '__DESKY_LEGAL_STYLES__': legalStyles,
+  '__DESKY_MARKETING_LOCKUP__': marketingLockup,
+  '__DESKY_FAVICON_SVG__': faviconSvg,
+  '__DESKY_FAVICON_PNG__': faviconPng,
+  '__DESKY_TOUCH_ICON__': touchIcon,
+};
+const buildLegalPage = async (srcFile, destPath) => {
+  let doc = await readFile(resolve(root, 'src', srcFile), 'utf8');
+  for (const [token, value] of Object.entries(legalTokens)) {
+    doc = doc.replaceAll(token, value);
+  }
+  if (doc.includes('__DESKY_')) throw new Error(`Legal page ${srcFile} has unfilled tokens.`);
+  const destDir = resolve(output, destPath);
+  await mkdir(destDir, { recursive: true });
+  await writeFile(resolve(destDir, 'index.html'), doc, 'utf8');
+};
+
+await Promise.all([
+  buildLegalPage('privacy.html',            'privacy'),
+  buildLegalPage('support.html',            'support'),
+  buildLegalPage('security.html',           'security'),
+  buildLegalPage('terms.html',              'terms'),
+  buildLegalPage('licenses.html',           'licenses'),
+  buildLegalPage('report-ai-content.html',  'report-ai-content'),
+  buildLegalPage('account-delete.html',     'account/delete'),
+]);
+
+// --- security.txt (RFC 9116) ---
+const wellKnownDir = resolve(output, '.well-known');
+await mkdir(wellKnownDir, { recursive: true });
+await writeFile(resolve(wellKnownDir, 'security.txt'), [
+  'Contact: mailto:security@desky.app',
+  'Expires: 2027-09-01T00:00:00.000Z',
+  'Preferred-Languages: en',
+  'Canonical: https://desky.app/.well-known/security.txt',
+  'Policy: https://desky.app/security',
+  '',
+].join('\n'), 'utf8');

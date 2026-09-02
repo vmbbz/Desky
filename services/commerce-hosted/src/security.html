@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <meta name="description" content="Deskii security policy — how to report vulnerabilities, supported versions, scope, and safe-harbour commitment.">
+    <title>Security — Deskii</title>
+    <link rel="icon" type="image/svg+xml" href="__DESKY_FAVICON_SVG__">
+    <link rel="alternate icon" type="image/png" sizes="32x32" href="__DESKY_FAVICON_PNG__">
+    <link rel="apple-touch-icon" sizes="256x256" href="__DESKY_TOUCH_ICON__">
+    <link rel="stylesheet" href="__DESKY_MARKETING_STYLES__">
+    <link rel="stylesheet" href="__DESKY_LEGAL_STYLES__">
+  </head>
+  <body>
+    <header class="site-nav">
+      <a class="site-brand" href="/" aria-label="Deskii home">
+        <img src="__DESKY_MARKETING_LOCKUP__" alt="Deskii" width="154" height="auto">
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="/#why">Why Deskii</a>
+        <a href="/support">Support</a>
+        <a href="/security" aria-current="page">Security</a>
+      </nav>
+      <a class="nav-cta" href="/#download">Get Deskii <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main class="legal-page">
+      <div class="legal-container">
+        <header class="legal-header">
+          <p class="legal-breadcrumb"><a href="/">Deskii</a> / Security</p>
+          <h1>Security</h1>
+          <p class="legal-meta">XEON Protocol (Pty) Ltd · <a href="mailto:security@desky.app">security@desky.app</a></p>
+        </header>
+
+        <div class="legal-warning">
+          <strong>Do not report vulnerabilities by regular email or public issue trackers.</strong> Send all reports to <a href="mailto:security@desky.app">security@desky.app</a>. We acknowledge within 3 business days.
+        </div>
+
+        <h2>Reporting a vulnerability</h2>
+        <ol>
+          <li>Email <a href="mailto:security@desky.app">security@desky.app</a> with a clear description of the issue.</li>
+          <li>Include steps to reproduce, affected version(s), and potential impact.</li>
+          <li>Provide your contact details so we can follow up.</li>
+          <li>Give us reasonable time to investigate and remediate before public disclosure.</li>
+        </ol>
+        <p>We acknowledge within <strong>3 business days</strong> and aim to provide an initial assessment within <strong>10 business days</strong>.</p>
+
+        <h2>Safe-harbour commitment</h2>
+        <p>We will not pursue legal action against researchers who report privately before public disclosure, do not access or destroy user data beyond what is necessary to demonstrate the issue, and do not disrupt production services or act for financial gain.</p>
+
+        <h2>Scope</h2>
+        <p><strong>In scope:</strong> Deskii desktop app (Windows, current release), agent credential storage and IPC isolation, tool-call approval boundary, desky.app website and hosted checkout, Supabase-backed account services.</p>
+        <p><strong>Out of scope:</strong> The AI agent services you connect (report to their maintainers), social engineering, physical attacks, denial-of-service, issues in third-party libraries already publicly known.</p>
+
+        <h2>Security design principles</h2>
+        <ul>
+          <li><strong>Process isolation:</strong> Agent credentials live in the Electron main process only and are never exposed to the renderer.</li>
+          <li><strong>Tool approval gates:</strong> Every agent tool call requiring filesystem, code execution, or network access requires explicit user approval.</li>
+          <li><strong>No private key access:</strong> Wallet operations are signed by MetaMask on the user's device; Deskii never receives signing keys.</li>
+          <li><strong>Strict CSP:</strong> The renderer operates under a strict Content Security Policy.</li>
+          <li><strong>Sandboxed renderer:</strong> <code>contextIsolation: true</code> and <code>nodeIntegration: false</code>.</li>
+        </ul>
+
+        <h2>Supported versions</h2>
+        <p>Only the current release version of Deskii receives security updates. Keep Deskii updated via the Microsoft Store or direct-download channel.</p>
+
+        <h2>Bug bounty</h2>
+        <p>We do not currently operate a paid bounty programme. We acknowledge researchers with their permission in release notes.</p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-brand"><img src="__DESKY_MARKETING_LOCKUP__" alt="Deskii" width="142"><p>Give your agent somewhere to be.</p></div>
+      <div class="footer-links"><a href="/#why">Why Deskii</a><a href="/support">Support</a><a href="/security">Security</a><a href="https://github.com/vmbbz/Desky">GitHub</a></div>
+      <div class="footer-legal"><span>Deskii is a product of XEON Protocol (Pty) Ltd.</span><span>© 2026 XEON Protocol · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/licenses">Licences</a></span></div>
+    </footer>
+  </body>
+</html>

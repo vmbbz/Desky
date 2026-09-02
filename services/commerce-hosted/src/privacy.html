@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark light">
+    <meta name="description" content="Deskii privacy policy — what data we collect, how it is used, and your rights under POPIA and applicable law.">
+    <title>Privacy Policy — Deskii</title>
+    <link rel="icon" type="image/svg+xml" href="__DESKY_FAVICON_SVG__">
+    <link rel="alternate icon" type="image/png" sizes="32x32" href="__DESKY_FAVICON_PNG__">
+    <link rel="apple-touch-icon" sizes="256x256" href="__DESKY_TOUCH_ICON__">
+    <link rel="stylesheet" href="__DESKY_MARKETING_STYLES__">
+    <link rel="stylesheet" href="__DESKY_LEGAL_STYLES__">
+  </head>
+  <body>
+    <header class="site-nav">
+      <a class="site-brand" href="/" aria-label="Deskii home">
+        <img src="__DESKY_MARKETING_LOCKUP__" alt="Deskii" width="154" height="auto">
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="/#why">Why Deskii</a>
+        <a href="/support">Support</a>
+        <a href="/security">Security</a>
+      </nav>
+      <a class="nav-cta" href="/#download">Get Deskii <span aria-hidden="true">↗</span></a>
+    </header>
+
+    <main class="legal-page">
+      <div class="legal-container">
+        <header class="legal-header">
+          <p class="legal-breadcrumb"><a href="/">Deskii</a> / Privacy Policy</p>
+          <h1>Privacy Policy</h1>
+          <p class="legal-meta">XEON Protocol (Pty) Ltd · Last updated: 2 September 2026 · Version 1.0</p>
+        </header>
+
+        <div class="legal-notice">
+          <strong>Short version:</strong> Deskii stores your agent credentials locally on your device. Your conversation content goes directly between you and the agent service you choose — Deskii does not read, store, or transmit it. We collect only what is strictly necessary to operate the app and optional hosted services.
+        </div>
+
+        <h2>1. Who we are</h2>
+        <p><strong>XEON Protocol (Pty) Ltd</strong> is a company registered in South Africa under the Companies Act 71 of 2008. We are the responsible party for the purposes of the Protection of Personal Information Act 4 of 2013 (POPIA). Contact: <a href="mailto:privacy@desky.app">privacy@desky.app</a></p>
+
+        <h2>2. What Deskii does and does not do</h2>
+        <p>Deskii is a desktop interface that connects to AI agent services you configure. The app:</p>
+        <ul>
+          <li><strong>Does not</strong> read, log, or forward your conversation prompts or agent replies.</li>
+          <li><strong>Does not</strong> receive your wallet seed phrase, private key, or signing authority.</li>
+          <li><strong>Does not</strong> collect usage telemetry or analytics in the base app.</li>
+          <li><strong>Does</strong> store your agent connection credentials locally in the app's main process, isolated from the renderer.</li>
+        </ul>
+
+        <h2>3. Information we collect</h2>
+
+        <h3>3.1 Stored on your device only</h3>
+        <table>
+          <tr><th>Data</th><th>Purpose</th><th>Location</th></tr>
+          <tr><td>Agent API keys / bearer tokens</td><td>Authenticate to your chosen agent service</td><td>Local main process only</td></tr>
+          <tr><td>Agent gateway URL</td><td>Know which server to connect to</td><td>Local app config</td></tr>
+          <tr><td>Avatar asset cache</td><td>Offline avatar rendering</td><td>Local disk cache</td></tr>
+          <tr><td>App preferences</td><td>Restore your configuration</td><td>Local app storage</td></tr>
+        </table>
+        <p>None of this is sent to XEON Protocol servers.</p>
+
+        <h3>3.2 Account and entitlement data (optional hosted features)</h3>
+        <p>If you create a Deskii account for the avatar marketplace, we store via <strong>Supabase</strong>: email address and hashed password (or OAuth token reference), purchased entitlements, account creation date and last sign-in timestamp.</p>
+
+        <h3>3.3 Commerce data (x402 direct payments — future feature)</h3>
+        <p>When direct-download builds enable x402 payments: your public wallet address and transaction hashes are recorded as purchase evidence. Deskii <strong>never</strong> receives your private key or seed phrase — all signing is done in MetaMask on your device.</p>
+
+        <h3>3.4 Support communications</h3>
+        <p>When you contact <a href="mailto:support@desky.app">support@desky.app</a> we receive and retain your email and message content, used solely to respond to your request.</p>
+
+        <h2>4. Subprocessors</h2>
+        <table>
+          <tr><th>Subprocessor</th><th>Purpose</th><th>Location</th></tr>
+          <tr><td>Supabase</td><td>Account and entitlement database</td><td>EU (AWS)</td></tr>
+          <tr><td>Netlify</td><td>Website and checkout hosting</td><td>USA / EU CDN</td></tr>
+          <tr><td>Your chosen agent provider</td><td>AI inference (you configure this)</td><td>Varies — your choice</td></tr>
+        </table>
+        <p>We do not sell or rent your personal information. We do not use advertising networks.</p>
+
+        <h2>5. Data retention</h2>
+        <ul>
+          <li><strong>Local app data:</strong> retained until you uninstall Deskii</li>
+          <li><strong>Account data:</strong> deleted within 30 days of account deletion request</li>
+          <li><strong>Support emails:</strong> retained up to 2 years, then deleted</li>
+          <li><strong>On-chain records:</strong> permanently public on the blockchain; our copy deleted within 90 days of account deletion</li>
+        </ul>
+
+        <h2>6. Your rights</h2>
+        <p>Under POPIA you may access, correct, or request deletion of your personal information, and lodge a complaint with the <a href="https://inforegulator.org.za" target="_blank" rel="noopener">Information Regulator</a>. To exercise these rights: <a href="/account/delete">account deletion</a> or <a href="mailto:privacy@desky.app">privacy@desky.app</a>.</p>
+
+        <h2>7. Children</h2>
+        <p>Deskii is not directed at children under 18. Contact <a href="mailto:privacy@desky.app">privacy@desky.app</a> if you believe a child has provided us personal information.</p>
+
+        <h2>8. Contact</h2>
+        <p><strong>XEON Protocol (Pty) Ltd</strong> · Information Officer: <a href="mailto:privacy@desky.app">privacy@desky.app</a></p>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-brand"><img src="__DESKY_MARKETING_LOCKUP__" alt="Deskii" width="142"><p>Give your agent somewhere to be.</p></div>
+      <div class="footer-links"><a href="/#why">Why Deskii</a><a href="/support">Support</a><a href="/security">Security</a><a href="https://github.com/vmbbz/Desky">GitHub</a></div>
+      <div class="footer-legal"><span>Deskii is a product of XEON Protocol (Pty) Ltd.</span><span>© 2026 XEON Protocol · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/licenses">Licences</a></span></div>
+    </footer>
+  </body>
+</html>

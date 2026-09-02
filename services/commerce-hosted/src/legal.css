@@ -1,0 +1,109 @@
+/* Legal / inner page styles — desky.app
+   Extends marketing.css — loaded after it on legal pages */
+
+.legal-page {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 96px) clamp(20px, 5vw, 48px) 120px;
+}
+
+.legal-container { max-width: 720px; }
+
+.legal-breadcrumb {
+  margin: 0 0 18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+.legal-breadcrumb a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+
+.legal-header h1 {
+  font-size: clamp(36px, 5vw, 58px);
+  font-weight: 700;
+  letter-spacing: -.045em;
+  line-height: 1.05;
+  margin-bottom: 10px;
+}
+.legal-meta { color: var(--muted); font-size: 12px; margin-bottom: 36px; }
+
+.legal-notice {
+  padding: 18px 22px;
+  margin-bottom: 40px;
+  border: 1px solid rgba(117,230,215,.3);
+  border-radius: 14px;
+  background: rgba(117,230,215,.07);
+  font-size: 14px;
+  line-height: 1.65;
+  color: #2f5f5a;
+}
+.legal-notice strong { color: #1c4440; }
+
+.legal-page h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.035em;
+  margin: 44px 0 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+.legal-page h3 {
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: -.02em;
+  margin: 28px 0 8px;
+  color: #3a4554;
+}
+.legal-page p {
+  font-size: 15px;
+  line-height: 1.75;
+  color: #4a566a;
+  margin-bottom: 14px;
+}
+.legal-page ul, .legal-page ol {
+  margin: 8px 0 16px 18px;
+  font-size: 15px;
+  color: #4a566a;
+  line-height: 1.7;
+}
+.legal-page li { margin-bottom: 5px; }
+.legal-page a { color: #2f756d; text-decoration: underline; text-underline-offset: 2px; }
+.legal-page strong { color: #1e2a38; }
+
+.legal-page table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0 20px;
+  font-size: 13px;
+}
+.legal-page th {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  background: rgba(10,14,23,.04);
+  font-weight: 650;
+  text-align: left;
+  color: #263244;
+}
+.legal-page td {
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  color: #4a566a;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.legal-warning {
+  padding: 14px 18px;
+  margin: 20px 0;
+  border: 1px solid rgba(255,197,107,.35);
+  border-radius: 12px;
+  background: rgba(255,197,107,.08);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: #7a5a18;
+}
+
+@media (max-width: 680px) {
+  .legal-page table { font-size: 12px; }
+  .legal-page th, .legal-page td { padding: 7px 9px; }
+}
