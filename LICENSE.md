@@ -49,4 +49,4 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## Contact
 
 XEON Protocol (Pty) Ltd  
-legal@desky.app
+legal@deskii.app
