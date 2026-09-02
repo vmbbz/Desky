@@ -21,6 +21,41 @@ checkout remains unchanged and is not the running Gateway.
 
 The public primary reference is <https://docs.openclaw.ai/nodes/talk>.
 
+## 2026-09-02 failure review and architecture correction
+
+The packaged reference run at 12:02 created a relay in 65 ms, but later audio
+append acknowledgements arrived in bursts at 518-558 ms. The renderer eventually
+reached its ownership cap and reported that the Gateway could not accept audio in
+time. This is not evidence that the microphone failed to capture speech. It is
+evidence that Deskiii coupled media capture lifetime and visible recovery to a
+congested request/acknowledgement path.
+
+Current official OpenClaw browser and Apple relay clients provide the useful
+reference behavior:
+
+- at most four audio sends may be in flight;
+- media timestamps use an AudioContext or elapsed monotonic clock, never wall time;
+- pending audio sends are cancelled or abandoned during local teardown;
+- capture and playback ownership are released before remote close completes;
+- microphone input level is surfaced locally rather than waiting for a remote
+  transcript to prove that the user spoke;
+- relay errors and close events are authoritative terminal boundaries.
+
+Deskiii previously diverged in four material ways: it admitted twenty in-flight
+sends, supplied `Date.now()` as a media timestamp, awaited every stale append
+before closing, and left the UI at Listening until a provider transcript arrived.
+The renderer now follows the four-send ownership bound, uses monotonic AudioContext
+time, releases local media without awaiting stale acknowledgements, and promotes
+locally sustained speech to a short-lived Hearing state while preserving provider
+partial/final transcripts as the only turn authority.
+
+One upstream-facing contract gap remains. Deskiii's provider-neutral event model
+does not currently expose explicit input-speech-started/input-speech-stopped or
+input-level events, even though the relay/provider can know more than transcript
+text. That extension should be designed once across OpenClaw, Hermes, Claude, and
+Codex adapters; it must not be inferred from model text or implemented as an
+OpenClaw-only UI branch.
+
 ## Verified upstream behavior
 
 `talk.catalog` is the canonical discovery surface. It reports mode, transport, brain strategy, provider configuration/readiness, audio formats, and barge-in support. Full-duplex Gateway relay uses:

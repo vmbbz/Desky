@@ -347,7 +347,7 @@ describe('VoiceConversationController playback lifecycle', () => {
     await vi.waitFor(() => expect(harness.bridge.append).toHaveBeenCalledTimes(2));
 
     expect(harness.bridge.cancelOutput).not.toHaveBeenCalled();
-    expect(harness.controller.phase).toBe('listening');
+    expect(harness.controller.phase).toBe('hearing');
     expect(harness.errors).toEqual([]);
     await harness.controller.stop();
   });
@@ -369,6 +369,52 @@ describe('VoiceConversationController playback lifecycle', () => {
     releases.forEach((release) => release());
     await Promise.resolve();
     await harness.controller.stop();
+  });
+
+  it('uses the monotonic media clock and surfaces local speech before provider transcription', async () => {
+    const harness = createHarness();
+    audioContext.currentTime = 12.345;
+    await harness.controller.start();
+
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+    audioContext.processor.emitInput(bargeInSpeechFrame());
+
+    expect(harness.bridge.append).toHaveBeenLastCalledWith(expect.objectContaining({
+      timestamp: 12_345,
+    }));
+    expect(harness.controller.phase).toBe('hearing');
+
+    await vi.advanceTimersByTimeAsync(701);
+    expect(harness.controller.phase).toBe('listening');
+    await harness.controller.stop();
+  });
+
+  it('releases capture without waiting for stale audio acknowledgements', async () => {
+    const harness = createHarness();
+    vi.mocked(harness.bridge.append).mockImplementation(() => new Promise<void>(() => undefined));
+    await harness.controller.start();
+    audioContext.processor.emitInput(new Float32Array(4096));
+
+    await harness.controller.stop();
+
+    expect(harness.bridge.stop).toHaveBeenCalledWith({ sessionId: 'voice-1' });
+    expect(harness.controller.phase).toBe('idle');
+  });
+
+  it('fails at the four-send ownership bound instead of buffering stale speech', async () => {
+    const harness = createHarness();
+    vi.mocked(harness.bridge.append).mockImplementation(() => new Promise<void>(() => undefined));
+    await harness.controller.start();
+
+    for (let index = 0; index < 5; index += 1) {
+      audioContext.processor.emitInput(new Float32Array(4096));
+    }
+    await vi.waitFor(() => expect(harness.controller.phase).toBe('idle'));
+
+    expect(harness.bridge.append).toHaveBeenCalledTimes(4);
+    expect(harness.errors).toEqual([
+      'Voice conversation stopped because the Gateway could not accept audio in time.',
+    ]);
   });
 
   it('keeps the microphone active after an isolated audio-append failure', async () => {

@@ -6,7 +6,9 @@ import type {
 } from '../shared/voice-conversation';
 import { bytesToBase64, floatToG711Ulaw } from './voice-input-controller';
 
-const maximumPendingAppends = 20;
+// Match OpenClaw's browser and Apple relay clients: a realtime owner may have
+// only four audio sends in flight. Beyond that point the media is already stale.
+const maximumPendingAppends = 4;
 const maximumConsecutiveAppendFailures = 3;
 const maximumScheduledOutputSeconds = 8;
 const maximumPendingStartEvents = 8;
@@ -19,6 +21,7 @@ const inputFinalizationWatchdogMs = 12_000;
 const bargeInRmsThreshold = 0.02;
 const bargeInPeakThreshold = 0.08;
 const bargeInConsecutiveFrames = 2;
+const localSpeechReleaseMs = 700;
 
 export type VoiceConversationPhase =
   | 'idle'
@@ -147,6 +150,8 @@ export class VoiceConversationController {
   private playbackWatchdogTimer?: number;
   private inputFinalizationWatchdogTimer?: number;
   private speechFramesDuringPlayback = 0;
+  private localSpeechFrames = 0;
+  private localSpeechReleaseTimer?: number;
   private outputCancellationPending = false;
   private removeEventListener?: () => void;
   private stopPromise?: Promise<void>;
@@ -262,7 +267,8 @@ export class VoiceConversationController {
     const session = this.session;
     const context = this.context;
     if (!session || !context || this.phaseValue === 'requesting' || this.phaseValue === 'stopping') return;
-    if (this.detectBargeInSpeech(samples)) {
+    const speechDetected = this.detectSpeech(samples);
+    if (this.detectBargeInSpeech(speechDetected)) {
       // GPT-Live/Frameless Bidi owns barge-in from continued incoming audio.
       // Cancelling the Gateway turn closes that provider session by contract,
       // which would also stop the microphone. Drop only local playback and
@@ -272,6 +278,7 @@ export class VoiceConversationController {
       this.resetOutputLifecycle();
       this.setPhase('listening');
     }
+    this.observeLocalSpeech(speechDetected);
     if (this.outputCancellationPending) return;
     if (this.pendingAppends >= maximumPendingAppends) {
       this.callbacks.onError('Voice conversation stopped because the Gateway could not accept audio in time.');
@@ -284,7 +291,9 @@ export class VoiceConversationController {
     const request = this.bridge.append({
         sessionId: session.sessionId,
         audioBase64,
-        timestamp: Date.now(),
+        // Provider media timestamps must be monotonic. Wall-clock changes can
+        // otherwise corrupt truncation and barge-in boundaries.
+        timestamp: Math.round(context.currentTime * 1_000),
       })
       .then(() => {
         this.consecutiveAppendFailures = 0;
@@ -303,12 +312,7 @@ export class VoiceConversationController {
     this.appendRequests.add(request);
   }
 
-  private detectBargeInSpeech(samples: Float32Array): boolean {
-    if (!this.session?.supportsBargeIn || this.outputCancellationPending
-      || this.playbackSources.size === 0 || !this.outputTurnId) {
-      this.speechFramesDuringPlayback = 0;
-      return false;
-    }
+  private detectSpeech(samples: Float32Array): boolean {
     let sumSquares = 0;
     let peak = 0;
     for (let index = 0; index < samples.length; index += 1) {
@@ -317,12 +321,41 @@ export class VoiceConversationController {
       if (magnitude > peak) peak = magnitude;
     }
     const rms = samples.length > 0 ? Math.sqrt(sumSquares / samples.length) : 0;
-    if (rms >= bargeInRmsThreshold && peak >= bargeInPeakThreshold) {
+    return rms >= bargeInRmsThreshold && peak >= bargeInPeakThreshold;
+  }
+
+  private detectBargeInSpeech(speechDetected: boolean): boolean {
+    if (!this.session?.supportsBargeIn || this.outputCancellationPending
+      || this.playbackSources.size === 0 || !this.outputTurnId) {
+      this.speechFramesDuringPlayback = 0;
+      return false;
+    }
+    if (speechDetected) {
       this.speechFramesDuringPlayback += 1;
     } else {
       this.speechFramesDuringPlayback = 0;
     }
     return this.speechFramesDuringPlayback >= bargeInConsecutiveFrames;
+  }
+
+  private observeLocalSpeech(speechDetected: boolean): void {
+    if (!speechDetected) {
+      this.localSpeechFrames = 0;
+      return;
+    }
+    this.localSpeechFrames += 1;
+    if (this.localSpeechFrames < bargeInConsecutiveFrames) return;
+    this.localSpeechFrames = 0;
+    if (this.phaseValue === 'listening') this.setPhase('hearing');
+    if (this.localSpeechReleaseTimer !== undefined) window.clearTimeout(this.localSpeechReleaseTimer);
+    const generation = this.generation;
+    this.localSpeechReleaseTimer = window.setTimeout(() => {
+      this.localSpeechReleaseTimer = undefined;
+      // A provider partial owns Hearing until its finalization watchdog. Local
+      // activity is only immediate UI feedback and must not invent a turn.
+      if (generation === this.generation && this.phaseValue === 'hearing'
+        && this.inputFinalizationWatchdogTimer === undefined) this.setPhase('listening');
+    }, localSpeechReleaseMs);
   }
 
   private handleEvent(event: VoiceConversationEvent): void {
@@ -598,7 +631,8 @@ export class VoiceConversationController {
     this.stopLocalMedia();
     const session = this.session;
     this.session = undefined;
-    await Promise.allSettled([...this.appendRequests]);
+    // Never make local microphone release or relay close wait behind stale
+    // media acknowledgements. Every append already owns its rejection handler.
     if (session) {
       await this.bridge.stop({ sessionId: session.sessionId }).catch((error: unknown) => {
         if (reportError) this.callbacks.onError(safeVoiceError(error));
@@ -611,6 +645,11 @@ export class VoiceConversationController {
     this.consecutiveAppendFailures = 0;
     this.outputCancellationPending = false;
     this.speechFramesDuringPlayback = 0;
+    this.localSpeechFrames = 0;
+    if (this.localSpeechReleaseTimer !== undefined) {
+      window.clearTimeout(this.localSpeechReleaseTimer);
+      this.localSpeechReleaseTimer = undefined;
+    }
     this.pendingStartEvents = [];
     this.pendingStartEventsOverflowed = false;
     this.currentTurnId = undefined;
