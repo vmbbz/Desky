@@ -2,9 +2,9 @@
 
   <img src="branding/logo/desky-lockup-on-dark.svg" alt="Deskii Logo" width="360">
 
-  <h3>Your AI agent, alive on your desktop.</h3>
+  <h3>The ambient desktop companion for developer AI agents.</h3>
 
-  <p>An expressive 3D desktop companion interface for the AI agents you already use.</p>
+  <p>Stop context-switching to check logs. Deskii gives OpenClaw, Codex, Hermes, and Claude a living 3D presence beside your code.</p>
 
   <p>
     <a href="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white"><img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"></a>
@@ -23,7 +23,7 @@
 
   <br>
 
-  <img src="branding/poster/desky-through-the-screen-x.png" alt="Deskii Companion Preview" width="850" style="border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);">
+  <video src="branding/deskii-demo.mp4" controls width="100%" poster="branding/poster/desky-through-the-screen-x.png" style="border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);"></video>
 
   <br><br>
 
@@ -31,21 +31,11 @@
 
 ---
 
-## 💡 The Inspiration & Vision
+## Why Deskii for Developers
 
-Remember **Clippy** or classic desktop companions? They were charming, but static and unhelpful.
+When you run autonomous coding agents, checking their progress shouldn't mean constant tab-switching, terminal polling, or reading raw logs.
 
-**Deskii** re-imagines the desktop companion for the modern AI agent generation. Instead of living inside yet another web browser tab or terminal window, your AI agents (OpenClaw, Codex, Hermes, Claude) get a physical, living embodied presence right on your desktop.
-
-- **Any Avatar:** Bring Milk (the founding mascot), VRoid studio avatars, or custom 3D VRM 0.x/1.0 characters to life.
-- **State-Driven Realism:** When your agent is reasoning, running shell commands, executing tools, or speaking, the avatar expresses those exact states in real time.
-- **Ambient & Unobtrusive:** Sits quietly at the edge of your screen with transparent click-through, popping up speech bubbles and approval prompts only when needed.
-
----
-
-## 🎬 Product Demo & Preview
-
-> 📹 **Watch the Deskii Preview Reel:** Visit [https://deskii.app](https://deskii.app) to see Deskii in action with full voice streaming, ambient motion, and live agent tool approval gates.
+**Deskii** sits quietly beside your IDE. It transforms raw agent events—thinking, shell command execution, file modifications, tool approvals, and responses—into an expressive 3D companion state that is readable at a glance.
 
 ```text
 Agent Runtime (OpenClaw / Codex / Hermes / Claude)
@@ -62,20 +52,20 @@ Agent Runtime (OpenClaw / Codex / Hermes / Claude)
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-- 🧠 **Runtime Neutral (Bring Your Own Agent)** — Connect OpenClaw, Codex, Hermes, or Claude. Deskii acts as the universal desktop client for whichever agent you choose.
-- 🎙️ **Conversational Voice Engine** — Natural full-duplex voice input and speech synthesis, live streaming transcripts, speech viseme lip-sync, and barge-in audio interruption.
-- 🎭 **Expressive 3D VRM Avatars** — Full VRM 0.x and 1.0 humanoid avatar rendering with procedural pose blending, Quaternius & Mixamo motions, and autonomous ambient cadences.
-- 🪟 **Desktop Companion Windowing** — Frameless, transparent, draggable, and resizable window positioning clamped to your monitor layout. Supports pass-through clicks and system tray recovery.
-- 🔒 **Interactive Tool Approval Safety Gate** — Human-in-the-loop protection. Review and approve or deny agent file system access, shell commands, or network calls directly from the desktop companion bubble.
-- 🛡️ **Zero-Trust Security Architecture** — Credentials, tokens, and API keys are strictly isolated in Electron's main process and encrypted via OS-level secure storage (`contextIsolation: true`, `nodeIntegration: false`).
+- **Bring your agent** — Connect OpenClaw, Codex, Hermes, or Claude. Deskii acts as the universal desktop client for whichever agent runtime you already use.
+- **Voice-first interaction** — Speak naturally and hear replies in real time with live streaming transcripts, speech viseme lip-sync, and instant barge-in controls.
+- **Living 3D avatars** — VRM 0.x and 1.0 humanoid avatar rendering (Milk mascot, VRoid models, or custom characters) with state-driven motion arbitration.
+- **Ambient desktop presence** — Frameless, transparent, draggable companion that stays out of your code until needed, with click-through support and tray recovery.
+- **Instant tool approvals** — One-click interactive safety gate to approve or deny sensitive shell commands, file edits, or network calls right from your desktop.
+- **Isolated & secure** — API keys and tokens are strictly isolated in Electron's main process and protected by OS-level credential encryption (`contextIsolation: true`).
 
 ---
 
-## 🔌 Supported Agent Runtimes
+## Supported Agent Runtimes
 
-Deskii normalizes events across multiple agent runtimes into a single companion state machine (`disconnected`, `idle`, `listening`, `thinking`, `working`, `approval`, `speaking`, `success`, `error`):
+Deskii normalizes events across multiple runtimes into a single companion state machine (`disconnected`, `idle`, `listening`, `thinking`, `working`, `approval`, `speaking`, `success`, `error`):
 
 | Runtime | Integration Type | Key Capabilities |
 |---|---|---|
@@ -86,9 +76,9 @@ Deskii normalizes events across multiple agent runtimes into a single companion 
 
 ---
 
-## 🚀 Roadmap & Future Ecosystem
+## Roadmap & Creator Ecosystem
 
-Deskii is building towards a creator-first avatar ecosystem and agent-native commerce infrastructure:
+Deskii is building towards a creator-first avatar marketplace and agent-native commerce infrastructure:
 
 ```text
 ┌───────────────────────────┐      ┌───────────────────────────┐      ┌───────────────────────────┐
@@ -97,21 +87,18 @@ Deskii is building towards a creator-first avatar ecosystem and agent-native com
 └───────────────────────────┘      └───────────────────────────┘      └───────────────────────────┘
 ```
 
-### 1. 🎨 Avatar & Motion Pack Marketplace
-We are opening up the Deskii platform so 3D artists, animators, and character creators can:
-- **Publish & Sell:** Upload custom VRM avatars, outfits, accessories, and motion-personality packs.
-- **Creator Monetization:** Earn direct revenue or royalties when users adopt or license your companion designs.
-- **Machine-Readable Provenance:** Built-in cryptographic SHA-256 asset provenance and licensing sidecars.
+### 1. Avatar & Motion Marketplace
+- **Publish & Monetize:** 3D artists and character designers can upload, sell, or rent custom VRM avatars, outfits, and motion packs.
+- **Proven Provenance:** Built-in cryptographic SHA-256 asset provenance and licensing sidecars.
 
-### 2. ⚡ x402 Agent Commerce & NFT Licensing Rails
-Unlocking true machine-to-machine micro-transactions and verifiable digital ownership:
-- **Autonomous Agent Rentals:** Your AI agent can programmatically rent a specialized avatar or custom motion pack using **x402 micro-payment rails** on-chain, use it for a session, and release it automatically.
-- **Manual User Rentals & Purchases:** Users can manually purchase or rent companions using credit/debit or Web3 wallets (MetaMask integration with zero private-key exposure).
-- **NFT Ownership & License Proof:** Verifiable on-chain license NFTs ensuring artists retain rights while users hold authentic asset entitlement proofs.
+### 2. x402 Agent Commerce & Licensing
+- **Autonomous Agent Rentals:** AI agents can programmatically rent specialized avatars or motion packs on demand using **x402 micro-payment rails** on-chain.
+- **User Payments:** Manual purchases and rentals via credit cards or Web3 wallets (MetaMask integration with zero private-key exposure).
+- **License Proofs:** On-chain verifiable licensing ensuring creators retain rights while users hold authentic asset entitlements.
 
 ---
 
-## 🛠️ Local Development & Setup
+## Development & Setup
 
 **Prerequisites:** Node.js ≥ 22.0.0, npm ≥ 11.0.0 on Windows 10/11 or macOS.
 
@@ -145,7 +132,7 @@ npm run package
 
 ---
 
-## 📖 Documentation Index
+## Documentation Index
 
 | Document | Description |
 |---|---|
@@ -164,7 +151,7 @@ npm run package
 
 ---
 
-## ⚖️ Licence & Rights
+## Licence & Rights
 
 Deskii is **proprietary software** owned and published by **XEON Protocol (Pty) Ltd**.
 
