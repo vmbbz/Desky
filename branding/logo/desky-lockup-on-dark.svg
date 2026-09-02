@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 92" role="img" aria-labelledby="title desc">
-  <title id="title">Deskiii logo</title>
-  <desc id="desc">Milk's simplified carton face beside the Deskiii wordmark for dark backgrounds.</desc>
+  <title id="title">Deskii logo</title>
+  <desc id="desc">Milk's simplified carton face beside the Deskii wordmark for dark backgrounds.</desc>
   <g transform="translate(10 8)">
     <path d="M13 27 20 14h24l13 13v39H13Z" fill="#FFFDF7"/>
     <path d="m44 14 13 13v39l-9-6V25Z" fill="#E5DFD2"/>
@@ -12,5 +12,5 @@
     <circle cx="43" cy="35" r="3" fill="#0A0E17"/>
     <path d="M31 40c3 3 7 3 10 0" fill="none" stroke="#0A0E17" stroke-width="3" stroke-linecap="round"/>
   </g>
-  <text x="100" y="63" fill="#F5F8FF" font-family="Space Grotesk, Inter, Segoe UI, sans-serif" font-size="54" font-weight="650" letter-spacing="-2">Deskiii</text>
+  <text x="100" y="63" fill="#F5F8FF" font-family="Space Grotesk, Inter, Segoe UI, sans-serif" font-size="54" font-weight="650" letter-spacing="-2">Deskii</text>
 </svg>

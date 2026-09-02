@@ -10,11 +10,11 @@ $ErrorActionPreference = 'Stop'
 $packageMetadata = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'package.json') -Raw | ConvertFrom-Json
 $packageExecutable = Join-Path $RepositoryRoot "out\$($packageMetadata.productName)-win32-x64\Desky.exe"
 if (-not (Test-Path -LiteralPath $packageExecutable -PathType Leaf)) {
-  throw "Packaged Deskiii executable is missing: $packageExecutable"
+  throw "Packaged Deskii executable is missing: $packageExecutable"
 }
 $resolvedExecutable = (Resolve-Path -LiteralPath $packageExecutable).Path
 
-function Get-PackagedDeskiiiProcesses {
+function Get-PackagedDeskiiProcesses {
   @(Get-CimInstance Win32_Process | Where-Object {
     $_.ExecutablePath -and [string]::Equals(
       $_.ExecutablePath,
@@ -24,10 +24,10 @@ function Get-PackagedDeskiiiProcesses {
   })
 }
 
-$existing = Get-PackagedDeskiiiProcesses
+$existing = Get-PackagedDeskiiProcesses
 if ($existing.Count -gt 0 -and -not $CloseExisting) {
   $processIds = ($existing.ProcessId | Sort-Object) -join ', '
-  throw "A packaged Deskiii process is already running ($processIds). Re-run with -CloseExisting to replace only that exact packaged process tree."
+  throw "A packaged Deskii process is already running ($processIds). Re-run with -CloseExisting to replace only that exact packaged process tree."
 }
 if ($existing.Count -gt 0) {
   $existingIds = @($existing.ProcessId)
@@ -41,15 +41,15 @@ if ($existing.Count -gt 0) {
     }
   }
   Start-Sleep -Milliseconds 750
-  foreach ($candidate in (Get-PackagedDeskiiiProcesses)) {
+  foreach ($candidate in (Get-PackagedDeskiiProcesses)) {
     Stop-Process -Id $candidate.ProcessId -Force -ErrorAction Stop
   }
   $closeDeadline = [DateTimeOffset]::UtcNow.AddSeconds(10)
-  while ((Get-PackagedDeskiiiProcesses).Count -gt 0 -and [DateTimeOffset]::UtcNow -lt $closeDeadline) {
+  while ((Get-PackagedDeskiiProcesses).Count -gt 0 -and [DateTimeOffset]::UtcNow -lt $closeDeadline) {
     Start-Sleep -Milliseconds 100
   }
-  if ((Get-PackagedDeskiiiProcesses).Count -gt 0) {
-    throw 'The previous packaged Deskiii process did not close cleanly.'
+  if ((Get-PackagedDeskiiProcesses).Count -gt 0) {
+    throw 'The previous packaged Deskii process did not close cleanly.'
   }
 }
 
@@ -70,7 +70,7 @@ $exerciseEnvironment = @{
 # Start-Process gives the packaged GUI process independent standard handles.
 # The previous ProcessStartInfo launch inherited this short-lived script's
 # output pipe, so later Electron diagnostics could crash with EPIPE.
-$deskiiiProcess = Start-Process `
+$deskiiProcess = Start-Process `
   -FilePath $resolvedExecutable `
   -Environment $exerciseEnvironment `
   -PassThru
@@ -78,7 +78,7 @@ $deskiiiProcess = Start-Process `
 [pscustomobject]@{
   schemaVersion = 1
   launched = $true
-  processId = $deskiiiProcess.Id
+  processId = $deskiiProcess.Id
   observationSeconds = $ObservationSeconds
   capturePath = $outputPath
   diagnosticPath = $diagnosticPath
@@ -88,6 +88,6 @@ $deskiiiProcess = Start-Process `
     'Click the headset button to enter voice conversation mode.',
     'Say: Check your available skills and name three.',
     'After audible speech begins, speak naturally over it: Stop. Name only one skill.',
-    'Leave the voice session open until Deskiii captures and closes automatically.'
+    'Leave the voice session open until Deskii captures and closes automatically.'
   )
 } | ConvertTo-Json -Depth 5
