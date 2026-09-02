@@ -2,7 +2,7 @@
 
 ## Decision
 
-Deskiii may consume OpenClaw's authenticated Gateway-relay Talk surface as its first full-duplex voice adapter. It must remain a provider-neutral optional capability, separate from dictation, and must not copy native-client implementation details that weaken desktop queue or lifecycle bounds.
+Deskii may consume OpenClaw's authenticated Gateway-relay Talk surface as its first full-duplex voice adapter. It must remain a provider-neutral optional capability, separate from dictation, and must not copy native-client implementation details that weaken desktop queue or lifecycle bounds.
 
 The implementation audit began against the official local OpenClaw checkout:
 
@@ -27,7 +27,7 @@ The packaged reference run at 12:02 created a relay in 65 ms, but later audio
 append acknowledgements arrived in bursts at 518-558 ms. The renderer eventually
 reached its ownership cap and reported that the Gateway could not accept audio in
 time. This is not evidence that the microphone failed to capture speech. It is
-evidence that Deskiii coupled media capture lifetime and visible recovery to a
+evidence that Deskii coupled media capture lifetime and visible recovery to a
 congested request/acknowledgement path.
 
 Current official OpenClaw browser and Apple relay clients provide the useful
@@ -41,7 +41,7 @@ reference behavior:
   transcript to prove that the user spoke;
 - relay errors and close events are authoritative terminal boundaries.
 
-Deskiii previously diverged in four material ways: it admitted twenty in-flight
+Deskii previously diverged in four material ways: it admitted twenty in-flight
 sends, supplied `Date.now()` as a media timestamp, awaited every stale append
 before closing, and left the UI at Listening until a provider transcript arrived.
 The renderer now follows the four-send ownership bound, uses monotonic AudioContext
@@ -49,7 +49,7 @@ time, releases local media without awaiting stale acknowledgements, and promotes
 locally sustained speech to a short-lived Hearing state while preserving provider
 partial/final transcripts as the only turn authority.
 
-One upstream-facing contract gap remains. Deskiii's provider-neutral event model
+One upstream-facing contract gap remains. Deskii's provider-neutral event model
 does not currently expose explicit input-speech-started/input-speech-stopped or
 input-level events, even though the relay/provider can know more than transcript
 text. That extension should be designed once across OpenClaw, Hermes, Claude, and
@@ -75,17 +75,17 @@ The OpenAI GPT-Live relay prefers an OpenClaw ChatGPT OAuth profile and extracts
 
 OpenClaw enforces session limits and a 30-minute relay TTL. The relay supports input audio, assistant audio, transcript, clear, playback mark, tool progress, error, and close events. Turn-scoped output cancellation is a first-class request, not a text command.
 
-The native clients model Listening, Thinking, and Speaking separately. macOS derives Speaking from playback activity and exposes pause/stop gestures. Android makes dictation, voice-note recording, and Talk mutually exclusive and stops foreground-sensitive capture paths on lifecycle changes. The current Android playback channel is unbounded; Deskiii does not inherit that choice.
+The native clients model Listening, Thinking, and Speaking separately. macOS derives Speaking from playback activity and exposes pause/stop gestures. Android makes dictation, voice-note recording, and Talk mutually exclusive and stops foreground-sensitive capture paths on lifecycle changes. The current Android playback channel is unbounded; Deskii does not inherit that choice.
 
-## Deskiii mapping
+## Deskii mapping
 
-Deskiii adds a distinct `AgentAdapterCapabilities.voiceConversation` contract and bridge rather than widening `voiceInput`. Admission requires the complete method/event set, ready configured provider, Gateway relay, and validated mono PCM16/G.711 input/output formats. Other adapters report unsupported.
+Deskii adds a distinct `AgentAdapterCapabilities.voiceConversation` contract and bridge rather than widening `voiceInput`. Admission requires the complete method/event set, ready configured provider, Gateway relay, and validated mono PCM16/G.711 input/output formats. Other adapters report unsupported.
 
 Main owns the remote session, exact selected agent session, renderer ownership, native-event filtering, redaction, and provider-rejection downgrade. IPC accepts only canonical bounded base64, identifiers, timestamp, output-cancel, mark acknowledgement, and close commands. Store profiles fail the capability closed.
 
 Renderer capture uses one user gesture, echo cancellation, noise suppression, automatic gain control, negotiated resampling/encoding, and a bounded serialized append queue. It stops rather than dropping delayed microphone audio. Playback uses a bounded eight-second Web Audio schedule; clear/cancel invalidates sources and timers, marks are acknowledged when playback reaches them, and speaking state follows actual scheduled audio.
 
-Text dictation and realtime conversation are globally mutually exclusive. Starting realtime voice replaces the text composer with a dedicated state dock containing phase, activity, End, and Escape. Natural speech barge-in is the default interaction: Deskiii mirrors the official desktop client's guarded local detector and calls exact-turn output cancellation without exposing an interrupt button. Provider `clear` remains the late-packet boundary. No wake word, background listener, launch-time capture, or persisted audio is present.
+Text dictation and realtime conversation are globally mutually exclusive. Starting realtime voice replaces the text composer with a dedicated state dock containing phase, activity, End, and Escape. Natural speech barge-in is the default interaction: Deskii mirrors the official desktop client's guarded local detector and calls exact-turn output cancellation without exposing an interrupt button. Provider `clear` remains the late-packet boundary. No wake word, background listener, launch-time capture, or persisted audio is present.
 
 ## Live reference-device evidence
 
@@ -101,7 +101,7 @@ brain=agent-consult
 consultRouting=<unset for GPT-Live native delegation>
 ```
 
-The prior reference profile was authenticated through the official `openclaw models auth login --provider openai` browser flow, and official read-only inspection reported OAuth metadata only. No OAuth token, Gateway token, or account-id value was printed or copied into Deskiii. The operator has since switched accounts after exhausting that profile's usage; current profile order and expiry must be re-verified during the next live gate rather than copied from this historical snapshot.
+The prior reference profile was authenticated through the official `openclaw models auth login --provider openai` browser flow, and official read-only inspection reported OAuth metadata only. No OAuth token, Gateway token, or account-id value was printed or copied into Deskii. The operator has since switched accounts after exhausting that profile's usage; current profile order and expiry must be re-verified during the next live gate rather than copied from this historical snapshot.
 
 The previous Gateway catalog reported GPT-Live ready, its model-specific voice set, Gateway relay, agent consultation, PCM16 24 kHz and G.711 mu-law 8 kHz input/output, and barge-in. A real `talk.session.create` succeeded with `gpt-live-1-codex`, `spruce`, and negotiated PCM16 24 kHz; the earlier 403 was therefore a stale voice-contract mismatch, not a proven account-entitlement failure. Two later failures were distinct. OpenClaw 2026.8.1 could reject a stale request root while its global `/startupz` state remained `started`; that request-admission defect is corrected in current source and is not detectable through the global lifecycle endpoint. In the later `windows-voice-20260901-182305` run, the user skills turn finalized and GPT-Live produced a short final acknowledgement, but sanitized Gateway events contained no native delegation or agent run. The local OpenClaw source patch `21a29a5f0` now prefers native delegation and deterministically falls back to the same Gateway-owned consult when it is omitted. Its 54 owner/lifecycle tests pass with one Bun-only skip, independent changed-file lint and the OpenAI extension type project pass. Account reauthentication and corrected source-Gateway restart are complete; the result/barge-in roundtrip remains pending.
 

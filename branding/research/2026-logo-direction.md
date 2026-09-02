@@ -1,8 +1,8 @@
-# Deskiii logo direction — August 2026
+# Deskii logo direction — August 2026
 
 ## Outcome
 
-Retire the abstract `D` portal. Make Milk the permanent Deskiii brand character and build a responsive logo family around Milk's carton silhouette and face.
+Retire the abstract `D` portal. Make Milk the permanent Deskii brand character and build a responsive logo family around Milk's carton silhouette and face.
 
 There is no universal or credible “highest-rated logos of 2026” table. The useful evidence is the overlap between current platform rules, juried 2026 identity work and expert trend reporting.
 

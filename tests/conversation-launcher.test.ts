@@ -41,12 +41,12 @@ function adapterState(adapterId: string): AdapterConnectionState {
 describe('ConversationLauncher', () => {
   it('opens the installed OpenClaw client through the fixed admitted route', async () => {
     const openExternal = vi.fn(async () => undefined);
-    const openDeskiii = vi.fn();
+    const openDeskii = vi.fn();
     const launcher = new ConversationLauncher({
       getAdapterState: () => adapterState('openclaw'),
       getProtocolHandlerName: () => 'OpenClaw Companion',
       openExternal,
-      openDeskiii,
+      openDeskii,
     });
 
     await expect(launcher.open()).resolves.toEqual({
@@ -56,43 +56,43 @@ describe('ConversationLauncher', () => {
       clientName: 'OpenClaw Companion',
     });
     expect(openExternal).toHaveBeenCalledWith('openclaw://chat');
-    expect(openDeskiii).not.toHaveBeenCalled();
+    expect(openDeskii).not.toHaveBeenCalled();
   });
 
-  it('falls back to Deskiii when the provider client is not installed', async () => {
-    const openDeskiii = vi.fn();
+  it('falls back to Deskii when the provider client is not installed', async () => {
+    const openDeskii = vi.fn();
     const launcher = new ConversationLauncher({
       getAdapterState: () => adapterState('openclaw'),
       getProtocolHandlerName: () => '',
       openExternal: vi.fn(async () => undefined),
-      openDeskiii,
+      openDeskii,
     });
 
     await expect(launcher.open()).resolves.toMatchObject({
-      destination: 'deskiii',
+      destination: 'deskii',
       reason: 'provider-client-not-installed',
     });
-    expect(openDeskiii).toHaveBeenCalledOnce();
+    expect(openDeskii).toHaveBeenCalledOnce();
   });
 
   it('does not invent unsupported Hermes, Claude, or Codex launch routes', async () => {
     for (const adapterId of ['hermes', 'claude', 'codex']) {
       const openExternal = vi.fn(async () => undefined);
-      const openDeskiii = vi.fn();
+      const openDeskii = vi.fn();
       const launcher = new ConversationLauncher({
         getAdapterState: () => adapterState(adapterId),
         getProtocolHandlerName: () => 'Untrusted handler',
         openExternal,
-        openDeskiii,
+        openDeskii,
       });
 
       await expect(launcher.open()).resolves.toMatchObject({
-        destination: 'deskiii',
+        destination: 'deskii',
         reason: 'no-admitted-provider-route',
         adapterId,
       });
       expect(openExternal).not.toHaveBeenCalled();
-      expect(openDeskiii).toHaveBeenCalledOnce();
+      expect(openDeskii).toHaveBeenCalledOnce();
     }
   });
 });

@@ -2,7 +2,7 @@
 
 ## Result
 
-The provider-neutral streaming-dictation foundation is implemented for direct Deskiii builds. OpenClaw is the first admitted provider. Voice input remains an explicit, user-initiated draft-authoring control: it does not run in the background and never sends a message automatically.
+The provider-neutral streaming-dictation foundation is implemented for direct Deskii builds. OpenClaw is the first admitted provider. Voice input remains an explicit, user-initiated draft-authoring control: it does not run in the background and never sends a message automatically.
 
 This record proves the contract, permission boundary, failure handling, tests, and packaged Windows-direct artifact. It does **not** claim that a human microphone/provider matrix has passed.
 
@@ -25,7 +25,7 @@ The implementation was checked against the current local OpenClaw client source 
 5. Main owns the provider session and renderer owner. The registry pins the session to the runtime that created it, including cleanup during an adapter switch. Separate remote session and transcription identities are preserved and foreign events are ignored.
 6. Partial and final text update the shared in-memory draft. The user can edit it and must press Send normally.
 7. Stop, Escape, permission failure, provider error, backlog, disconnect, surface destruction, or component teardown stops local tracks and closes or discards the remote session.
-8. Electron admits microphone access only for the known Deskiii main-frame renderer URL on the ambient or Control Center surface. Video, display capture, subframes, and foreign origins remain denied.
+8. Electron admits microphone access only for the known Deskii main-frame renderer URL on the ambient or Control Center surface. Video, display capture, subframes, and foreign origins remain denied.
 9. Gateway method discovery is provisional with respect to provider credentials. A missing/unconfigured provider on session creation downgrades the connection to `setup-required` and disables capture until reconnect.
 
 ## Release-profile policy
@@ -69,13 +69,13 @@ F5d.2 is separate: provider audio output, bounded playback, assistant-turn corre
 The packaged direct build was exercised against OpenClaw `2026.8.1` from the absolute `openclaw_browser_talk_fixed` checkout on the Windows reference device.
 
 - Gateway health passed on `127.0.0.1:18789`; `talk-voice` and `openai` loaded without plugin errors.
-- Deskiii authenticated from saved access, negotiated the four Talk methods/events, and enabled its microphone control.
+- Deskii authenticated from saved access, negotiated the four Talk methods/events, and enabled its microphone control.
 - The first capture exposed a packaged custom-origin normalization defect: Electron supplied `desky://app/` while the predicate admitted only `desky://app`. Windows global and non-packaged microphone policy were both `Allow`. The predicate now compares the parsed `desky:` scheme and exact `app` host while retaining its no-credentials, no-port, audio-only, main-frame and known-surface constraints.
 - After that correction, microphone capture passed Electron/Windows admission and reached `talk.session.create`.
-- Session creation then failed with `No realtime transcription provider registered`. The local OpenClaw account has an OAuth profile but no API-key profile. OpenClaw's current OpenAI transcription-only provider requires an OpenAI Platform API key; its conversational realtime OAuth path is a different mode and would not preserve Deskiii's edit-before-Send guarantee.
-- Deskiii now treats this class of error as configuration evidence: it downgrades voice to `setup-required`, disables repeated capture, and instructs the user to configure the Gateway provider and reconnect. The UI no longer labels method discovery as provider-ready.
+- Session creation then failed with `No realtime transcription provider registered`. The local OpenClaw account has an OAuth profile but no API-key profile. OpenClaw's current OpenAI transcription-only provider requires an OpenAI Platform API key; its conversational realtime OAuth path is a different mode and would not preserve Deskii's edit-before-Send guarantee.
+- Deskii now treats this class of error as configuration evidence: it downgrades voice to `setup-required`, disables repeated capture, and instructs the user to configure the Gateway provider and reconnect. The UI no longer labels method discovery as provider-ready.
 - The rebuilt Windows-direct package passed the ASAR profile verifier, reconnected to the absolute-checkout Gateway, reproduced the provider error, disabled the microphone control, and displayed the bounded setup guidance above.
 - Restoring the intended runner-first `.openclaw-dev` state exposed a pre-existing OpenClaw v17 additive-schema drift. A native SQLite snapshot was integrity-checked before repair; the exact canonical `context_eligible` and `route_context_json` columns plus invalidation trigger were restored transactionally, after which official `openclaw doctor --repair --yes --non-interactive` completed the supported v17 -> v19 migration. Gateway health then passed with `runnercourage@gmail.com` first in the OpenAI profile order.
-- The extended outage also exposed a Deskiii invariant mismatch: background reconnect attempts could exceed Adapter Contract v1's maximum of 100, causing an explicit Connect to be rejected before socket creation. The host now saturates the normalized counter at 100, continues its bounded-delay recovery loop, and resets the counter before emitting a user-initiated `connecting` state. A 105-attempt regression proves both the saturation and successful explicit recovery.
+- The extended outage also exposed a Deskii invariant mismatch: background reconnect attempts could exceed Adapter Contract v1's maximum of 100, causing an explicit Connect to be rejected before socket creation. The host now saturates the normalized counter at 100, continues its bounded-delay recovery loop, and resets the counter before emitting a user-initiated `connecting` state. A 105-attempt regression proves both the saturation and successful explicit recovery.
 
 Therefore the packaged permission-allow/provider-boundary path passes, but live partial/final transcript, explicit finish, cancellation, disconnect during capture, and edit-before-Send remain blocked on an admitted transcription credential. No message or agent turn was sent during this attempt.

@@ -49,7 +49,7 @@ export function createWindowOptions(
     minWidth: 600,
     minHeight: 560,
     show: false,
-    title: 'Deskiii Control Center',
+    title: 'Deskii Control Center',
     frame: true,
     transparent: false,
     backgroundColor: '#0a0e17',

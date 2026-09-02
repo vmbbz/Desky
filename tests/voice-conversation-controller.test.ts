@@ -502,7 +502,7 @@ describe('VoiceConversationController playback lifecycle', () => {
     expect(harness.bridge.stop).toHaveBeenCalledWith({ sessionId: 'voice-1' });
     expect(harness.controller.phase).toBe('idle');
     expect(harness.errors).toEqual([
-      'The voice provider stopped before finishing your sentence. Deskiii ended that live session safely; start voice and try again.',
+      'The voice provider stopped before finishing your sentence. Deskii ended that live session safely; start voice and try again.',
     ]);
   });
 

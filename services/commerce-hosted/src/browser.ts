@@ -94,7 +94,7 @@ function render(next: CheckoutBrowserApiMaterial): void {
   if (next.session.state === 'settled') {
     eyebrow.textContent = 'Payment confirmed';
     title.textContent = 'Your avatar is ready.';
-    lead.textContent = 'Return to Deskiii. It will verify the grant from the authoritative service.';
+    lead.textContent = 'Return to Deskii. It will verify the grant from the authoritative service.';
     statusMark.className = 'status-mark';
     pay.disabled = true;
     pay.textContent = 'Payment confirmed';
@@ -104,7 +104,7 @@ function render(next: CheckoutBrowserApiMaterial): void {
   }
   if (['failed', 'expired', 'cancelled'].includes(next.session.state)) {
     showFailure('This checkout can no longer continue.',
-      'It cannot be retried or signed. Return to Deskiii to start a new checkout.');
+      'It cannot be retried or signed. Return to Deskii to start a new checkout.');
     stopPolling();
     return;
   }
@@ -112,11 +112,11 @@ function render(next: CheckoutBrowserApiMaterial): void {
     .includes(next.session.state)) {
     eyebrow.textContent = 'Payment processing';
     title.textContent = 'Confirming on Base…';
-    lead.textContent = 'Keep this page open. Deskiii will rely on the service ledger, not this browser, for the final result.';
+    lead.textContent = 'Keep this page open. Deskii will rely on the service ledger, not this browser, for the final result.';
     statusMark.className = 'status-mark pending';
     pay.disabled = true;
     pay.textContent = 'Confirmation pending';
-    actionNote.textContent = 'Do not sign again. Deskiii is reconciling the submitted authorization.';
+    actionNote.textContent = 'Do not sign again. Deskii is reconciling the submitted authorization.';
     startPolling();
     return;
   }
@@ -178,7 +178,7 @@ pay.addEventListener('click', () => {
   const wallet = preferredWallet();
   if (!client || !wallet) {
     showFailure('No unambiguous compatible wallet found.',
-      'Enable MetaMask, then reopen this checkout from Deskiii. Deskiii will not guess between multiple wallets.');
+      'Enable MetaMask, then reopen this checkout from Deskii. Deskii will not guess between multiple wallets.');
     return;
   }
   if (!connectedWallet) {
@@ -209,7 +209,7 @@ function showWalletFailure(error: unknown): void {
     const failure = error instanceof CheckoutWalletError ? error.code : 'wallet-client-runtime';
     if (failure === 'wallet-checkout-expired') {
       showFailure('This checkout expired before approval.',
-      'It cannot be retried or signed. Return to Deskiii to start a new checkout.');
+      'It cannot be retried or signed. Return to Deskii to start a new checkout.');
       return;
     }
     if (failure === 'wallet-insufficient-usdc') {
@@ -244,8 +244,8 @@ try {
   client = new CheckoutBrowserApiClient(location.origin);
   void client.bootstrapFromUrl(location.href).then(render).catch((error: unknown) => {
     showFailure('This link is incomplete or expired.',
-      `Return to Deskiii and reopen the approved checkout. Diagnostic: ${bootstrapFailureCode(error)}.`);
+      `Return to Deskii and reopen the approved checkout. Diagnostic: ${bootstrapFailureCode(error)}.`);
   });
 } catch {
-  showFailure('Checkout configuration is invalid.', 'Return to Deskiii and try again later.');
+  showFailure('Checkout configuration is invalid.', 'Return to Deskii and try again later.');
 }

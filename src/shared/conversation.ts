@@ -1,4 +1,4 @@
-export const conversationDestinations = ['provider-client', 'deskiii'] as const;
+export const conversationDestinations = ['provider-client', 'deskii'] as const;
 
 export type ConversationDestination = (typeof conversationDestinations)[number];
 

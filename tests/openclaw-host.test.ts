@@ -346,7 +346,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
         params: {
           sessionId: voiceSession.sessionId,
           turnId: 'talk-turn-1',
-          reason: 'deskiii-internal-fallback',
+          reason: 'deskii-internal-fallback',
         },
       },
       {
@@ -577,7 +577,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
       transcriptionSessionId: 'voice-transcription-1', type: 'partial', text: 'Hello', final: false,
     });
     client?.options.onEvent('talk.event', {
-      transcriptionSessionId: 'voice-transcription-1', type: 'transcript', text: 'Hello Deskiii', final: true,
+      transcriptionSessionId: 'voice-transcription-1', type: 'transcript', text: 'Hello Deskii', final: true,
     });
     await host.stopVoiceInput(session.sessionId, false);
 
@@ -588,7 +588,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
     ]));
     expect(events).toEqual([
       { type: 'transcript', sessionId: session.sessionId, text: 'Hello', final: false },
-      { type: 'transcript', sessionId: session.sessionId, text: 'Hello Deskiii', final: true },
+      { type: 'transcript', sessionId: session.sessionId, text: 'Hello Deskii', final: true },
       { type: 'closed', sessionId: session.sessionId, reason: 'complete' },
     ]);
   });
@@ -676,7 +676,7 @@ describe('OpenClawAdapterHost contract fixture', () => {
         params: {
           sessionId: session.sessionId,
           turnId: 'talk-turn-1',
-          reason: 'deskiii-barge-in',
+          reason: 'deskii-barge-in',
         },
       },
       {

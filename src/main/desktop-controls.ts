@@ -50,7 +50,7 @@ export class DesktopControls {
     if (!icon.isEmpty()) {
       try {
         this.tray = new Tray(icon);
-    this.tray.setToolTip('Deskiii desktop companion');
+    this.tray.setToolTip('Deskii desktop companion');
         this.tray.on('click', this.actions.openAmbient);
       } catch {
         this.tray = undefined;
@@ -93,7 +93,7 @@ export class DesktopControls {
   private buildMenu(): Menu {
     const state = this.actions.getState();
     const template: MenuItemConstructorOptions[] = [
-      { label: 'Show Deskiii', click: this.actions.openAmbient },
+      { label: 'Show Deskii', click: this.actions.openAmbient },
       { label: 'Open Control Center', click: this.actions.openControlCenter },
       { type: 'separator' },
       {
@@ -111,7 +111,7 @@ export class DesktopControls {
       { label: 'Reset companion position', click: this.actions.resetPlacement },
       { label: 'Hide companion', click: this.actions.hideAmbient },
       { type: 'separator' },
-      { label: 'Quit Deskiii', click: () => app.quit() },
+      { label: 'Quit Deskii', click: () => app.quit() },
     ];
     return Menu.buildFromTemplate(template);
   }

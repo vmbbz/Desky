@@ -28,7 +28,7 @@ brain=agent-consult
 - Installed official `openclaw@2026.8.1` without changing the historical upstream contribution checkout.
 - Installed and pinned official `@openclaw/codex@2026.8.1` after reviewing its declared boundary. Optional computer use, native plugin access, raw transcripts, supervision, and write controls remain off.
 - Persisted the previously approved 64-character local Gateway token into the dev profile without printing it.
-- Verified Deskiii's OS-encrypted saved endpoint and credential only by equality/metadata checks; no secret value was logged.
+- Verified Deskii's OS-encrypted saved endpoint and credential only by equality/metadata checks; no secret value was logged.
 - Started one Gateway on the saved loopback endpoint `127.0.0.1:18789`.
 
 ## Live evidence
@@ -65,11 +65,11 @@ The CLI connection closed immediately after the bounded probe, so the Gateway re
 
 ## Remaining packaged exercise
 
-1. Connect the already launched Deskiii package to the saved local profile.
+1. Connect the already launched Deskii package to the saved local profile.
 2. Start live voice from the headset control and grant microphone access.
 3. Prove user and assistant transcript order plus audible output.
 4. Speak over audible output and verify immediate local clear plus exact turn cancellation.
 5. Verify playback mark timing, Stop, Gateway loss, recovery, and no replay.
 6. Repeat microphone denial and surface-destruction cleanup.
 
-Direct Hermes, Claude, and Codex adapters do not expose realtime audio. They can be used as the agent brain behind OpenClaw Talk without adding another Deskiii microphone implementation; OpenClaw remains the normalized speech/consultation boundary.
+Direct Hermes, Claude, and Codex adapters do not expose realtime audio. They can be used as the agent brain behind OpenClaw Talk without adding another Deskii microphone implementation; OpenClaw remains the normalized speech/consultation boundary.

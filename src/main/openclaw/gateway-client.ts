@@ -168,7 +168,7 @@ export class OpenClawGatewayClient {
     });
   }
 
-  close(reason = 'Deskiii disconnected'): void {
+  close(reason = 'Deskii disconnected'): void {
     this.expectedClose = true;
     this.socket?.close(1000, reason.slice(0, 120));
   }
@@ -194,7 +194,7 @@ export class OpenClawGatewayClient {
       maxProtocol: OPENCLAW_PROTOCOL_VERSION,
       client: {
         id: 'gateway-client',
-      displayName: 'Deskiii',
+      displayName: 'Deskii',
         version: this.options.appVersion,
         platform: this.options.platform,
         deviceFamily: 'desktop',
@@ -213,7 +213,7 @@ export class OpenClawGatewayClient {
         nonce,
       },
       locale: 'en',
-      userAgent: `Deskiii/${this.options.appVersion}`,
+      userAgent: `Deskii/${this.options.appVersion}`,
     });
     if (!isGatewayHello(result)) {
       throw new Error('Gateway hello did not match the pinned OpenClaw protocol v4 contract.');

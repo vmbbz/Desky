@@ -29,8 +29,8 @@ describe('voice input boundaries', () => {
 
   it('merges transcript text without damaging an existing draft', () => {
     expect(mergeVoiceTranscript('', ' hello ')).toBe('hello');
-    expect(mergeVoiceTranscript('Ask Deskiii', 'to wave')).toBe('Ask Deskiii to wave');
-    expect(mergeVoiceTranscript('Ask Deskiii ', 'to jump')).toBe('Ask Deskiii to jump');
+    expect(mergeVoiceTranscript('Ask Deskii', 'to wave')).toBe('Ask Deskii to wave');
+    expect(mergeVoiceTranscript('Ask Deskii ', 'to jump')).toBe('Ask Deskii to jump');
   });
 
   it('accepts only bounded canonical base64 audio chunks', () => {
@@ -60,7 +60,7 @@ describe('voice input boundaries', () => {
     )).toBe(false);
   });
 
-  it('admits only audio from a main-frame Deskiii renderer', () => {
+  it('admits only audio from a main-frame Deskii renderer', () => {
     const admitted = {
       surface: 'ambient' as const,
       requestingUrl: 'desky://app/main_window/index.html?surface=ambient',

@@ -12,7 +12,7 @@ This correction is fail-closed. It removes no working voice feature: OpenClaw re
 | --- | --- | --- |
 | Hermes | Pinned `gateway/platforms/api_server.py` advertises `audio_api: false` and `realtime_voice: false`. `/api/audio/transcribe` and `/api/audio/speak-stream` are implemented by separate `hermes_cli.web_server`. | Voice remains unsupported. Prefer a future versioned `/v1` audio contract; otherwise separately admit the Dashboard/Desktop server or another speech runtime. |
 | Codex | Official app-server docs require `experimentalApi` for experimental methods. Pinned official source labels every `thread/realtime/*` audio method and event experimental. | Native voice remains lab-only. Stable Codex text may later be surrounded by an independently admitted cascade speech runtime. |
-| Claude | Official Agent SDK documents programmatic text/tool streaming. Claude Code voice dictation is an interactive transcription feature requiring Claude.ai authentication; it is unavailable with the API-key topology Deskiii admits and does not provide assistant speech output. | Voice remains unsupported. Claude may enter cascade only after authenticated agent/package admission and independent speech-runtime admission. |
+| Claude | Official Agent SDK documents programmatic text/tool streaming. Claude Code voice dictation is an interactive transcription feature requiring Claude.ai authentication; it is unavailable with the API-key topology Deskii admits and does not provide assistant speech output. | Voice remains unsupported. Claude may enter cascade only after authenticated agent/package admission and independent speech-runtime admission. |
 
 Primary evidence:
 

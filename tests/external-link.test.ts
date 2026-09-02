@@ -4,8 +4,8 @@ import { normalizeSafeExternalUrl } from '../src/shared/external-link';
 
 describe('external response links', () => {
   it('admits credential-free web links', () => {
-    expect(normalizeSafeExternalUrl('https://example.com/docs?q=deskiii'))
-      .toBe('https://example.com/docs?q=deskiii');
+    expect(normalizeSafeExternalUrl('https://example.com/docs?q=deskii'))
+      .toBe('https://example.com/docs?q=deskii');
   });
 
   it.each([

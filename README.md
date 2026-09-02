@@ -1,11 +1,11 @@
-# Deskiii
+# Deskii
 
-Deskiii is an open-source desktop companion that gives an AI agent a visible, expressive presence on Windows and macOS.
+Deskii is an open-source desktop companion that gives an AI agent a visible, expressive presence on Windows and macOS.
 
-The character is not the agent. Deskiii connects to agent runtimes through adapters, normalizes their events, and translates those events into animation, dialogue, approvals, and clear status. Users can change the connected runtime without changing their companion.
+The character is not the agent. Deskii connects to agent runtimes through adapters, normalizes their events, and translates those events into animation, dialogue, approvals, and clear status. Users can change the connected runtime without changing their companion.
 
 ```text
-Agent runtime -> adapter -> Deskiii event protocol -> state machine -> avatar and UI
+Agent runtime -> adapter -> Deskii event protocol -> state machine -> avatar and UI
 ```
 
 ## Product principles
@@ -28,10 +28,10 @@ F3c now provides the actual avatar-first desktop companion: the resting surface 
 ## Connect OpenClaw
 
 1. Start or identify an OpenClaw Gateway and obtain its configured token or password.
-2. Open Deskiii's connection sheet and enter `ws://127.0.0.1:18789/` for a local gateway, or a trusted `wss://` URL for a remote gateway.
-3. Enter the credential. Deskiii passes it directly to its main process and can persist it only through operating-system credential encryption.
+2. Open Deskii's connection sheet and enter `ws://127.0.0.1:18789/` for a local gateway, or a trusted `wss://` URL for a remote gateway.
+3. Enter the credential. Deskii passes it directly to its main process and can persist it only through operating-system credential encryption.
 4. If OpenClaw requests device pairing, approve the displayed request in OpenClaw and reconnect.
-5. Select an existing session or create a new Deskiii session, then send a message.
+5. Select an existing session or create a new Deskii session, then send a message.
 
 Plain `ws://` is rejected outside loopback. See the [OpenClaw integration guide](docs/OPENCLAW.md) for protocol scope, diagnostics, and the remaining live verification procedure.
 
@@ -75,4 +75,4 @@ npm run package
 
 ## Licensing status
 
-The repository is not yet licensed for redistribution. Selecting the Deskiii source-code licence is a release-blocking owner decision recorded in the delivery plan. Third-party avatars always retain their own licences; the Open Source Avatars registry licence does not replace per-collection licences.
+The repository is not yet licensed for redistribution. Selecting the Deskii source-code licence is a release-blocking owner decision recorded in the delivery plan. Third-party avatars always retain their own licences; the Open Source Avatars registry licence does not replace per-collection licences.

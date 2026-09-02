@@ -6,8 +6,8 @@ The next multi-provider voice architecture and its package boundary are admitted
 
 ## Source audit
 
-- Current OpenClaw voice remains the only implemented Deskiii path.
-- Pinned Hermes source `057dcdf236f8a6a26721c10fcc6ccb72726e272a` contains `/api/audio/transcribe`, `/api/audio/voice-config`, and `/api/audio/speak-stream` on its Dashboard/Desktop web server, not on Deskiii's admitted `/v1` API Server. The admitted server explicitly advertises `audio_api: false` and `realtime_voice: false`. No Hermes speech design is therefore admitted yet; provider credential export remains rejected.
+- Current OpenClaw voice remains the only implemented Deskii path.
+- Pinned Hermes source `057dcdf236f8a6a26721c10fcc6ccb72726e272a` contains `/api/audio/transcribe`, `/api/audio/voice-config`, and `/api/audio/speak-stream` on its Dashboard/Desktop web server, not on Deskii's admitted `/v1` API Server. The admitted server explicitly advertises `audio_api: false` and `realtime_voice: false`. No Hermes speech design is therefore admitted yet; provider credential export remains rejected.
 - Pinned Codex source `6478a751fde8884b2fdc76486fe23175a8e795d4` contains `thread/realtime/*` audio protocol, but the methods are experimental. The published stable app-server overview does not list them. Production capability remains disabled.
 - The supported Claude Agent SDK surface has no documented audio transport. Claude requires the shared cascade design after its existing authenticated admission gate.
 
@@ -32,7 +32,7 @@ Result:
 - direct-installer budget remaining: 46,671,552 bytes.
 - eight external agent/speech runtime payload signatures absent under the unpacked update package.
 
-`npx asar list out/Deskiii-win32-x64/resources/app.asar` reports compiled Webpack/HTML/licence/package entries only. No external gateway, Python runtime, local speech model, native audio engine, or Claude executable is present.
+`npx asar list out/Deskii-win32-x64/resources/app.asar` reports compiled Webpack/HTML/licence/package entries only. No external gateway, Python runtime, local speech model, native audio engine, or Claude executable is present.
 
 The Windows distributable verifier now fails on external-runtime payload signatures in ordinary package roots. The existing ASAR verifier continues to reject the Claude SDK from both admitted release candidates.
 

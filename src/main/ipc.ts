@@ -348,7 +348,7 @@ export function registerIpc(
     getAdapterState: () => adapters.getState(),
     getProtocolHandlerName: (url) => app.getApplicationNameForProtocol(url),
     openExternal: (url) => shell.openExternal(url),
-    openDeskiii: () => windows.openControlCenter(),
+    openDeskii: () => windows.openControlCenter(),
   });
   let voiceInputOwnerId: number | undefined;
   let activeVoiceInputSessionId: string | undefined;
@@ -681,7 +681,7 @@ export function registerIpc(
   });
   ipcMain.handle(voiceInputChannels.start, async (event) => {
     if (voiceInputOwnerId || voiceConversationOwnerId) {
-      throw new Error('A voice session is already active on another Deskiii surface.');
+      throw new Error('A voice session is already active on another Deskii surface.');
     }
     voiceInputOwnerId = event.sender.id;
     let session: VoiceInputSession;
@@ -720,7 +720,7 @@ export function registerIpc(
   });
   ipcMain.handle(voiceConversationChannels.start, async (event) => {
     if (voiceInputOwnerId || voiceConversationOwnerId) {
-      throw new Error('A voice session is already active on another Deskiii surface.');
+      throw new Error('A voice session is already active on another Deskii surface.');
     }
     voiceEvidence?.record('session.start.requested');
     voiceConversationOwnerId = event.sender.id;

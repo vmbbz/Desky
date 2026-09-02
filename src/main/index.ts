@@ -28,7 +28,7 @@ if (started) {
   app.quit();
 }
 
-app.setName('Deskiii');
+app.setName('Deskii');
 if (process.env.DESKY_VISUAL_TEST_USER_DATA) {
   app.setPath('userData', resolve(process.env.DESKY_VISUAL_TEST_USER_DATA));
 }

@@ -58,7 +58,7 @@ async function initializedClient() {
   expect(process.received[0]).toEqual({
     id: 1,
     method: 'initialize',
-    params: { clientInfo: { name: 'desky', title: 'Deskiii', version: '0.1.0' } },
+    params: { clientInfo: { name: 'desky', title: 'Deskii', version: '0.1.0' } },
   });
   process.send({ id: 1, result: { userAgent: 'codex-cli/0.146.0' } });
   await expect(connection).resolves.toEqual({ userAgent: 'codex-cli/0.146.0' });

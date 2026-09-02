@@ -1,6 +1,6 @@
 {
   "name": "desky",
-  "productName": "Deskiii",
+  "productName": "Deskii",
   "version": "0.1.0",
   "description": "An expressive desktop companion for the AI agent you already use.",
   "main": ".webpack/main",

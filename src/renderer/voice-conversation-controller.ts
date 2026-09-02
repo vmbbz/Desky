@@ -611,7 +611,7 @@ export class VoiceConversationController {
         || this.phaseValue === 'stopping' || this.phaseValue === 'idle') return;
       void this.stop(false).then(() => {
         this.callbacks.onError(
-          'The voice provider stopped before finishing your sentence. Deskiii ended that live session safely; start voice and try again.',
+          'The voice provider stopped before finishing your sentence. Deskii ended that live session safely; start voice and try again.',
         );
       }).catch((error: unknown) => {
         this.callbacks.onError(safeVoiceError(error));

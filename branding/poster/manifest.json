@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "campaign": "Deskiii first reveal",
+  "campaign": "Deskii first reveal",
   "motto": "Give your agent somewhere to be.",
   "generation": {
     "backgroundMethod": "OpenAI image generation with a user-supplied Milk video frame as the identity reference",

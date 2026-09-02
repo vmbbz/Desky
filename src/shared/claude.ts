@@ -35,7 +35,7 @@ export const claudeFoundationCapabilities: AgentAdapterCapabilities = Object.fre
     inputFormats: [],
     outputFormats: [],
     supportsBargeIn: false,
-    setupHint: 'Claude Agent SDK has no admitted speech-output or full-duplex audio transport in Deskiii.',
+    setupHint: 'Claude Agent SDK has no admitted speech-output or full-duplex audio transport in Deskii.',
   },
   agentActions: {
     availability: 'unsupported',

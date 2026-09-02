@@ -43,7 +43,7 @@ const config: ForgeConfig = {
     asar: true,
     executableName: 'Desky',
     extendInfo: {
-      NSMicrophoneUsageDescription: 'Deskiii uses the microphone only while you explicitly dictate a message.',
+      NSMicrophoneUsageDescription: 'Deskii uses the microphone only while you explicitly dictate a message.',
     },
     extraResource: claudeAdmissionResources,
     icon: process.platform === 'win32'

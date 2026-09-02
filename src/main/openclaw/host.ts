@@ -727,7 +727,7 @@ export class OpenClawAdapterHost {
     const value = await this.requireTransportClient().request<unknown>('talk.session.cancelOutput', {
       sessionId,
       ...(turnId ? { turnId } : {}),
-      reason: `deskiii-${reason}`,
+      reason: `deskii-${reason}`,
     }, 10_000);
     if (!value || typeof value !== 'object') return 'idle';
     const status = (value as Record<string, unknown>).status;

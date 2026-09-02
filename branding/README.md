@@ -1,16 +1,16 @@
-# Deskiii brand kit
+# Deskii brand kit
 
-Deskiii gives the agents people already use a living, trustworthy place on their desktop.
+Deskii gives the agents people already use a living, trustworthy place on their desktop.
 
 ## Brand platform
 
-- **Official name:** Deskiii
+- **Official name:** Deskii
 - **Motto:** **Give your agent somewhere to be.**
 - **Product descriptor:** A living desktop for the agents you already use.
 - **Founding mascot:** Milk
 - **Brand promise:** presence without intrusion; personality without hiding control.
 
-Milk is Deskiii's permanent brand character, even when a user selects a different companion from the marketplace. The chosen avatar represents the user's companion; Milk represents Deskiii itself.
+Milk is Deskii's permanent brand character, even when a user selects a different companion from the marketplace. The chosen avatar represents the user's companion; Milk represents Deskii itself.
 
 ## Official mark
 
@@ -21,7 +21,7 @@ The official icon is a close-up of **Milk**. It is supported by a responsive fam
 - the one-color Milk silhouette is the tray and monochrome-system glyph;
 - the richer “Milk at the edge” scene is reserved for splash, onboarding and campaign motion.
 
-This makes the brand literal: Deskiii is not a letter or an abstract AI symbol; it is a companion with a recognizable face. The carton cap, asymmetric folded side, milk-blue bands and face remain the four protected recognition features.
+This makes the brand literal: Deskii is not a letter or an abstract AI symbol; it is a companion with a recognizable face. The carton cap, asymmetric folded side, milk-blue bands and face remain the four protected recognition features.
 
 Use the supplied assets without redrawing their proportions:
 
@@ -65,7 +65,7 @@ The admitted Space Grotesk variable font and its upstream metadata are in `fonts
 
 ## Visual language
 
-Deskiii campaign art uses four recurring ideas:
+Deskii campaign art uses four recurring ideas:
 
 1. **The edge:** Milk sits on a window, screen or physical desk edge.
 2. **The crossing:** a limb or shadow crosses the digital/physical boundary.
@@ -85,10 +85,10 @@ The exact generation prompts are preserved in `prompts/`. `scripts/render-poster
 
 ## Voice
 
-Deskiii sounds calm, curious and exact. Prefer short observations over hype. The product can be playful; claims about security, payments and agent capabilities must be literal.
+Deskii sounds calm, curious and exact. Prefer short observations over hype. The product can be playful; claims about security, payments and agent capabilities must be literal.
 
 Say “onchain access” or “signed authorization” when that is what exists. Do not imply that Desky has deployed a proprietary smart contract: the current pilot uses the x402 flow and the admitted Base Sepolia USDC contract. Do not say “live,” “buy now,” “mainnet,” “ownership” or “NFT” until the corresponding release gate is actually complete.
 
 ## Mascot provenance
 
-Milk comes from the admitted Open Source Avatars catalog and is tracked by Deskiii as a CC0 `100Avatars R1` asset. The posters are newly generated campaign concepts based on user-supplied footage and the admitted character reference; they are not redistributed upstream thumbnails or VRM binaries.
+Milk comes from the admitted Open Source Avatars catalog and is tracked by Deskii as a CC0 `100Avatars R1` asset. The posters are newly generated campaign concepts based on user-supplied footage and the admitted character reference; they are not redistributed upstream thumbnails or VRM binaries.

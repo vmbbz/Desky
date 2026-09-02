@@ -2,12 +2,12 @@
 
 ## Problem found
 
-Deskiii exposed two real but poorly arranged policies. Persisted **Companion energy** controlled cadence and eligible semantic categories, while a session-only **System / Full / Reduced** selector was nested inside the local `.vrma` preview card. Every launch silently reset the second policy to System. On a Windows host requesting reduced motion, a saved Balanced temperament therefore appeared static and looked broken.
+Deskii exposed two real but poorly arranged policies. Persisted **Companion energy** controlled cadence and eligible semantic categories, while a session-only **System / Full / Reduced** selector was nested inside the local `.vrma` preview card. Every launch silently reset the second policy to System. On a Windows host requesting reduced motion, a saved Balanced temperament therefore appeared static and looked broken.
 
 ## Final contract
 
 - One **Companion animation** card owns both user-facing axes.
-- **Energy** answers how often Deskiii moves and which admitted categories are eligible: Still, Quiet, Balanced, Lively, or Custom.
+- **Energy** answers how often Deskii moves and which admitted categories are eligible: Still, Quiet, Balanced, Lively, or Custom.
 - **Movement** answers how much motion is allowed: Full motion, Follow Windows, or Reduced motion.
 - Both policies are validated, main-owned, broadcast to both renderers, and persisted atomically in `desktop-state.json`.
 - Full motion is the default for new and migrated state, by product decision.

@@ -2,16 +2,16 @@
 
 ## Result
 
-The scalable design is one Deskiii speech plane composed with the selected agent adapter. Voice itself does not require a heavyweight dependency in the base application. OpenClaw, Hermes, and Codex remain external runtimes; Claude is the exception because its current direct Agent SDK admission topology needs a large platform executable, which remains excluded from ordinary packages.
+The scalable design is one Deskii speech plane composed with the selected agent adapter. Voice itself does not require a heavyweight dependency in the base application. OpenClaw, Hermes, and Codex remain external runtimes; Claude is the exception because its current direct Agent SDK admission topology needs a large platform executable, which remains excluded from ordinary packages.
 
-This is a source/protocol disposition, not live proof that Hermes, Codex, or Claude voice currently works in Deskiii. OpenClaw is the only implemented speech path, and its post-hardening audible F5d.3 matrix remains open.
+This is a source/protocol disposition, not live proof that Hermes, Codex, or Claude voice currently works in Deskii. OpenClaw is the only implemented speech path, and its post-hardening audible F5d.3 matrix remains open.
 
 ## Current provider matrix
 
-| Agent route | Official/current speech evidence | Deskiii release decision | Base-installer impact |
+| Agent route | Official/current speech evidence | Deskii release decision | Base-installer impact |
 | --- | --- | --- | --- |
 | OpenClaw Gateway | Admitted Talk catalog/session/event relay with realtime agent consultation | Keep as the first coupled realtime speech runtime; finish the live matrix | No gateway or model bundled; current Web Audio/WebSocket code only |
-| Hermes API Server | The admitted `/v1` server explicitly reports `audio_api: false` and `realtime_voice: false`; voice routes are on a separate Dashboard/Desktop web server | Keep direct Hermes voice disabled. Prefer a future versioned `/v1` audio contract; otherwise admit the second server as a separate speech runtime with a full security/lifecycle matrix | No Hermes/Python/model payload in Deskiii; external Hermes may install optional voice dependencies |
+| Hermes API Server | The admitted `/v1` server explicitly reports `audio_api: false` and `realtime_voice: false`; voice routes are on a separate Dashboard/Desktop web server | Keep direct Hermes voice disabled. Prefer a future versioned `/v1` audio contract; otherwise admit the second server as a separate speech runtime with a full security/lifecycle matrix | No Hermes/Python/model payload in Deskii; external Hermes may install optional voice dependencies |
 | Codex app-server | Current pinned official source contains experimental `thread/realtime/start`, audio append/output, transcript, stop, and voice-list methods | Lab probe only until the surface is stable and published; otherwise use an admitted cascade speech runtime around the stable text adapter | No Codex executable bundled today; schema/bridge work is small |
 | Claude Agent SDK | Official Agent SDK documents text/tool streaming, not programmatic audio. Interactive Claude Code dictation requires Claude.ai login, is unavailable with an API key, and provides transcription rather than assistant speech | Use an independently admitted cascade speech runtime after Claude's authenticated adapter gate; do not claim native Claude voice | Voice adds no large library, but the current Claude agent executable would add 337,745,056 bytes and stays excluded |
 
@@ -25,7 +25,7 @@ Primary references:
 
 ## Security disposition
 
-Hermes's official desktop can fetch resolved STT/TTS configuration, including a provider credential, through `GET /api/audio/voice-config` and call providers directly. Deskiii will not use that path. The current relay endpoints are also not silently reusable: they are served by `hermes_cli.web_server`, whereas Deskiii's admitted Hermes adapter connects to `gateway.platforms.api_server` under `/v1`. A future implementation must either add/admit audio on the `/v1` server or model the web server as a separate authenticated speech runtime. Tokens, TLS policy, capability discovery, origin policy, reconnect, and shutdown must be proved independently.
+Hermes's official desktop can fetch resolved STT/TTS configuration, including a provider credential, through `GET /api/audio/voice-config` and call providers directly. Deskii will not use that path. The current relay endpoints are also not silently reusable: they are served by `hermes_cli.web_server`, whereas Deskii's admitted Hermes adapter connects to `gateway.platforms.api_server` under `/v1`. A future implementation must either add/admit audio on the `/v1` server or model the web server as a separate authenticated speech runtime. Tokens, TLS policy, capability discovery, origin policy, reconnect, and shutdown must be proved independently.
 
 The shared cascade path must enforce:
 
@@ -66,7 +66,7 @@ Release verification now also rejects exact external-runtime payloads such as `c
 
 ### F5d.4b — cascade speech-runtime selection and admission
 
-- Select one release topology: a versioned Hermes `/v1` audio extension, a separately admitted Hermes Dashboard/Desktop speech server, an operator-supplied speech provider, or a Deskiii-hosted speech relay.
+- Select one release topology: a versioned Hermes `/v1` audio extension, a separately admitted Hermes Dashboard/Desktop speech server, an operator-supplied speech provider, or a Deskii-hosted speech relay.
 - Reject any topology that exports resolved upstream provider credentials to the renderer, reuses an agent token across an unproved server boundary, or adds a hidden local model/runtime payload.
 - Implement bounded recorded-audio transcription and streaming TTS behind `SpeechRuntime` only after version, capability, authentication, billing identity, privacy, and failure semantics are pinned.
 - Compose transcript -> selected agent text run -> normalized assistant deltas -> synthesis.

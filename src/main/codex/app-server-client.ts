@@ -118,7 +118,7 @@ export class CodexAppServerClient {
     const initialized = await this.request('initialize', {
       clientInfo: {
         name: 'desky',
-        title: 'Deskiii',
+        title: 'Deskii',
         version: this.clientVersion,
       },
     });
