@@ -45,7 +45,9 @@ Remember **Clippy** or classic desktop companions? They were charming, but stati
 
 ## 🎬 Product Demo & Preview
 
-<video src="branding/deskii-demo.mp4" controls width="100%" poster="branding/poster/desky-through-the-screen-x.png" style="border-radius: 14px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);"></video>
+https://github.com/vmbbz/Desky/raw/main/branding/deskii-demo.mp4
+
+[![Deskii Demo Video](branding/poster/desky-through-the-screen-x.png)](https://github.com/vmbbz/Desky/raw/main/branding/deskii-demo.mp4)
 
 ```text
 Agent Runtime (OpenClaw / Codex / Hermes / Claude)
